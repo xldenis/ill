@@ -1,6 +1,6 @@
-module Ill.Syntax.Parser where
+module Ill.Parser.Expression where
 
-  import Ill.Syntax.Lexer
+  import Ill.Parser.Lexer
 
   import Ill.Syntax
 

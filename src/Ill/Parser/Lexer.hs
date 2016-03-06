@@ -1,5 +1,4 @@
-{-# LANGUAGE KindSignatures #-}
-module Ill.Syntax.Lexer where
+module Ill.Parser.Lexer where
 
   import qualified Text.Megaparsec.Lexer as L
   import Text.Megaparsec.Text
@@ -9,7 +8,7 @@ module Ill.Syntax.Lexer where
   import Control.Applicative ((<*))
   import Control.Monad (void)
 
-  data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos}
+  data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Show)
 
   empty = return ()
 

@@ -41,12 +41,14 @@ module Ill.Syntax where
     | Lambda [Pattern] a
     | Var Name
     | Literal Literal
+    deriving (Functor, Show)
 
   data Literal
     = RawString String
     | EscString String
     | Integer Integer
     | Double Double
+    deriving (Show)
 
   type Expr a = Cofree Expression a
 
@@ -55,3 +57,4 @@ module Ill.Syntax where
     | Wildcard
     | PVar Name
     | Nil
+    deriving (Show)

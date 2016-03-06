@@ -5,7 +5,7 @@ module Lib
 
 import Ill.Syntax
 
-import Ill.Syntax.Parser
+import Ill.Parser
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"
