@@ -41,6 +41,7 @@ module Ill.Syntax where
     | Lambda [Pattern] a
     | Var Name
     | Literal Literal
+    | Body [a]
     deriving (Functor, Show)
 
   data Literal

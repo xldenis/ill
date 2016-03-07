@@ -1,4 +1,4 @@
-module Ill.Syntax.ParserSpec where
+module Ill.ParserSpec where
 
 import Ill.Parser
 

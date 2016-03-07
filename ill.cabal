@@ -24,6 +24,7 @@ library
                      , megaparsec
                      , bound
                      , free
+                     , text
   default-language:    Haskell2010
 
 executable ill-exe

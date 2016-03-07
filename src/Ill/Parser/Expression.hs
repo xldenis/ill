@@ -10,22 +10,35 @@ module Ill.Parser.Expression where
   import Control.Comonad.Cofree
 
   expression :: Parser (Expr SourceSpan)
-  expression = integerLit
+  expression = body <|> nonBodyExpr
+
+  nonBodyExpr :: Parser (Expr SourceSpan)
+  nonBodyExpr = call <|> assign <|> simpleExpr <|> consExpr
+
+  consExpr :: Parser (Expr SourceSpan)
+  consExpr = caseE <|> lambda <|> ifE
+
+  simpleExpr :: Parser (Expr SourceSpan)
+  simpleExpr = (try $ doubleLit) <|> integerLit <|> rawString <|> var
+
+  body :: Parser (Expr SourceSpan) -- need backtracking?
+  body = withLoc $ do
+    Body <$> some (nonBodyExpr <* scn)
 
   assign :: Parser (Expr SourceSpan)
   assign = withLoc $ do
-    names <- list identifier
-    symbol "="
-    values <- list expression
+    names <- try $ do
+      list identifier <* symbol "="
+    values <- list (call <|> simpleExpr <|> consExpr)
     if (length names) /= (length values) then
       fail "Invalid assignment: length mismatch."
     else
       return $ Assign names values
 
   call :: Parser (Expr SourceSpan)
-  call = withLoc $ do
-    func <- expression
-    args <- parens $ list expression
+  call = try $ withLoc $ do
+    func <- var <|> consExpr
+    args <- parens $ list nonBodyExpr
     return $ Apply func args
 
   caseE :: Parser (Expr SourceSpan)
@@ -33,7 +46,7 @@ module Ill.Parser.Expression where
     symbol "case"
     expr <- expression
     symbol "of"
-    matchers <- many $ do
+    matchers <- some $ do
       pat <- pattern
       symbol "->"
       expr <- expression
@@ -43,17 +56,17 @@ module Ill.Parser.Expression where
   lambda :: Parser (Expr SourceSpan)
   lambda = withLoc $ do
     symbol "fn"
-    args <- parens . list $ pattern
-    body <- expression
+    args <- lexeme $ parens . list $ pattern
+    body <- body
     return $ Lambda args body
 
   ifE :: Parser (Expr SourceSpan)
   ifE = withLoc $ do
     symbol "if"
     cond <- expression
-    symbol "then"
+    symbol "then" <* scn
     left <- expression
-    symbol "else"
+    symbol "else" <* scn
     right <- expression
     symbol "end"
 
@@ -70,7 +83,7 @@ module Ill.Parser.Expression where
     where str = squotes (many $ noneOf "'")
 
   var :: Parser (Expr SourceSpan)
-  var = withLoc (Var <$> identifier)
+  var = try $ withLoc (Var <$> identifier)
 
   pattern :: Parser Pattern
   pattern = return Nil

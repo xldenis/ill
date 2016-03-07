@@ -10,21 +10,22 @@ import Test.Hspec.Megaparsec
 import Text.Megaparsec
 
 filesShouldParse :: Show b => FilePath -> Parsec Text b -> Spec
-filesShouldParse dir p = testDirectory dir p shouldSucceed
-
-filesShouldFail :: Show b => FilePath -> Parsec Text b -> Spec
-filesShouldFail  dir p = testDirectory dir p shouldFail
-
-testDirectory :: Show b => FilePath -> Parsec Text b -> ParserExpectation b -> Spec
-testDirectory dir p e = do
+filesShouldParse dir p = do
   fs <- runIO $ getDirectoryPaths dir >>= filterM (doesFileExist)
 
   describe ("parser successfully parses files in " ++ dir) $ do
     mapM_ (\f -> do
-      it ("the file " ++ f ++ " parses correctly.") $ do
-        (parseFromFile p f) >>= e) fs
+      it ((takeFileName f) ++ " parses correctly.") $ do
+        (parseFromFile (p <* eof) f) >>= shouldSucceed) fs
 
--- filesFail :: [FilePath] -> Spec
+filesShouldFail :: Show b => FilePath -> Parsec Text b -> Spec
+filesShouldFail dir p = do
+  fs <- runIO $ getDirectoryPaths dir >>= filterM (doesFileExist)
+
+  describe ("parser fails to parse files in " ++ dir) $ do
+    mapM_ (\f -> do
+      it ((takeFileName f) ++ " fails.") $ do
+        (parseFromFile (p <* eof) f) >>= shouldFail) fs
 
 type ParserExpectation a = Either ParseError a -> Expectation
 

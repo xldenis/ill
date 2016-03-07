@@ -5,12 +5,10 @@ module Ill.Parser.Lexer where
   import Text.Megaparsec
 
   import Control.Comonad.Cofree
-  import Control.Applicative ((<*))
+  import Control.Applicative ((<*), empty)
   import Control.Monad (void)
 
   data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Show)
-
-  empty = return ()
 
   reserved :: [String]
   reserved = ["if", "then", "else", "end", "fn", "import", "qualified", "hiding"]
@@ -49,7 +47,7 @@ module Ill.Parser.Lexer where
     return $ (SourceSpan beg end) :< body
 
   list :: Parser a -> Parser [a]
-  list a = many (a <* symbol ",")
+  list a = a `sepBy` (symbol ",")
 
   parens :: Parser a -> Parser a
   parens = between (symbol "(") (symbol ")")
