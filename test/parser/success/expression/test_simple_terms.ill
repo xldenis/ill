@@ -2,6 +2,8 @@ identifier
 function()
 function(a)
 function(a, b)
+function()()
+function()(a)(b)
 1
 1.0
 'raw string \n'

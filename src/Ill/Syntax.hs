@@ -7,13 +7,16 @@ module Ill.Syntax where
   import Control.Comonad.Cofree
   --import Bound (Scope)
 
-  data Module = Module [Declaration]
+  data Module a = Module [Decl a]
 
-  data Declaration
+  data Declaration a b
     = DataDeclaration Name [Type]
     | TypeSynonymDeclaration Type Type
-    -- | ValueDeclaration [Pattern] [Expression () ()]
-    | ImportDeclaration Qualified Masks Prefix String Alias
+    | ValueDeclaration Name [Pattern] [Expr a]
+    | ImportDeclaration Qualified Masks String Alias
+    deriving (Functor, Show)
+
+  type Decl a = Cofree (Declaration a) a
 
   type Prefix = String
 
@@ -23,13 +26,15 @@ module Ill.Syntax where
     = Hiding [Name]
     | Only  [Name]
     | All
+    deriving (Show)
 
-  type Alias = String
+  type Alias = Maybe String
 
   data Type
     = TVar String
     | Constructor String [Type]
     | Name String
+    deriving (Show)
 
   type Name = String
 

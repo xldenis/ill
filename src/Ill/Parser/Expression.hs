@@ -36,10 +36,12 @@ module Ill.Parser.Expression where
       return $ Assign names values
 
   call :: Parser (Expr SourceSpan)
-  call = try $ withLoc $ do
+  call = try $ do
+    start <- getPosition
     func <- var <|> consExpr
-    args <- parens $ list nonBodyExpr
-    return $ Apply func args
+    args <- some $ (,) <$> (parens $ list nonBodyExpr) <*> getPosition
+    return $ foldl (f start) func args
+    where f startpos func (args, pos) =(SourceSpan startpos pos)  :< Apply func args
 
   caseE :: Parser (Expr SourceSpan)
   caseE = withLoc $ do
