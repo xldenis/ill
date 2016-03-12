@@ -27,6 +27,12 @@ module Ill.Parser.Lexer where
             else
               return i
 
+  upperIdent :: Parser String
+  upperIdent = lexeme $ capitalized
+
+  capitalized :: Parser String
+  capitalized = (:) <$> upperChar <*> (many alphaNumChar)
+
   scn :: Parser ()
   scn = L.space (void spaceChar) empty empty
 

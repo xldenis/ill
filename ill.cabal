@@ -17,9 +17,11 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib
                      , Ill.Parser
-                     , Ill.Syntax
-                     , Ill.Parser.Lexer
+                     , Ill.Parser.Declaration
                      , Ill.Parser.Expression
+                     , Ill.Parser.Lexer
+                     , Ill.Parser.Type
+                     , Ill.Syntax
   build-depends:       base >= 4.7 && < 5
                      , megaparsec
                      , bound

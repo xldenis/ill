@@ -1,4 +1,4 @@
-module Ill.Parser.Declaration where
+module Ill.Parser.Declaration (declaration) where
 
   import Data.List (intercalate)
   import Data.Maybe
@@ -11,12 +11,16 @@ module Ill.Parser.Declaration where
   import Ill.Parser.Type
   import Ill.Parser.Expression
 
+
+  declaration :: Parser (Decl SourceSpan)
+  declaration = dataDeclaration <|> typeSynonymDeclaration <|> importDeclaration <|> valueDeclaration
+
   -- Need to add type variables!!!
 
   dataDeclaration :: Parser (Decl SourceSpan)
   dataDeclaration = withLoc $ do
     symbol "data"
-    name <- constructor
+    name <- upperIdent
     symbol "="
     types <- typeProduct `sepBy` (lexeme $ char '|')
     return $ DataDeclaration name types
@@ -29,27 +33,31 @@ module Ill.Parser.Declaration where
     alias <- typeName
     return $ TypeSynonymDeclaration aliasee alias
 
+
+  -- | TODO: Argument pattern matching?
   valueDeclaration :: Parser (Decl SourceSpan)
   valueDeclaration = withLoc $ do
+    symbol "fn"
     name <- identifier
-    matchers <- (:) <$> fBody <*> (many $ symbol name *> fBody <* scn)
-    return $ (uncurry (ValueDeclaration name)) (unzip matchers)
-    where fBody = do
-                  pat <- pattern
-                  symbol "="
-                  body <- expression
-                  return (pat, body)
+    args <- parens $ list pattern
+    ret <- optional $ symbol ":" *> typeName
+    scn
+    body <- body
+    scn
+    symbol "end"
+    return $ ValueDeclaration name ret args [body]
 
   importDeclaration :: Parser (Decl SourceSpan)
   importDeclaration = withLoc $ do
     symbol "import"
     qual <- qualified
-    path <- intercalate "." <$> constructor `sepBy` (char '.')
+    path <- intercalate "." <$> (lexeme $ capitalized `sepBy` (char '.'))
+    alias <- if qual then Just <$> alias else optional alias
     imports <- mask
-    alias <- (optional $ (symbol "as") *> constructor)
 
     return $ ImportDeclaration qual imports path alias
     where qualified = isJust <$> (optional $ symbol "qualified")
+          alias = symbol "as" *> upperIdent
           mask = (try $ do
             cons <- (symbol "hiding" *> return Hiding) <|> (return Only)
             args <- parens $ list identifier

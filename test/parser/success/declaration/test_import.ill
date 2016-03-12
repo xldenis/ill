@@ -1,0 +1,6 @@
+import A
+import A.A
+import qualified A as A
+import A hiding (b)
+import A (b)
+import A as B

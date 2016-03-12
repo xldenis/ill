@@ -1,0 +1,7 @@
+data A = A a
+
+type Alias = A
+
+fn name ()
+  1
+end

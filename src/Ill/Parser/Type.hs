@@ -5,17 +5,14 @@ module Ill.Parser.Type where
   import Ill.Syntax
   import Ill.Parser.Lexer
 
-  constructor :: Parser String
-  constructor = (:) <$> upperChar <*> (many alphaNumChar)
-
   typeVar :: Parser Type
-  typeVar = TVar <$> (many lowerChar)
+  typeVar = TVar <$> identifier
 
   typeName :: Parser Type
-  typeName = Name <$> constructor
+  typeName = Name <$> lexeme capitalized
 
   typeExp :: Parser Type
-  typeExp = typeVar <|> typeName
+  typeExp = typeVar -- <|> typeName
 
   typeProduct :: Parser Type
-  typeProduct = Constructor <$> constructor <*> (many $ lexeme typeExp)
+  typeProduct = Constructor <$> (lexeme capitalized) <*> (many typeExp)

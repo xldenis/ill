@@ -1,6 +1,11 @@
 module Ill.ParserSpec where
 
+import Control.Applicative ((<*))
+import Text.Megaparsec (many)
+
+import Ill.Parser.Lexer (scn)
 import Ill.Parser
+import Ill.Parser.Declaration
 
 import Test.Hspec
 
@@ -8,4 +13,6 @@ import SpecHelper
 
 spec :: Spec
 spec = do
-  filesShouldParse "test/parser/success" ill
+  filesShouldParse "test/parser/success" moduleParser
+  filesShouldParse "test/parser/success/declaration" (many $ declaration <* scn)
+  filesShouldFail  "test/parser/failure/declaration" (declaration)
