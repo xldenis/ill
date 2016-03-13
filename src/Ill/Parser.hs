@@ -12,8 +12,6 @@ module Ill.Parser where
   import Ill.Parser.Declaration
   import Ill.Parser.Lexer
 
-  ill = expression
-
   moduleParser :: Parser (Module SourceSpan)
   moduleParser = do
     symbol "module"

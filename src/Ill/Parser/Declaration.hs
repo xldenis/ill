@@ -23,7 +23,7 @@ module Ill.Parser.Declaration (declaration) where
     name <- upperIdent
     symbol "="
     types <- typeProduct `sepBy` (lexeme $ char '|')
-    return $ DataDeclaration name types
+    return $ Data name types
 
   typeSynonymDeclaration :: Parser (Decl SourceSpan)
   typeSynonymDeclaration = withLoc $ do
@@ -31,7 +31,7 @@ module Ill.Parser.Declaration (declaration) where
     aliasee <- typeName
     symbol "="
     alias <- typeName
-    return $ TypeSynonymDeclaration aliasee alias
+    return $ TypeSynonym aliasee alias
 
 
   -- | TODO: Argument pattern matching?
@@ -45,7 +45,7 @@ module Ill.Parser.Declaration (declaration) where
     body <- body
     scn
     symbol "end"
-    return $ ValueDeclaration name ret args [body]
+    return $ Value name ret args [body]
 
   importDeclaration :: Parser (Decl SourceSpan)
   importDeclaration = withLoc $ do
@@ -55,7 +55,7 @@ module Ill.Parser.Declaration (declaration) where
     alias <- if qual then Just <$> alias else optional alias
     imports <- mask
 
-    return $ ImportDeclaration qual imports path alias
+    return $ Import qual imports path alias
     where qualified = isJust <$> (optional $ symbol "qualified")
           alias = symbol "as" *> upperIdent
           mask = (try $ do

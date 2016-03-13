@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, DeriveTraversable, DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor, DeriveAnyClass #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts #-}
 
@@ -17,10 +17,12 @@ module Ill.Syntax where
   data Module a = Module Name [Decl a] deriving (Show)
 
   data Declaration a b
-    = DataDeclaration Name [Type]
-    | TypeSynonymDeclaration Type Type
-    | ValueDeclaration Name (Maybe Type) [Pattern] [Expr a]
-    | ImportDeclaration Qualified Masks String Alias
+    = Data Name [Type]
+    | TypeSynonym Type Type
+    | Value Name (Maybe Type) [Pattern] [Expr a]
+    | Signature Name Type
+    | Import Qualified Masks String Alias
+    | Trait [Type] Name Type [a]
     deriving (Functor, Show)
 
   type Decl a = Cofree (Declaration a) a
@@ -35,6 +37,7 @@ module Ill.Syntax where
     = TVar String
     | Constructor String [Type]
     | Name String
+    | Arrow Type Type
     deriving (Show)
 
   data Expression a
@@ -46,6 +49,8 @@ module Ill.Syntax where
     | Var Name
     | Literal Literal
     | Body [a]
+    | Hash [(a, a)]
+    | Array [a]
     deriving (Functor, Show)
 
   data Literal

@@ -6,14 +6,19 @@ module Ill.Parser.Expression where
 
   import Text.Megaparsec
   import Text.Megaparsec.Text
+  import Text.Megaparsec.Expr
 
   import Control.Comonad.Cofree
+  import Control.Comonad
 
   expression :: Parser (Expr SourceSpan)
   expression = body <|> nonBodyExpr
 
   nonBodyExpr :: Parser (Expr SourceSpan)
-  nonBodyExpr = call <|> assign <|> simpleExpr <|> consExpr
+  nonBodyExpr = assign <|> fullExpr
+
+  fullExpr :: Parser (Expr SourceSpan)
+  fullExpr = makeExprParser (call <|> simpleExpr <|> consExpr) opTable
 
   consExpr :: Parser (Expr SourceSpan)
   consExpr = caseE <|> lambda <|> ifE
@@ -29,7 +34,7 @@ module Ill.Parser.Expression where
   assign = withLoc $ do
     names <- try $ do
       list identifier <* symbol "="
-    values <- list (call <|> simpleExpr <|> consExpr)
+    values <- list fullExpr
     if (length names) /= (length values) then
       fail "Invalid assignment: length mismatch."
     else
@@ -39,7 +44,7 @@ module Ill.Parser.Expression where
   call = try $ do
     start <- getPosition
     func <- var <|> consExpr
-    args <- some $ (,) <$> (parens $ list nonBodyExpr) <*> getPosition
+    args <- some $ (,) <$> (parens $ list fullExpr) <*> getPosition
     return $ foldl (f start) func args
     where f startpos func (args, pos) =(SourceSpan startpos pos)  :< Apply func args
 
@@ -48,11 +53,14 @@ module Ill.Parser.Expression where
     symbol "case"
     expr <- expression
     symbol "of"
+    scn
     matchers <- some $ do
       pat <- pattern
       symbol "->"
       expr <- expression
+      scn
       return (pat, expr)
+    symbol "end"
     return $ Case expr matchers
 
   lambda :: Parser (Expr SourceSpan)
@@ -89,3 +97,16 @@ module Ill.Parser.Expression where
 
   pattern :: Parser Pattern
   pattern = return Nil
+
+  opTable :: [[Operator Parser (Expr SourceSpan)]]
+  opTable = [ [ binary "*"
+              , binary "/" ]
+            , [ binary "+"
+              , binary "-"]
+            ]
+
+  binary :: String -> Operator Parser (Expr SourceSpan)
+  binary op = InfixL $ do
+    op <- withLoc $ Var <$> symbol op
+    return $ \a b -> SourceSpan (begin$extract a) (end$extract b) :< (Apply op [a,b])
+
