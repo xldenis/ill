@@ -13,7 +13,7 @@ module Ill.Parser.Declaration (declaration) where
 
 
   declaration :: Parser (Decl SourceSpan)
-  declaration = dataDeclaration <|> typeSynonymDeclaration <|> importDeclaration <|> valueDeclaration
+  declaration = dataDeclaration <|> typeSynonymDeclaration <|> importDeclaration <|> valueDeclaration <|> signatureDeclaration
 
   -- Need to add type variables!!!
 
@@ -28,11 +28,17 @@ module Ill.Parser.Declaration (declaration) where
   typeSynonymDeclaration :: Parser (Decl SourceSpan)
   typeSynonymDeclaration = withLoc $ do
     symbol "type"
-    aliasee <- typeName
+    alias <- typeProduct
     symbol "="
-    alias <- typeName
-    return $ TypeSynonym aliasee alias
+    aliasee <- typeProduct
+    return $ TypeSynonym alias aliasee
 
+  signatureDeclaration :: Parser (Decl SourceSpan)
+  signatureDeclaration = withLoc $ do
+    ident <- try $ identifier
+    symbol "::"
+    tp <- typeExp
+    return $ Signature ident tp
 
   -- | TODO: Argument pattern matching?
   valueDeclaration :: Parser (Decl SourceSpan)
@@ -40,7 +46,7 @@ module Ill.Parser.Declaration (declaration) where
     symbol "fn"
     name <- identifier
     args <- parens $ list pattern
-    ret <- optional $ symbol ":" *> typeName
+    ret <- optional $ symbol ":" *> typeExp
     scn
     body <- body
     scn

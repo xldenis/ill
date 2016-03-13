@@ -5,3 +5,6 @@ type Alias = A
 fn name ()
   1
 end
+
+
+a :: int -> a
