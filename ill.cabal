@@ -22,12 +22,18 @@ library
                      , Ill.Parser.Lexer
                      , Ill.Parser.Type
                      , Ill.Syntax
+  other-modules:       Ill.Syntax.Expression
+                     , Ill.Syntax.Pattern
+                     , Ill.Syntax.Type
+                     , Ill.Syntax.Literal
+                     , Ill.Syntax.Pretty
   build-depends:       base >= 4.7 && < 5
                      , megaparsec
                      , bound
                      , free
                      , text
                      , comonad
+                     , wl-pprint-extras
   default-language:    Haskell2010
 
 executable ill-exe

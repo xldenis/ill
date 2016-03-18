@@ -2,9 +2,22 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts #-}
 
-module Ill.Syntax where
+module Ill.Syntax
+( module Ill.Syntax.Type
+, module Ill.Syntax.Literal
+, module Ill.Syntax.Expression
+, module Ill.Syntax.Pattern
+, module Ill.Syntax
+) where
 
   import Control.Comonad.Cofree
+
+  import Ill.Syntax.Type
+  import Ill.Syntax.Literal
+  import Ill.Syntax.Pattern
+  import Ill.Syntax.Expression
+
+  import Ill.Syntax.Pretty
 
   type Prefix = String
 
@@ -33,38 +46,16 @@ module Ill.Syntax where
     | All
     deriving (Show)
 
-  data Type
-    = TVar String
-    | Constructor String [Type]
-    | Name String
-    | Arrow Type Type
-    deriving (Show)
-
-  data Expression a
-    = Apply a [a]
-    | Assign [Name] [a]
-    | Case a [(Pattern, a)]
-    | If a a a
-    | Lambda [Pattern] a
-    | Var Name
-    | Literal Literal
-    | Body [a]
-    | Hash [(a, a)]
-    | Array [a]
-    deriving (Functor, Show)
-
-  data Literal
-    = RawString String
-    | EscString String
-    | Integer Integer
-    | Double Double
-    deriving (Show)
-
   type Expr a = Cofree Expression a
 
-  data Pattern
-    = Destructor String [Pattern]
-    | Wildcard
-    | PVar Name
-    | Nil
-    deriving (Show)
+  -- instance Pretty (Module a) where
+  --  pretty (Module name decls) = text "module" <+> (text name) <$> (nest 2 $ pretty decls) <$> (text "end")
+
+  -- instance Pretty (Declaration a b) where
+  --  pretty (Data x1 x2) = _
+  --  pretty (TypeSynonym x1 x2) = _
+  --  pretty (Value x1 x2 x3 x4) = _
+  --  pretty (Signature x1 x2) = _
+  --  pretty (Import x1 x2 x3 x4) = _
+  --  pretty (Trait x1 x2 x3 x4) = _
+
