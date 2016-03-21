@@ -6,5 +6,8 @@ fn name ()
   1
 end
 
+fn name (a)
+  1
+end
 
 a :: int -> a

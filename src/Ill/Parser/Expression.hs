@@ -1,6 +1,7 @@
 module Ill.Parser.Expression where
 
   import Ill.Parser.Lexer
+  import Ill.Parser.Pattern
 
   import Ill.Syntax
 
@@ -94,9 +95,6 @@ module Ill.Parser.Expression where
 
   var :: Parser (Expr SourceSpan)
   var = try $ withLoc (Var <$> identifier)
-
-  pattern :: Parser Pattern
-  pattern = return Nil
 
   opTable :: [[Operator Parser (Expr SourceSpan)]]
   opTable = [ [ binary "*"

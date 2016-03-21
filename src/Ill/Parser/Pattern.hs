@@ -1,17 +1,21 @@
-module Ill.Parser.Pattern where
+module Ill.Parser.Pattern (pattern) where
 
   import Ill.Syntax
   import Ill.Parser.Lexer
 
+  import Text.Megaparsec.Text
+  import Text.Megaparsec
+
+  import Control.Applicative ((<|>))
 
   pattern :: Parser Pattern
-  pattern = wildcard <|> destructor <|> var
+  pattern = (parens pattern) <|> wildcard <|> destructor <|> var
 
   destructor :: Parser Pattern
   destructor = do
     cons <- upperIdent
     args <- many pattern
-    reutrn Destructor cons args
+    return $ Destructor cons args
 
   nil :: Parser Pattern
   nil = return Nil

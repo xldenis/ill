@@ -34,10 +34,13 @@ module Ill.Parser.Lexer where
   capitalized = (:) <$> upperChar <*> (many alphaNumChar)
 
   scn :: Parser ()
-  scn = L.space (void spaceChar) empty empty
+  scn = L.space (void spaceChar) lineComment empty
 
   sc :: Parser ()
-  sc = L.space (void $ oneOf " \t") empty empty
+  sc = L.space (void $ oneOf " \t") lineComment empty
+
+  lineComment :: Parser ()
+  lineComment = char '#' *> skipMany (noneOf "\n")
 
   integer :: Parser Integer
   integer = lexeme (L.signed sc L.integer)

@@ -19,3 +19,6 @@ module Ill.Parser where
     body <- many $ declaration <* scn
     symbol "end" <* scn
     return $ Module name body
+
+  illParser :: Parser (Module SourceSpan)
+  illParser = scn *> moduleParser

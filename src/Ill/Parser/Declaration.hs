@@ -8,6 +8,7 @@ module Ill.Parser.Declaration (declaration) where
 
   import Ill.Syntax
   import Ill.Parser.Lexer
+  import Ill.Parser.Pattern
   import Ill.Parser.Type
   import Ill.Parser.Expression
 
