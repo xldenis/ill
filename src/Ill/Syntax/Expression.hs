@@ -1,5 +1,8 @@
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFunctor, FlexibleInstances #-}
 module Ill.Syntax.Expression where
+  import Control.Comonad.Cofree
+  import Control.Comonad
+
   import Ill.Syntax.Pretty
 
   import Ill.Syntax.Pattern
@@ -18,15 +21,24 @@ module Ill.Syntax.Expression where
     | Array [a]
     deriving (Functor, Show)
 
+  type Expr a = Cofree Expression a
 
-  instance Pretty a => Pretty (Expression a) where
-    --pretty (Apply x1 x2) = _
-    pretty (Assign idents exprs) = (cat $ punctuate comma (map text idents)) <+> (char '=') <+> (cat $ punctuate comma (map pretty exprs))
-    --pretty (Case x1 x2) = _
-    --pretty (If x1 x2 x3) = _
-    --pretty (Lambda x1 x2) = _
-    pretty (Var v) = text v
-    pretty (Literal l) = pretty l
-    pretty (Body body) = vsep (map pretty body)
-    --pretty (Hash x) = _
-    --pretty (Array x) = _
+  instance Pretty (Cofree Expression a) where
+    pretty (_ :< f) = pretty' f where
+      pretty' (Apply func args) = pretty func <> (tupled $ map pretty args)
+      pretty' (Assign idents exprs) = (cat $ punctuate comma (map text idents)) <+> (char '=') <+> (cat $ punctuate comma (map pretty exprs))
+      --pretty' (Case x1 x2) = _
+      pretty' (If cond left right) =  do
+        text "if" <+> (pretty cond) <+> (text "then") </> do
+          indent 2 $ pretty left
+        </> (text "else") </> do
+          indent 2 $ pretty right
+        </> (text "end")
+      pretty' (Lambda args body) = text "fn" <+> tupled (map pretty args) `above` (pretty body) `above` (text "end")
+      pretty' (Var v) = text v
+      pretty' (Literal l) = pretty l
+      pretty' (Body body) = nest 2 $ vsep (map pretty body)
+      --pretty' (Hash x) = _
+      pretty' (Array ar) = list (map pretty ar)
+
+  newtype Mu f = Mu (f (Mu f))

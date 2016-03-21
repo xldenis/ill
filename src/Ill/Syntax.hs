@@ -46,16 +46,24 @@ module Ill.Syntax
     | All
     deriving (Show)
 
-  type Expr a = Cofree Expression a
+  instance Pretty a => Pretty (Module a) where
+    pretty (Module name decls) = text "module" <+> (text name) `aboveBreak` (nest 2 $ pretty decls) `aboveBreak` (text "end")
 
-  -- instance Pretty (Module a) where
-  --  pretty (Module name decls) = text "module" <+> (text name) <$> (nest 2 $ pretty decls) <$> (text "end")
-
-  -- instance Pretty (Declaration a b) where
+  instance Pretty (Cofree (Declaration a) a) where
   --  pretty (Data x1 x2) = _
   --  pretty (TypeSynonym x1 x2) = _
   --  pretty (Value x1 x2 x3 x4) = _
   --  pretty (Signature x1 x2) = _
-  --  pretty (Import x1 x2 x3 x4) = _
+    pretty (_ :< Import qual msk name alias) = do
+      qual <- (when (const $ text "qualified") qual empty)
+      mod  <- text name
+      alias <- prettyJust alias
+      masks <- prettyMask msk
+      text "import" <+> qual <+> mod <+> alias <+> masks
+        where prettyJust (Just alias) = text "as" <+> text alias
+              prettyJust (Nothing)    = empty
+              prettyMask (Hiding nms) = text "hiding" <+> (tupled $ map pretty nms)
+              prettyMask (Only   nms) = tupled $ map pretty nms
+              prettyMask _            = empty
   --  pretty (Trait x1 x2 x3 x4) = _
 
