@@ -1,5 +1,7 @@
 module Ill.Parser.Declaration (declaration) where
 
+  import Control.Monad (when)
+
   import Data.List (intercalate)
   import Data.Maybe
 
@@ -14,7 +16,7 @@ module Ill.Parser.Declaration (declaration) where
 
 
   declaration :: Parser (Decl SourceSpan)
-  declaration = dataDeclaration <|> typeSynonymDeclaration <|> importDeclaration <|> valueDeclaration <|> signatureDeclaration
+  declaration = dataDeclaration <|> typeSynonymDeclaration <|> importDeclaration <|> valueDeclaration <|> signatureDeclaration <|> traitDeclaration
 
   -- Need to add type variables!!!
 
@@ -28,18 +30,27 @@ module Ill.Parser.Declaration (declaration) where
 
   typeSynonymDeclaration :: Parser (Decl SourceSpan)
   typeSynonymDeclaration = withLoc $ do
-    symbol "type"
+    try $ symbol "type"
     alias <- typeProduct
     symbol "="
     aliasee <- typeProduct
     return $ TypeSynonym alias aliasee
 
+  traitDeclaration :: Parser (Decl SourceSpan)
+  traitDeclaration = withLoc $ do
+    symbol "trait"
+    constraints <- constraints <|> (return [])
+    tp <- trait
+    sep
+    body <- manyTill (valueDeclaration <|> signatureDeclaration <* (sep <* scn)) $ symbol "end"
+    return $ Trait constraints tp body
+      where constraints = try $ trait `sepBy` (symbol ",") <* symbol "|"
+
   signatureDeclaration :: Parser (Decl SourceSpan)
-  signatureDeclaration = withLoc $ do
-    ident <- try $ identifier
+  signatureDeclaration = try $ withLoc $ do
+    ident <- identifier
     symbol "::"
-    tp <- typeExp
-    return $ Signature ident tp
+    Signature ident <$> typeExp
 
   -- | TODO: Argument pattern matching?
   valueDeclaration :: Parser (Decl SourceSpan)

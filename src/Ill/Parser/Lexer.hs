@@ -11,7 +11,7 @@ module Ill.Parser.Lexer where
   data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Show)
 
   reserved :: [String]
-  reserved = ["if", "then", "else", "end", "fn", "import", "qualified", "hiding"]
+  reserved = ["if", "then", "else", "end", "fn", "import", "qualified", "hiding", "trait", "data", "type"]
 
   lexeme :: Parser a -> Parser a
   lexeme = L.lexeme sc
@@ -21,9 +21,9 @@ module Ill.Parser.Lexer where
 
   identifier :: Parser String
   identifier = p >>= res
-    where p = lexeme $ (:) <$> letterChar <*> many alphaNumChar
+    where p = label "identifier" $ lexeme $ (:) <$> letterChar <*> many alphaNumChar
           res i = if elem i reserved then
-              fail $ "The reserved word: " ++ i ++ " cannot be used as an identifier."
+              unexpected $ "The reserved word `" ++ i ++ "` cannot be used as an identifier."
             else
               return i
 
@@ -38,6 +38,9 @@ module Ill.Parser.Lexer where
 
   sc :: Parser ()
   sc = L.space (void $ oneOf " \t") lineComment empty
+
+  sep :: Parser ()
+  sep = oneOf "\n;" *> scn
 
   lineComment :: Parser ()
   lineComment = char '#' *> skipMany (noneOf "\n")

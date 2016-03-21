@@ -1,0 +1,6 @@
+module A
+  trait Bounded a
+    minBound :: a
+    maxBound :: a
+  end
+end

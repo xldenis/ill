@@ -35,7 +35,7 @@ module Ill.Syntax
     | Value Name (Maybe Type) [Pattern] [Expr a]
     | Signature Name Type
     | Import Qualified Masks String Alias
-    | Trait [Type] Name Type [a]
+    | Trait [Type] Type [b]
     deriving (Functor, Show)
 
   type Decl a = Cofree (Declaration a) a
@@ -64,5 +64,6 @@ module Ill.Syntax
               prettyMask (Hiding nms) = text "hiding" <+> (tupled $ map pretty nms)
               prettyMask (Only   nms) = tupled $ map pretty nms
               prettyMask _            = empty
-  --  pretty (Trait x1 x2 x3 x4) = _
-
+    pretty (_ :< Trait cons trt body) = do
+      nest 2 (text "trait" <+> (constraints cons) <-> (pretty trt) `above` (vsep $ map pretty body)) `above` (text "end")
+      where constraints c = if null c then empty else hsep (punctuate comma (map pretty c)) <+> (text "|")

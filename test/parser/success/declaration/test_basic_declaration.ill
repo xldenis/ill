@@ -11,3 +11,18 @@ fn name (a)
 end
 
 a :: int -> a
+
+a :: a
+
+trait A a | B a
+  a :: A
+end
+
+trait A a
+  b :: A
+end
+
+trait Bounded a
+  minBound :: a
+  maxBound :: a
+end

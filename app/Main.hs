@@ -23,7 +23,6 @@ main = do
   case config of
     Build -> putStrLn "build"
     Format file -> do
-      putStrLn "format"
       res <- parseFromFile illParser file
       case res of
         Right ast -> putStrLn $ renderIll defaultRenderArgs (pretty ast)

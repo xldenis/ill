@@ -22,3 +22,6 @@ module Ill.Parser.Type where
     l <- try $ typePrim <* symbol "->"
     r <- typeExp
     return $ Arrow l r
+
+  trait :: Parser Type
+  trait = Constraint <$> upperIdent <*> typeExp
