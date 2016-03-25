@@ -1,0 +1,7 @@
+trait A a
+  a :: a -> a
+end
+
+trait Something a | New a
+  a :: a -> a
+end

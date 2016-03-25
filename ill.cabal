@@ -28,6 +28,7 @@ library
                      , Ill.Syntax.Pattern
                      , Ill.Syntax.Type
                      , Ill.Syntax.Literal
+                     , Simple
   build-depends:       base >= 4.7 && < 5
                      , megaparsec
                      , bound
@@ -35,6 +36,7 @@ library
                      , text
                      , comonad
                      , wl-pprint-extras
+                     , lens
   default-language:    Haskell2010
 
 executable ill-exe

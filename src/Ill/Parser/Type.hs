@@ -8,28 +8,28 @@ module Ill.Parser.Type where
   import Ill.Parser.Lexer
 
   typeVar :: Parser Type
-  typeVar = TVar <$> identifier
+  typeVar = (Fix . TVar) <$> identifier
 
   typeExp :: Parser Type
   typeExp =  arrow <|> typePrim
 
   typeProduct :: Parser Type
-  typeProduct = Constructor <$> (lexeme capitalized) <*> (many typeExp)
+  typeProduct = Fix <$> (Constructor <$> (lexeme capitalized) <*> (many typeExp))
 
   typePrim :: Parser Type
   typePrim =  typeProduct <|> typeVar
 
   arrow :: Parser Type
-  arrow = do
+  arrow = Fix <$> do
     l <- try $ typePrim <* symbol "->"
     r <- typeExp
     return $ Arrow l r
 
   trait :: Parser Type
-  trait = Trait <$> upperIdent <*> typeExp
+  trait = Fix <$> (Trait <$> upperIdent <*> typeExp)
 
   constraints :: Parser [Type]
   constraints = try $ trait `sepBy` (symbol ",") <* symbol "|"
 
   constrainedType :: Parser Type
-  constrainedType = Constraint <$> constraints <*> typeExp
+  constrainedType = Fix <$> (Constraint <$> (constraints <|> (return [])) <*> typeExp)

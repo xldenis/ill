@@ -1,47 +1,26 @@
-{-# LANGUAGE DeriveAnyClass, TemplateHaskell, DeriveFunctor, DeriveTraversable #-}
+{-# LANGUAGE MultiParamTypeClasses, DeriveGeneric, DeriveDataTypeable #-}
 module Simple where
+import Control.Applicative
+import Control.Lens
+import GHC.Generics
+import Data.Data
+import Data.Data.Lens
 
-import Prelude.Extras (Read1, Show1)
+data Expr = Var Int | Pos Expr String | Neg Expr | Add Expr Expr deriving (Eq,Ord,Show,Read,Generic,Data,Typeable)
+data Stmt = Seq [Stmt] | Sel [Expr] | Let String Expr deriving (Eq,Ord,Show,Read,Generic,Data,Typeable)
 
+instance Plated Expr where
+  plate f (Var x  ) = pure (Var x)
+  plate f (Pos x y) = Pos <$> f x <*> pure y
+  plate f (Neg x  ) = Neg <$> f x
+  plate f (Add x y) = Add <$> f x <*> f y
 
-import Data.Bitraversable
-import Data.Bifunctor
-import Data.Bifoldable
+instance Plated Stmt where
+  plate f (Seq xs) = Seq <$> traverse f xs
+  plate f (Sel xs) = pure (Sel xs)
+  plate f (Let x y) = pure (Let x y)
 
-import Bound
-import Bound.Name (Name)
-import Bound.Scope    (bitraverseScope)
-
-type = Name String Int
-data Exp ann a
-  = V a
-  | App (Exp ann a) (Exp ann a)
-  | Lam (Scope N (Exp ann) a)
-  | I Int
-  deriving (Functor, Read, Show, Traversable, Read1, Show1, Foldable)
-
-instance Monad (Exp t) where
-  return  = V
-  a >>= b = bindTerm id b a
-
-instance Applicative (Exp t) where
-  pure = V
-  (<*>) = ap
-
-instance Bitraversable Exp where
-  bitraverse f g = t where
-    t (V a)     = V <$> g a
-    t (App l r) = App <$> t l <*> t r
-    t (Lam s)   = Lam <$> bitraverseScope f g s
-    t (I i)     = pure (I i)
-
-instance Bifoldable Exp where
-  bifoldMap = bifoldMapDefault
-
-instance Bifunctor Exp where
-  bimap = bimapDefault
-
-bindTerm :: (ann -> ann') -> (a -> Exp ann' b) -> Exp ann a -> Exp ann' b
-bindTerm _ g (V a) = g a
-bindTerm f g (App l r) = App (bindTerm f g l) (bindTerm f g r)
-bindTerm f g (Lam (Scope b)) = Lam (Scope (bimap f (fmap (bindTerm f g)) b))
+exprs :: Traversal' Stmt Expr
+exprs f (Seq xs)  = Seq <$> traverse (exprs f) xs
+exprs f (Sel xs)  = Sel <$> traverse f xs
+exprs f (Let x y) = Let x <$> f y
