@@ -8,14 +8,17 @@ module Ill.Syntax.Type
     = TVar String
     | Constructor String [Type]
     | Arrow Type Type
-    | Constraint String Type
+    | Trait String Type
+    | Constraint [Type] Type
     deriving (Show)
 
   instance Pretty Type where
     pretty (TVar var) = pretty var
     pretty (Constructor cons args) = text cons <+> (cat $ punctuate comma (map (\a -> parensIf (complex a) $ pretty a) args))
     pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> (text "->") <+> parensIf (complex to) (pretty to)
-    pretty (Constraint nm tp) = text nm <+> (pretty tp)
+    pretty (Trait nm tp) = text nm <+> (pretty tp)
+    pretty (Constraint trts tp) = (alternative $ map pretty trts) <+> pretty tp
+      where alternative = encloseSep empty (empty <+> char '|') (char ',')
 
   complex :: Type -> Bool
   complex (Constructor _ _) = True

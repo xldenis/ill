@@ -39,31 +39,36 @@ module Ill.Parser.Declaration (declaration) where
   traitDeclaration :: Parser (Decl SourceSpan)
   traitDeclaration = withLoc $ do
     symbol "trait"
-    constraints <- constraints <|> (return [])
-    tp <- trait
+    trt <- constrainedType
     sep
     body <- manyTill (valueDeclaration <|> signatureDeclaration <* (sep <* scn)) $ symbol "end"
-    return $ Trait constraints tp body
-      where constraints = try $ trait `sepBy` (symbol ",") <* symbol "|"
+    return $ TraitDecl trt body
 
   signatureDeclaration :: Parser (Decl SourceSpan)
   signatureDeclaration = try $ withLoc $ do
     ident <- identifier
     symbol "::"
-    Signature ident <$> typeExp
+    Signature ident <$> constrainedType
 
   -- | TODO: Argument pattern matching?
   valueDeclaration :: Parser (Decl SourceSpan)
   valueDeclaration = withLoc $ do
     symbol "fn"
     name <- identifier
-    args <- parens $ list pattern
-    ret <- optional $ symbol ":" *> typeExp
-    scn
-    body <- body
-    scn
+    main <- branch
+    alts <- many $ do
+      symbol "or"
+      bname <- identifier
+      when (bname /= name) $ fail ("Invalid function alternative for " ++ name)
+      branch
     symbol "end"
-    return $ Value name ret args [body]
+    return $ Value name (main : alts)
+    where branch = do
+                    args <- parens $ list pattern
+                    scn
+                    body <- body
+                    scn
+                    return (args, [body])
 
   importDeclaration :: Parser (Decl SourceSpan)
   importDeclaration = withLoc $ do

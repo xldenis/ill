@@ -20,7 +20,7 @@ module Ill.Syntax.Pretty
   data RenderArgs = RenderArgs {ribbon :: Float, width :: Int}
 
   defaultRenderArgs :: RenderArgs
-  defaultRenderArgs = RenderArgs {ribbon = 1.0, width = maxBound}
+  defaultRenderArgs = RenderArgs {ribbon = 1.0, width = 100}
 
   renderIll :: RenderArgs -> Doc a -> String
   renderIll (RenderArgs{ribbon , width}) doc = displayS (renderPretty ribbon width doc) ""

@@ -32,10 +32,11 @@ module Ill.Syntax
   data Declaration a b
     = Data Name [Type]
     | TypeSynonym Type Type
-    | Value Name (Maybe Type) [Pattern] [Expr a]
+    | Value Name [([Pattern], [Expr a])]
     | Signature Name Type
     | Import Qualified Masks String Alias
-    | Trait [Type] Type [b]
+    | TraitDecl Type [b]
+    | TraitImpl Type
     deriving (Functor, Show)
 
   type Decl a = Cofree (Declaration a) a
@@ -50,9 +51,11 @@ module Ill.Syntax
     pretty (Module name decls) = (nest 2 $ text "module" <+> (text name) `aboveBreak` (vsep $ map pretty decls)) `aboveBreak` (text "end")
 
   instance Pretty (Cofree (Declaration a) a) where
-  --  pretty (Data x1 x2) = _
+    pretty (_ :< Data name sum) = text "data" <+> text name <+> (char '=') <+> alternative (map pretty sum)
+      where alternative = encloseSep empty empty (char '|')
     pretty (_ :< TypeSynonym alias target) = text "type" <+> pretty alias <+> text "=" <+> pretty target
-    --pretty (_ :< Value name ret args body) = text "fn" <+> text name <+> (tupled $ map pretty args) <+>
+    pretty (_ :< Value name cases) = text "fn" <+> text name <+> (branch $ head cases) `aboveBreak` (vsep $ map (\c -> text "or" <+> text name <+> branch c) $ tail cases) `aboveBreak` (text "end")
+      where branch (args, body) = nest 2 $ (tupled $ map pretty args) `aboveBreak` (vsep $ map pretty body)
     pretty (_ :< Signature func tp) = text func <+> text "::" <+> pretty tp
     pretty (_ :< Import qual msk name alias) = do
       text "import" <-> do
@@ -64,6 +67,6 @@ module Ill.Syntax
               prettyMask (Hiding nms) = text "hiding" <+> (tupled $ map pretty nms)
               prettyMask (Only   nms) = tupled $ map pretty nms
               prettyMask _            = empty
-    pretty (_ :< Trait cons trt body) = do
-      nest 2 (text "trait" <+> (constraints cons) <-> (pretty trt) `above` (vsep $ map pretty body)) `above` (text "end")
+    pretty (_ :< TraitDecl trt body) = do
+      nest 2 (text "trait" <+> (pretty trt) `above` (vsep $ map pretty body)) `above` (text "end")
       where constraints c = if null c then empty else hsep (punctuate comma (map pretty c)) <+> (text "|")

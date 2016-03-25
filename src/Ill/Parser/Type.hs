@@ -1,4 +1,6 @@
 module Ill.Parser.Type where
+  import Control.Applicative
+
   import Text.Megaparsec.Text
   import Text.Megaparsec
 
@@ -15,7 +17,7 @@ module Ill.Parser.Type where
   typeProduct = Constructor <$> (lexeme capitalized) <*> (many typeExp)
 
   typePrim :: Parser Type
-  typePrim = typeVar <|> typeProduct
+  typePrim =  typeProduct <|> typeVar
 
   arrow :: Parser Type
   arrow = do
@@ -24,4 +26,10 @@ module Ill.Parser.Type where
     return $ Arrow l r
 
   trait :: Parser Type
-  trait = Constraint <$> upperIdent <*> typeExp
+  trait = Trait <$> upperIdent <*> typeExp
+
+  constraints :: Parser [Type]
+  constraints = try $ trait `sepBy` (symbol ",") <* symbol "|"
+
+  constrainedType :: Parser Type
+  constrainedType = Constraint <$> constraints <*> typeExp
