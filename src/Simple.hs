@@ -24,3 +24,9 @@ exprs :: Traversal' Stmt Expr
 exprs f (Seq xs)  = Seq <$> traverse (exprs f) xs
 exprs f (Sel xs)  = Sel <$> traverse f xs
 exprs f (Let x y) = Let x <$> f y
+
+
+ast = Seq [Sel [(Var 1) `Add` (Var 2), Pos (Var 1) "AAAa"]]
+
+rew (Let _ _) = Nothing
+rew a = Just a

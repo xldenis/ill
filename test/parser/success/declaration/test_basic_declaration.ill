@@ -2,7 +2,13 @@ data A = A a
 
 type Alias = A
 
-fn name ()
+# this is a comment
+
+fn namend ()
+  1
+end
+
+fn tree (Node a)
   1
 end
 
@@ -10,13 +16,10 @@ fn name (a)
   1
 end
 
+
 a :: int -> a
 
 a :: a
-
-trait A a | B a
-  a :: A
-end
 
 trait A a
   b :: A
