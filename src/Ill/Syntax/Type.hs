@@ -27,10 +27,10 @@ module Ill.Syntax.Type
 
   instance Pretty (TypeF String (Fix (TypeF String))) where
     pretty (TVar var) = pretty var
-    pretty (Constructor cons args) = text cons <+> (cat $ punctuate comma (map (\a -> parensIf (complex a) $ pretty  a) args))
-    pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> (text "->") <+> parensIf (complex to) (pretty to)
-    pretty (Trait nm tp) = text nm <+> (pretty tp)
-    pretty (Constraint trts tp) = (alternative $ map pretty trts) <+> pretty tp
+    pretty (Constructor cons args) = text cons <+> cat (punctuate comma (map (\a -> parensIf (complex a) $ pretty  a) args))
+    pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> text "->" <+> parensIf (complex to) (pretty to)
+    pretty (Trait nm tp) = text nm <+> pretty tp
+    pretty (Constraint trts tp) = alternative (map pretty trts) <+> pretty tp
       where alternative = encloseSep empty (empty <+> char '|') (char ',')
 
   complex :: Type -> Bool

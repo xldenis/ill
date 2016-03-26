@@ -8,8 +8,8 @@ module Ill.Syntax.Pattern where
     | Nil
     deriving (Show)
 
-  instance Pretty (Pattern) where
-    pretty (Destructor cons args) = text cons <+> (hsep (map (\a -> parensIf (complex a) (pretty a)) args))
+  instance Pretty Pattern where
+    pretty (Destructor cons args) = text cons <+> hsep (map (\a -> parensIf (complex a) (pretty a)) args)
       where complex (Destructor _ _) = True
             complex _ = False
     pretty Wildcard = text "_"

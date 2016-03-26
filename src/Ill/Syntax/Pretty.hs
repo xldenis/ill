@@ -23,7 +23,7 @@ module Ill.Syntax.Pretty
   defaultRenderArgs = RenderArgs {ribbon = 1.0, width = 100}
 
   renderIll :: RenderArgs -> Doc a -> String
-  renderIll (RenderArgs{ribbon , width}) doc = displayS (renderPretty ribbon width doc) ""
+  renderIll RenderArgs{ribbon , width} doc = displayS (renderPretty ribbon width doc) ""
 
   (<->) :: Doc a -> Doc a -> Doc a
   a <-> Empty = a
