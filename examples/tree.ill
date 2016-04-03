@@ -1,6 +1,6 @@
 module Data.Tree
 
-  # data Tree = Node (Tree a) (Tree a) | Leaf a
+  data Tree = Node (Tree a) (Tree a) | Leaf a
 
   sum :: Monoid a | Tree a -> a
 

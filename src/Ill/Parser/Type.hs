@@ -14,7 +14,7 @@ module Ill.Parser.Type where
   typeExp =  arrow <|> typePrim
 
   typeProduct :: Parser Type
-  typeProduct = Fix <$> (Constructor <$> (lexeme capitalized) <*> (many typeExp))
+  typeProduct = Fix <$> (Constructor <$> lexeme capitalized <*> many typeExp)
 
   typePrim :: Parser Type
   typePrim =  typeProduct <|> typeVar
@@ -29,7 +29,7 @@ module Ill.Parser.Type where
   trait = Fix <$> (Trait <$> upperIdent <*> typeExp)
 
   constraints :: Parser [Type]
-  constraints = try $ trait `sepBy` (symbol ",") <* symbol "|"
+  constraints = try $ trait `sepBy` symbol "," <* symbol "|"
 
   constrainedType :: Parser Type
-  constrainedType = Fix <$> (Constraint <$> (constraints <|> (return [])) <*> typeExp)
+  constrainedType = Fix <$> (Constraint <$> (constraints <|> return []) <*> typeExp)

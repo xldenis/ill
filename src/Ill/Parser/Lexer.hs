@@ -21,17 +21,17 @@ module Ill.Parser.Lexer where
 
   identifier :: Parser String
   identifier = p >>= res
-    where p = label "identifier" $ lexeme $ (:) <$> letterChar <*> many alphaNumChar
-          res i = if elem i reserved then
+    where p = label "identifier" . lexeme $ ((:) <$> letterChar <*> many alphaNumChar)
+          res i = if i `elem` reserved then
               unexpected $ "The reserved word `" ++ i ++ "` cannot be used as an identifier."
             else
               return i
 
   upperIdent :: Parser String
-  upperIdent = lexeme $ capitalized
+  upperIdent = lexeme capitalized
 
   capitalized :: Parser String
-  capitalized = (:) <$> upperChar <*> (many alphaNumChar)
+  capitalized = (:) <$> upperChar <*> many alphaNumChar
 
   scn :: Parser ()
   scn = L.space (void spaceChar) lineComment empty
@@ -56,10 +56,10 @@ module Ill.Parser.Lexer where
     beg <- getPosition
     body <- p
     end <- getPosition
-    return $ (SourceSpan beg end) :< body
+    return $ SourceSpan beg end :< body
 
   list :: Parser a -> Parser [a]
-  list a = a `sepBy` (symbol ",")
+  list a = a `sepBy` symbol ","
 
   parens :: Parser a -> Parser a
   parens = between (symbol "(") (symbol ")")
