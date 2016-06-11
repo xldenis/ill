@@ -24,6 +24,7 @@ library
                      , Ill.Parser.Pattern
                      , Ill.Syntax
                      , Ill.Syntax.Pretty
+                     , Ill.Inference
   other-modules:       Ill.Syntax.Expression
                      , Ill.Syntax.Pattern
                      , Ill.Syntax.Type
