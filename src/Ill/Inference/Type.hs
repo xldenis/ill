@@ -1,6 +1,8 @@
 module Ill.Inference.Type where
 
-  import qualified Ill.Syntax as Syntax (Name, Type(..))
+  import qualified Ill.Syntax as Syntax (Name)
+  import qualified Ill.Syntax as ST
+
   import Data.List (union, nub)
 
   type Id = Syntax.Name
@@ -16,8 +18,12 @@ module Ill.Inference.Type where
 
   data Tycon = Tycon Id Kind deriving (Show, Eq)
 
-  typeFromSyntax :: Syntax.Type -> Type
-  typeFromSyntax _ = TGen 1
+  typeFromSyntax :: ST.Type Id -> Type
+  typeFromSyntax (ST.TVar t) = (TVar (Tyvar t Star))
+  typeFromSyntax (ST.Arrow a b) = fn (typeFromSyntax a) (typeFromSyntax b)
+  typeFromSyntax (ST.Constructor n args) = TCon (Tycon n (kfn $ length args))
+    where kfn 0 = Star
+          kfn n = KFun Star (kfn $ n-1)
 
   fn :: Type -> Type -> Type
   fn = TAp . TAp (TCon $ Tycon "->" (KFun Star (KFun Star Star)))

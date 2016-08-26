@@ -31,13 +31,13 @@ module Ill.Syntax
   data Module a = Module Name [Decl a] deriving (Show)
 
   data Declaration a b
-    = Data Name [Type]
-    | TypeSynonym Type Type
+    = Data Name [Type Name]
+    | TypeSynonym (Type Name) (Type Name)
     | Value Name [([Pattern], [Expr a])]
-    | Signature Name Type
+    | Signature Name (Type Name)
     | Import Qualified Masks String Alias
-    | TraitDecl Type [b]
-    | TraitImpl Type [b]
+    | TraitDecl (Type Name) [b]
+    | TraitImpl (Type Name) [b]
     deriving (Functor, Show)
 
   type Decl a = Cofree (Declaration a) a
