@@ -1,12 +1,12 @@
 module Ill.Parser.PatternSpec where
-  import Test.Hspec
-  import Text.Megaparsec (many)
+import Test.Hspec
+import Text.Megaparsec (many)
 
-  import SpecHelper
+import SpecHelper
 
-  import Ill.Parser.Pattern
-  import Ill.Parser.Lexer (scn)
+import Ill.Parser.Pattern
+import Ill.Parser.Lexer (scn)
 
-  spec :: Spec
-  spec = parallel $ do
-    filesShouldParse "test/parser/success/pattern" (many $ pattern <* scn)
+spec :: Spec
+spec = parallel $ do
+  filesShouldParse "test/parser/success/pattern" (many $ pattern <* scn)

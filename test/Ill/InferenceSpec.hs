@@ -1,9 +1,9 @@
 module Ill.InferenceSpec where
 
-  import Test.Hspec
+import Test.Hspec
 
-  import Ill.Inference
+import Ill.Inference
 
-  spec :: Spec
-  spec = do
-    return ()
+spec :: Spec
+spec = do
+  return ()

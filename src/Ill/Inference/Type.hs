@@ -4,6 +4,7 @@ import Control.Lens
 import qualified Ill.Syntax as Syntax (Name)
 
 import Data.List (union, nub, intersect)
+import Data.Maybe (fromMaybe)
 
 type Id = Syntax.Name
 
