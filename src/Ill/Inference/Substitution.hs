@@ -8,7 +8,7 @@ class Types a where
 
 instance Types a => Types [a] where
   apply s ts = map (apply s) ts
-  free = nub . concat . map free
+  free = nub . concatMap free
 
 infixr 4 @@
 (@@) = compose

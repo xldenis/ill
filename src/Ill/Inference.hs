@@ -198,7 +198,7 @@ tiAlt ce as (pats, e) = do (ps, as', ts) <- tiPats pats
 
 tiAlts             :: ClassEnv -> [Assump] -> [Alt] -> Type -> TI [Pred]
 tiAlts ce as alts t = do psts <- mapM (tiAlt ce as) alts
-                         mapM ((unify t) . snd) psts
+                         mapM_ (unify t . snd) psts
                          return (concatMap fst psts)
 
 split :: Monad m => ClassEnv -> [Tyvar] -> [Tyvar] -> [Pred]

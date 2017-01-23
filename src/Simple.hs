@@ -68,9 +68,7 @@ module Simple where
     fv  :: a -> [Tyvar]
 
   instance Types Type where
-    apply sbst fv@(TVar t) = case lookup t sbst of
-      Just tp -> tp
-      Nothing -> fv
+    apply sbst fv@(TVar t) = fromMaybe fv (lookup t sbst)
     apply sbst (TAp l r) = TAp (apply sbst l) (apply sbst r)
     apply _ a = a
 
@@ -80,7 +78,7 @@ module Simple where
 
   instance Types a => Types [a] where
     apply s = map (apply s)
-    fv      = nub . concat . map fv
+    fv      = nub . concatMap fv
 
   infixr 4 @@
   (@@) = compose
@@ -177,7 +175,7 @@ module Simple where
     | otherwise = return (modify ce i (is, []))
 
   addPreludeClasses :: EnvTransformer
-  addPreludeClasses = const Just []
+  addPreludeClasses = Just
 
 
   addInst :: [Pred] -> Pred -> EnvTransformer
@@ -259,7 +257,7 @@ module Simple where
   data Assump = Id :>: Scheme
 
   instance Types Assump where
-    apply s (i :>: sc) = i :>: (apply s sc)
+    apply s (i :>: sc) = i :>: apply s sc
     fv (i :>: sc)      = fv sc
 
   find                 :: Monad m => Id -> [Assump] -> m Scheme
@@ -397,8 +395,8 @@ module Simple where
 
   tiAlts             :: ClassEnv -> [Assump] -> [Alt] -> Type -> TI [Pred]
   tiAlts ce as alts t = do psts <- mapM (tiAlt ce as) alts
-                           mapM (unify t) (map snd psts)
-                           return (concat (map fst psts))
+                           mapM ((unify t) . snd) psts
+                           return (concatMap fst psts)
 
   split :: Monad m => ClassEnv -> [Tyvar] -> [Tyvar] -> [Pred]
                         -> m ([Pred], [Pred])
@@ -422,7 +420,7 @@ module Simple where
   candidates           :: ClassEnv -> Ambiguity -> [Type]
   candidates ce (v, qs) = [ t' | let is = [ i | IsIn i t <- qs ]
                                      ts = [ t | IsIn i t <- qs ],
-                                 all ((TVar v)==) ts,
+                                 all (TVar v==) ts,
                                  any (`elem` numClasses) is,
                                  all (`elem` stdClasses) is,
                                  t' <- defaults ce,
@@ -437,7 +435,7 @@ module Simple where
               tss = map (candidates ce) vps
 
   defaultedPreds :: Monad m => ClassEnv -> [Tyvar] -> [Pred] -> m [Pred]
-  defaultedPreds  = withDefaults (\vps ts -> concat (map snd vps))
+  defaultedPreds  = withDefaults (\vps ts -> concatMap snd vps)
 
   defaultSubst   :: Monad m => ClassEnv -> [Tyvar] -> [Pred] -> m Substitution
   defaultSubst    = withDefaults (\vps ts -> zip (map fst vps) ts)
@@ -475,7 +473,7 @@ module Simple where
                             scs   = map toScheme ts
                             as'   = zipWith (:>:) is scs ++ as
                             altss = map snd bs
-                        pss <- sequence (zipWith (tiAlts ce as') altss ts)
+                        pss <- Control.Monad.zipWithM (tiAlts ce as') altss ts
                         s   <- getSubst
                         let ps'     = apply s (concat pss)
                             ts'     = apply s ts

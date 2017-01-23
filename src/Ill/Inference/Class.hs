@@ -61,7 +61,7 @@ addClass i is ce
   | otherwise = return (modify ce i (is, []))
 
 addPreludeClasses :: EnvTransformer
-addPreludeClasses = const Just []
+addPreludeClasses = Just
 
 
 addInst :: [Pred] -> Pred -> EnvTransformer

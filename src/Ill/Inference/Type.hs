@@ -44,7 +44,7 @@ class Types a where
 
 instance Types a => Types [a] where
   apply s ts = map (apply s) ts
-  free = nub . concat . map free
+  free = nub . concatMap free
 
 infixr 4 @@
 (@@) = compose
@@ -58,14 +58,12 @@ merge s1 s2 = if agree then return (s1 ++ s2) else fail "substitution merge fail
   where agree = all (\x -> apply s1 (TVar x) == apply s2 (TVar x)) (map fst s1 `intersect` map fst s2)
 
 instance Types Type where
-  apply subst fv@(TVar tyvar) = case lookup tyvar subst of
-    Just subst -> subst
-    Nothing -> fv
+  apply subst fv@(TVar tyvar) = fromMaybe fv (lookup tyvar subst)
   apply subst (TAp t1 t2) = TAp (apply subst t1) (apply subst t2)
   apply _ a = a
 
   free (TVar a) = [a]
-  free (TAp t1 t2) = (free t1) `union` (free t2)
+  free (TAp t1 t2) = free t1 `union` free t2
   free _ = []
 
 mgu :: Monad m => Type -> Type -> m Substitution
