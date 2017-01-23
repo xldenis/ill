@@ -118,6 +118,8 @@ module Simple where
   match (TCon c1) (TCon c2) | c1 == c2 = return []
   match _ _ = fail ""
 
+-- CLASS STUFF STARTS HERE
+
   data Qual t = [Pred] :=> t deriving (Eq)
 
   data Pred = IsIn Id Type deriving Eq
@@ -235,6 +237,8 @@ module Simple where
 
   scEntail        :: ClassEnv -> [Pred] -> Pred -> Bool
   scEntail ce ps p = any (p `elem`) (map (bySuper ce) ps)
+
+-- SCHEMES
 
   data Scheme = Forall [Kind] (Qual Type)
               deriving Eq

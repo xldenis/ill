@@ -30,7 +30,7 @@ module Ill.Syntax.Expression where
       --pretty' (Case x1 x2) = _
       pretty' (If cond left right) =
         text "if" <+> pretty cond <+> text "then"
-        </>  indent 2 (pretty left)
+        </> indent 2 (pretty left)
         </> text "else"
         </> indent 2 (pretty right)
         </> text "end"

@@ -16,6 +16,8 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Lib
+                     , Ill.Inference.Class
+                     , Ill.Inference.Type
                      , Ill.Parser
                      , Ill.Parser.Declaration
                      , Ill.Parser.Expression
@@ -32,7 +34,6 @@ library
                      , Simple
   build-depends:       base >= 4.7 && < 5
                      , megaparsec
-                     , bound
                      , free
                      , text
                      , comonad
@@ -49,6 +50,7 @@ executable ill-exe
                      , megaparsec
                      , wl-pprint-extras
                      , optparse-generic
+                     , text
   default-language:    Haskell2010
 
 test-suite ill-test

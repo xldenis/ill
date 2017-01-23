@@ -23,7 +23,7 @@ module Ill.Parser.Lexer where
   identifier = p >>= res
     where p = label "identifier" . lexeme $ ((:) <$> letterChar <*> many alphaNumChar)
           res i = if i `elem` reserved then
-              unexpected $ "The reserved word `" ++ i ++ "` cannot be used as an identifier."
+              fail $ "The reserved word `" ++ i ++ "` cannot be used as an identifier."
             else
               return i
 

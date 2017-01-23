@@ -10,12 +10,16 @@ import Text.PrettyPrint.Free
 
 import Options.Generic
 
+import qualified Data.Text.IO as T (readFile)
+
 data Config
   = Build
   | Format String
   deriving (Generic, Show)
 
 instance ParseRecord Config
+
+parseFromFile p file = runParser p file <$> T.readFile file
 
 main :: IO ()
 main = do

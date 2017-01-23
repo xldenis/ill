@@ -12,7 +12,7 @@ import Test.Hspec
 import SpecHelper
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   filesShouldParse "test/parser/success" moduleParser
   filesShouldParse "test/parser/success/declaration" (many $ declaration <* scn)
   filesShouldFail  "test/parser/failure/declaration" (declaration)
