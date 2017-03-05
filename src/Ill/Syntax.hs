@@ -19,6 +19,8 @@ import Ill.Syntax.Pattern
 import Ill.Syntax.Expression
 
 import Ill.Syntax.Pretty
+import Control.Lens (over, each, _2 )
+import Control.Comonad (extend)
 
 type Prefix = String
 
@@ -28,7 +30,7 @@ type Name = String
 
 type Alias = Maybe String
 
-data Module a = Module Name [Decl a] deriving (Show)
+data Module a = Module Name [Decl a] deriving (Eq, Show)
 
 data Declaration a b
   = Data Name [Type Name]
@@ -38,18 +40,31 @@ data Declaration a b
   | Import Qualified Masks String Alias
   | TraitDecl (Type Name) [b]
   | TraitImpl (Type Name) [b]
-  deriving (Functor, Show)
+  deriving (Eq, Functor, Show)
 
 type Decl a = Cofree (Declaration a) a
+
+
+fuckComonads :: Declaration a b -> Declaration () b
+fuckComonads (Value n es) = Value n $ over (each . _2 . each ) (extend $ const ()) es
+fuckComonads (Data a b) = Data a b
+fuckComonads (TypeSynonym a b) = TypeSynonym a b
+fuckComonads (Signature a b) = Signature a b
+fuckComonads (Import q m s a) =  Import q m s a
+fuckComonads (TraitDecl a b) = TraitDecl a b
+fuckComonads (TraitImpl a b) = TraitImpl a b
+
+dropAnn :: Decl a -> Decl ()
+dropAnn = hoistCofree (fuckComonads) . (extend $ const ())
+
 
 data Masks
   = Hiding [Name]
   | Only  [Name]
   | All
-  deriving (Show)
+  deriving (Eq, Show)
 
-makeLenses ''Declaration
-
+makePrisms   ''Declaration
 
 instance Pretty (Module a) where
   pretty (Module name decls) = nest 2 (text "module" <+> text name `aboveBreak` vsep (map pretty decls)) `aboveBreak` text "end"

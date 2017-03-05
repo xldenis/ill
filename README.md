@@ -1,49 +1,37 @@
 # Test Language Specification
 
-A simple, imperative, strongly-typed language exploring different compiler techniques.
+A simple, strongly-typed language exploring different compiler techniques.
 
-## Features:
+## ideas:
 
-- Term level typing
 - Global inference?
-- Mutable state
-- No global state
 - no statements
-- first class functions
-- anonymous functions?
 - LLVM backend
 - Fast performance
-- multithreading
 - structural typing?
 - gradual typing?
 - pattern matching
 - partial application
+- simple parallelism / concurrency
+- mutable state
+  - via linear types?
 
-## Confirmed Features
+## planned features
 
 - local inferrence
-- mutable state
 - no global state
-- no statements
 - first class functions
   - lambdas
 - llvm
 - decent performance
-- simple parallelism / concurrency
 - pattern matching
 - partial application / currying
-
-## Possible Features
-- global inference
-- gradual typing
-- structural typing
-- fast performance
 
 ## Example Syntax:
 
 
 ```
-fn name(args: type) -> type
+fn name(args: int) -> int
   x = 1
   x, y = 2, {2 => 3} # multi-assign
 end # returns ??

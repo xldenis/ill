@@ -8,7 +8,7 @@ import Control.Comonad.Cofree
 import Control.Applicative ((<*), empty)
 import Control.Monad (void)
 
-data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Show)
+data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Eq, Show)
 
 reserved :: [String]
 reserved = ["if", "then", "else", "end", "fn", "import", "qualified", "hiding", "trait", "data", "type", "or"]

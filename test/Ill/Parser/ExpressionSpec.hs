@@ -6,9 +6,10 @@ import SpecHelper
 import Test.Hspec
 import Text.Megaparsec
 
-import Text.Megaparsec.Pos (newPos)
-import Text.Megaparsec.Error (newErrorMessage)
+import Text.Megaparsec.Pos (SourcePos)
 import Test.Hspec.Megaparsec
+
+import Data.List.NonEmpty
 
 import Ill.Parser.Expression
 
@@ -25,4 +26,4 @@ unitSpec = do
       shouldSucceed $ parse (call <* eof) "" "func()"
   describe "assign" $ do
     it "errors properly" $ do
-      parse assign "" "a, a = 2" `shouldFailWith` newErrorMessage (Message "Invalid assignment: length mismatch.") (newPos "" 1 9)
+      parse assign "" "a, a = 2" `shouldFailWith` err (SourcePos "" (unsafePos 1) (unsafePos 9) :| [])  (cstm $ DecFail "Invalid assignment: length mismatch.")

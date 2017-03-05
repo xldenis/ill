@@ -11,11 +11,11 @@ data Type t
   | Arrow (Type t) (Type t)
   | Trait t (Type t)
   | Constraint [Type t] (Type t)
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
-  pretty (Constructor cons args) = text cons <+> cat (punctuate comma (map (\a -> parensIf (complex a) $ pretty  a) args))
+  pretty (Constructor cons args) = text cons <+> hcat ((map (\a -> parensIf (complex a) $ pretty  a) args))
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> text "->" <+> parensIf (complex to) (pretty to)
   pretty (Trait nm tp) = text nm <+> pretty tp
   pretty (Constraint trts tp) = alternative (map pretty trts) <+> pretty tp

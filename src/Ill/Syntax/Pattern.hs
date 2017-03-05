@@ -6,7 +6,7 @@ data Pattern
   | Wildcard
   | PVar String
   | Nil
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance Pretty Pattern where
   pretty (Destructor cons args) = text cons <+> hsep (map (\a -> parensIf (complex a) (pretty a)) args)

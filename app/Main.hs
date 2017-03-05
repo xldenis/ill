@@ -30,4 +30,4 @@ main = do
       res <- parseFromFile illParser file
       case res of
         Right ast -> putStrLn $ renderIll defaultRenderArgs (pretty ast)
-        Left err -> putStrLn $ show err
+        Left err -> putStrLn $ parseErrorPretty err

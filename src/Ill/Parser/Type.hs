@@ -11,7 +11,7 @@ typeVar :: Parser (Type String)
 typeVar = TVar <$> identifier
 
 typeExp :: Parser (Type String)
-typeExp =  arrow <|> typePrim
+typeExp =  arrow <|> typePrim <|> parens typeExp
 
 typeProduct :: Parser (Type String)
 typeProduct =  Constructor <$> lexeme capitalized <*> many typeExp

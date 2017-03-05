@@ -10,6 +10,7 @@ import Ill.Syntax.Literal
 
 data Expression a
   = Apply a [a]
+  | BinOp a a a
   | Assign [String] [a]
   | Case a [(Pattern, a)]
   | If a a a
@@ -19,13 +20,14 @@ data Expression a
   | Body [a]
   | Hash [(a, a)]
   | Array [a]
-  deriving (Functor, Show)
+  deriving (Eq, Functor, Show)
 
 type Expr a = Cofree Expression a
 
 instance Pretty (Cofree Expression a) where
   pretty (_ :< f) = pretty' f where
     pretty' (Apply func args) = pretty func <> tupled (map pretty args)
+    pretty' (BinOp op l r) = pretty l <+> pretty op <+> pretty r
     pretty' (Assign idents exprs) = cat (punctuate comma (map text idents)) <+> char '=' <+> cat (punctuate comma (map pretty exprs))
     --pretty' (Case x1 x2) = _
     pretty' (If cond left right) =

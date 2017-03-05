@@ -106,5 +106,5 @@ opTable = [ [ binary "*"
 binary :: String -> Operator Parser (Expr SourceSpan)
 binary op = InfixL $ do
   op <- withLoc $ Var <$> symbol op
-  return $ \a b -> SourceSpan (begin$extract a) (end$extract b) :< (Apply op [a,b])
+  return $ \a b -> SourceSpan (begin$extract a) (end$extract b) :< (BinOp op a b)
 
