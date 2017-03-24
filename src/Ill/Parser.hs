@@ -1,16 +1,16 @@
 module Ill.Parser where
-import Control.Applicative ((<*))
+import           Control.Applicative    ((<*))
 
-import Data.List (intercalate)
+import           Data.List              (intercalate)
 
-import Text.Megaparsec.Text
-import Text.Megaparsec
+import           Text.Megaparsec
+import           Text.Megaparsec.Text
 
-import Ill.Syntax
+import           Ill.Syntax
 
-import Ill.Parser.Expression
-import Ill.Parser.Declaration
-import Ill.Parser.Lexer
+import           Ill.Parser.Declaration
+import           Ill.Parser.Expression
+import           Ill.Parser.Lexer
 
 moduleParser :: Parser (Module SourceSpan)
 moduleParser = do

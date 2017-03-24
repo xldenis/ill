@@ -94,7 +94,7 @@ fn :: Type -> Type -> Type
 fn = TAp . TAp (TCon $ Tycon "->" (KFun Star (KFun Star Star)))
 
 list       :: Type -> Type
-list t      = TAp tList t
+list       = TAp tList
 
 var :: Id -> Type
 var id = TVar (Tyvar id Star)
@@ -267,7 +267,7 @@ tiExpl ce as (i, sc, alts)
 type Impl   = (Id, [Alt])
 
 restricted   :: [Impl] -> Bool
-restricted bs = any simple bs
+restricted = any simple
  where simple (i,alts) = any (null . fst) alts
 
 tiImpls         :: Infer [Impl] [Assump]
