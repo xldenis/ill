@@ -4,18 +4,6 @@ import Ill.Inference.Type
 import Data.List (union)
 import Data.Foldable
 
-data Qual t = [Pred] :=> t deriving (Eq)
-
-data Pred = IsIn Id Type deriving Eq
-
-instance Types Pred where
-  apply sbst (IsIn n t) = IsIn n $ apply sbst t
-  free (IsIn n t) = free t
-
-instance Types t => Types (Qual t) where
-  apply sbst (p :=> t) = apply sbst p :=> apply sbst t
-  free (p :=> t) = free p `union` free t
-
 mguPred, matchPred :: Pred -> Pred -> Maybe Substitution
 mguPred             = lift mgu
 matchPred           = lift match

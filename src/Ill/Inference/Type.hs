@@ -1,12 +1,13 @@
 module Ill.Inference.Type where
 import Control.Lens
+import Control.Monad
 
-import qualified Ill.Syntax as Syntax (Name)
+-- import qualified Ill.Syntax as Syntax (Name)
 
 import Data.List (union, nub, intersect)
 import Data.Maybe (fromMaybe)
 
-type Id = Syntax.Name
+type Id = String
 
 data Kind
   = Star
@@ -18,6 +19,10 @@ data Type = TVar Tyvar | TAp Type Type | TCon Tycon | TGen Int deriving (Show, E
 data Tyvar = Tyvar Id Kind deriving (Show, Eq)
 
 data Tycon = Tycon Id Kind deriving (Show, Eq)
+
+data Pred = IsIn Id Type deriving Eq
+
+data Qual t = [Pred] :=> t deriving (Eq)
 
 class HasKind k where
   kind :: k -> Kind
@@ -93,6 +98,107 @@ match (TVar v) t| kind v == kind t = return [(v,t)]
 match (TCon c1) (TCon c2) | c1 == c2 = return []
 match _ _ = fail ""
 
+data Scheme = Forall [Kind] (Qual Type)
+            deriving Eq
+
+instance Types Scheme where
+  apply s (Forall ks qt) = Forall ks (apply s qt)
+  free (Forall ks qt)      = free qt
+
+quantify      :: [Tyvar] -> Qual Type -> Scheme
+quantify vs qt = Forall ks (apply s qt)
+  where vs' = [ v | v <- free qt, v `elem` vs ]
+        ks  = map kind vs'
+        s   = zip vs' (map TGen [0..])
+
+toScheme      :: Type -> Scheme
+toScheme t     = Forall [] ([] :=> t)
+
+data Assump = Id :>: Scheme
+
+instance Types Assump where
+  apply s (i :>: sc) = i :>: apply s sc
+  free (i :>: sc)      = free sc
+
+find                 :: Monad m => Id -> [Assump] -> m Scheme
+find i []             = fail ("unbound identifier: " ++ i)
+find i ((i':>:sc):as) = if i==i' then return sc else find i as
 
 
+newtype TI a = TI (Substitution -> Int -> (Substitution, Int, a))
 
+instance Functor TI where
+  fmap = liftM
+
+instance Applicative TI where
+  pure x = TI (\s n -> (s,n,x))
+  (<*>) = ap
+
+instance Monad TI where
+  return   = pure
+  TI f >>= g = TI (\s n -> case f s n of
+                            (s',m,x) -> let TI gx = g x
+                                        in  gx s' m)
+
+runTI       :: TI a -> a
+runTI (TI f) = x where (s,n,x) = f nullSubst 0
+
+getSubst   :: TI Substitution
+getSubst    = TI (\s n -> (s,n,s))
+
+unify      :: Type -> Type -> TI ()
+unify t1 t2 = do s <- getSubst
+                 u <- mgu (apply s t1) (apply s t2)
+                 extSubst u
+
+extSubst   :: Substitution -> TI ()
+extSubst s' = TI (\s n -> (s'@@s, n, ()))
+
+enumId  :: Int -> Id
+enumId n = "v" ++ show n
+
+newTVar    :: Kind -> TI Type
+newTVar k   = TI (\s n -> let v = Tyvar (enumId n) k
+                          in  (s, n+1, TVar v))
+
+freshInst               :: Scheme -> TI (Qual Type)
+freshInst (Forall ks qt) = do ts <- mapM newTVar ks
+                              return (inst ts qt)
+
+class Instantiate t where
+  inst  :: [Type] -> t -> t
+instance Instantiate Type where
+  inst ts (TAp l r) = TAp (inst ts l) (inst ts r)
+  inst ts (TGen n)  = ts !! n
+  inst ts t         = t
+instance Instantiate a => Instantiate [a] where
+  inst ts = map (inst ts)
+instance Instantiate t => Instantiate (Qual t) where
+  inst ts (ps :=> t) = inst ts ps :=> inst ts t
+instance Instantiate Pred where
+  inst ts (IsIn c t) = IsIn c (inst ts t)
+
+
+instance Types Pred where
+  apply sbst (IsIn n t) = IsIn n $ apply sbst t
+  free (IsIn n t) = free t
+
+instance Types t => Types (Qual t) where
+  apply sbst (p :=> t) = apply sbst p :=> apply sbst t
+  free (p :=> t) = free p `union` free t
+
+
+fn :: Type -> Type -> Type
+fn = TAp . TAp (TCon $ Tycon "->" (KFun Star (KFun Star Star)))
+
+list       :: Type -> Type
+list       = TAp tList
+
+var :: Id -> Type
+var id = TVar (Tyvar id Star)
+
+tUnit    = TCon (Tycon "()" Star)
+
+tList    = TCon (Tycon "[]" (KFun Star Star))
+tArrow   = TCon (Tycon "(->)" (KFun Star (KFun Star Star)))
+tTuple2  = TCon (Tycon "(,)" (KFun Star (KFun Star Star)))
