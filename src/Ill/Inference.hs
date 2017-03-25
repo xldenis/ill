@@ -3,115 +3,13 @@ module Ill.Inference where
 import Ill.Inference.Type
 import Ill.Inference.Class
 
+
 import Control.Monad (liftM, zipWithM, ap)
 import Data.List ((\\), union, intersect, partition)
 
 import qualified Ill.Syntax as ST
 
-data Scheme = Forall [Kind] (Qual Type)
-            deriving Eq
-
-instance Types Scheme where
-  apply s (Forall ks qt) = Forall ks (apply s qt)
-  free (Forall ks qt)      = free qt
-
-quantify      :: [Tyvar] -> Qual Type -> Scheme
-quantify vs qt = Forall ks (apply s qt)
-  where vs' = [ v | v <- free qt, v `elem` vs ]
-        ks  = map kind vs'
-        s   = zip vs' (map TGen [0..])
-
-toScheme      :: Type -> Scheme
-toScheme t     = Forall [] ([] :=> t)
-
-data Assump = Id :>: Scheme
-
-instance Types Assump where
-  apply s (i :>: sc) = i :>: apply s sc
-  free (i :>: sc)      = free sc
-
-find                 :: Monad m => Id -> [Assump] -> m Scheme
-find i []             = fail ("unbound identifier: " ++ i)
-find i ((i':>:sc):as) = if i==i' then return sc else find i as
-
-
-newtype TI a = TI (Substitution -> Int -> (Substitution, Int, a))
-
-instance Functor TI where
-  fmap = liftM
-
-instance Applicative TI where
-  pure x = TI (\s n -> (s,n,x))
-  (<*>) = ap
-
-instance Monad TI where
-  return   = pure
-  TI f >>= g = TI (\s n -> case f s n of
-                            (s',m,x) -> let TI gx = g x
-                                        in  gx s' m)
-
-runTI       :: TI a -> a
-runTI (TI f) = x where (s,n,x) = f nullSubst 0
-
-getSubst   :: TI Substitution
-getSubst    = TI (\s n -> (s,n,s))
-
-unify      :: Type -> Type -> TI ()
-unify t1 t2 = do s <- getSubst
-                 u <- mgu (apply s t1) (apply s t2)
-                 extSubst u
-
-extSubst   :: Substitution -> TI ()
-extSubst s' = TI (\s n -> (s'@@s, n, ()))
-
-enumId  :: Int -> Id
-enumId n = "v" ++ show n
-
-newTVar    :: Kind -> TI Type
-newTVar k   = TI (\s n -> let v = Tyvar (enumId n) k
-                          in  (s, n+1, TVar v))
-
-freshInst               :: Scheme -> TI (Qual Type)
-freshInst (Forall ks qt) = do ts <- mapM newTVar ks
-                              return (inst ts qt)
-
-class Instantiate t where
-  inst  :: [Type] -> t -> t
-instance Instantiate Type where
-  inst ts (TAp l r) = TAp (inst ts l) (inst ts r)
-  inst ts (TGen n)  = ts !! n
-  inst ts t         = t
-instance Instantiate a => Instantiate [a] where
-  inst ts = map (inst ts)
-instance Instantiate t => Instantiate (Qual t) where
-  inst ts (ps :=> t) = inst ts ps :=> inst ts t
-instance Instantiate Pred where
-  inst ts (IsIn c t) = IsIn c (inst ts t)
-
 type Infer e t = ClassEnv -> [Assump] -> e -> TI ([Pred], t)
-
-fn :: Type -> Type -> Type
-fn = TAp . TAp (TCon $ Tycon "->" (KFun Star (KFun Star Star)))
-
-list       :: Type -> Type
-list       = TAp tList
-
-var :: Id -> Type
-var id = TVar (Tyvar id Star)
-
-tUnit    = TCon (Tycon "()" Star)
-tChar    = TCon (Tycon "Char" Star)
-tInt     = TCon (Tycon "Int" Star)
-tInteger = TCon (Tycon "Integer" Star)
-tFloat   = TCon (Tycon "Float" Star)
-tDouble  = TCon (Tycon "Double" Star)
-
-tList    = TCon (Tycon "[]" (KFun Star Star))
-tArrow   = TCon (Tycon "(->)" (KFun Star (KFun Star Star)))
-tTuple2  = TCon (Tycon "(,)" (KFun Star (KFun Star Star)))
-
-tString    :: Type
-tString     = list tChar
 
 typeFromSyntax :: ST.Type Id -> Type
 typeFromSyntax (ST.TVar t) = TVar (Tyvar t Star)
@@ -120,23 +18,10 @@ typeFromSyntax (ST.Constructor n args) = TCon (Tycon n (kfn $ length args))
   where kfn 0 = Star
         kfn n = KFun Star (kfn $ n-1)
 
-data Literal = LitInt  Integer
-             | LitChar Char
-             | LitRat  Rational
-             | LitStr  String
-
-tiLit            :: Literal -> TI ([Pred],Type)
-tiLit (LitChar _) = return ([], tChar)
-tiLit (LitInt _)  = do v <- newTVar Star
-                       return ([IsIn "Num" v], v)
-tiLit (LitStr _)  = return ([], tString)
-tiLit (LitRat _)  = do v <- newTVar Star
-                       return ([IsIn "Fractional" v], v)
-
 data Pat        = PVar Id
                 | PWildcard
                 | PAs  Id Pat
-                | PLit Literal
+                | PLit ST.Literal
                 | PNpk Id Integer
                 | PCon Assump [Pat]
 
@@ -148,7 +33,7 @@ tiPat PWildcard   = do v <- newTVar Star
                        return ([], [], v)
 tiPat (PAs i pat) = do (ps, as, t) <- tiPat pat
                        return (ps, (i:>:toScheme t):as, t)
-tiPat (PLit l) = do (ps, t) <- tiLit l
+tiPat (PLit l) = do (ps, t) <- ST.tiLit l
                     return (ps, [], t)
 tiPat (PNpk i k)  = do t <- newTVar Star
                        return ([IsIn "Integral" t], [i:>:toScheme t], t)
@@ -167,7 +52,7 @@ tiPats pats = do psasts <- mapM tiPat pats
                  return (ps, as, ts)
 
 data Expr = Var   Id
-          | Lit   Literal
+          | Lit   ST.Literal
           | Const Assump
           | Ap    Expr Expr
           | Let   BindGroup Expr
@@ -178,7 +63,7 @@ tiExpr ce as (Var i)          = do sc         <- find i as
                                    return (ps, t)
 tiExpr ce as (Const (i:>:sc)) = do (ps :=> t) <- freshInst sc
                                    return (ps, t)
-tiExpr ce as (Lit l)          = do (ps,t) <- tiLit l
+tiExpr ce as (Lit l)          = do (ps,t) <- ST.tiLit l
                                    return (ps, t)
 tiExpr ce as (Ap e f)         = do (ps,te) <- tiExpr ce as e
                                    (qs,tf) <- tiExpr ce as f

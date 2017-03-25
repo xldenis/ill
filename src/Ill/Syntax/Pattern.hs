@@ -1,11 +1,13 @@
 module Ill.Syntax.Pattern where
 import Ill.Syntax.Pretty
+import Ill.Inference.Type
+
 
 data Pattern
   = Destructor String [Pattern]
   | Wildcard
   | PVar String
-  | Nil
+  -- | PLit Literal
   deriving (Eq, Show)
 
 instance Pretty Pattern where
@@ -14,5 +16,21 @@ instance Pretty Pattern where
           complex _ = False
   pretty Wildcard = text "_"
   pretty (PVar x) = text x
-  pretty Nil = empty
 
+tiPat :: Pattern -> TI ([Pred], [Assump], Type)
+
+tiPat (PVar i) = do v <- newTVar Star
+                    return ([], [i :>: toScheme v], v)
+tiPat Wildcard   = do v <- newTVar Star
+                      return ([], [], v)
+
+
+-- tiPat (PAs i pat) = do (ps, as, t) <- tiPat pat
+                       -- return (ps, (i:>:toScheme t):as, t)
+-- tiPat (PLit l) = do (ps, t) <- ST.tiLit l
+                    -- return (ps, [], t)
+-- tiPat (PCon (i:>:sc) pats) = do (ps,as,ts) <- tiPats pats
+                                -- t'         <- newTVar Star
+                                -- (qs :=> t) <- freshInst sc
+                                -- unify t (foldr fn t' ts)
+                                -- return (ps++qs, as, t')

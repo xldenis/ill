@@ -17,9 +17,6 @@ destructor = do
   args <- many pattern
   return $ Destructor cons args
 
-nil :: Parser Pattern
-nil = return Nil
-
 var :: Parser Pattern
 var = PVar <$> identifier
 
