@@ -1,15 +1,13 @@
-module Ill.Inference where
+module Ill.Inference (module X, module Ill.Inference) where
 
-import Ill.Inference.Type
-import Ill.Inference.Class
+import Ill.Inference.Type as X
+import Ill.Inference.Class as X
 
 
 import Control.Monad (liftM, zipWithM, ap)
 import Data.List ((\\), union, intersect, partition)
 
 import qualified Ill.Syntax as ST
-
-type Infer e t = ClassEnv -> [Assump] -> e -> TI ([Pred], t)
 
 typeFromSyntax :: ST.Type Id -> Type
 typeFromSyntax (ST.TVar t) = TVar (Tyvar t Star)
@@ -18,67 +16,11 @@ typeFromSyntax (ST.Constructor n args) = TCon (Tycon n (kfn $ length args))
   where kfn 0 = Star
         kfn n = KFun Star (kfn $ n-1)
 
-data Pat        = PVar Id
-                | PWildcard
-                | PAs  Id Pat
-                | PLit ST.Literal
-                | PNpk Id Integer
-                | PCon Assump [Pat]
-
-tiPat :: Pat -> TI ([Pred], [Assump], Type)
-
-tiPat (PVar i) = do v <- newTVar Star
-                    return ([], [i :>: toScheme v], v)
-tiPat PWildcard   = do v <- newTVar Star
-                       return ([], [], v)
-tiPat (PAs i pat) = do (ps, as, t) <- tiPat pat
-                       return (ps, (i:>:toScheme t):as, t)
-tiPat (PLit l) = do (ps, t) <- ST.tiLit l
-                    return (ps, [], t)
-tiPat (PNpk i k)  = do t <- newTVar Star
-                       return ([IsIn "Integral" t], [i:>:toScheme t], t)
-tiPat (PCon (i:>:sc) pats) = do (ps,as,ts) <- tiPats pats
-                                t'         <- newTVar Star
-                                (qs :=> t) <- freshInst sc
-                                unify t (foldr fn t' ts)
-                                return (ps++qs, as, t')
-
-
-tiPats     :: [Pat] -> TI ([Pred], [Assump], [Type])
-tiPats pats = do psasts <- mapM tiPat pats
-                 let ps = concat [ ps' | (ps',_,_) <- psasts ]
-                     as = concat [ as' | (_,as',_) <- psasts ]
-                     ts = [ t | (_,_,t) <- psasts ]
-                 return (ps, as, ts)
-
-data Expr = Var   Id
-          | Lit   ST.Literal
-          | Const Assump
-          | Ap    Expr Expr
-          | Let   BindGroup Expr
-
-tiExpr                       :: Infer Expr Type
-tiExpr ce as (Var i)          = do sc         <- find i as
-                                   (ps :=> t) <- freshInst sc
-                                   return (ps, t)
-tiExpr ce as (Const (i:>:sc)) = do (ps :=> t) <- freshInst sc
-                                   return (ps, t)
-tiExpr ce as (Lit l)          = do (ps,t) <- ST.tiLit l
-                                   return (ps, t)
-tiExpr ce as (Ap e f)         = do (ps,te) <- tiExpr ce as e
-                                   (qs,tf) <- tiExpr ce as f
-                                   t       <- newTVar Star
-                                   unify (tf `fn` t) te
-                                   return (ps++qs, t)
-tiExpr ce as (Let bg e)       = do (ps, as') <- tiBindGroup ce as bg
-                                   (qs, t)   <- tiExpr ce (as' ++ as) e
-                                   return (ps ++ qs, t)
-
-type Alt = ([Pat], Expr)
+type Alt = ([ST.Pattern], ST.Expr ())
 
 tiAlt                :: Infer Alt Type
-tiAlt ce as (pats, e) = do (ps, as', ts) <- tiPats pats
-                           (qs,t)  <- tiExpr ce (as'++as) e
+tiAlt ce as (pats, e) = do (ps, as', ts) <- ST.tiPats pats
+                           (qs,t)  <- ST.tiExpr ce (as'++as) e
                            return (ps++qs, foldr fn t ts)
 
 tiAlts             :: ClassEnv -> [Assump] -> [Alt] -> Type -> TI [Pred]

@@ -1,4 +1,4 @@
-module Simple where
+module Simple () where
 import Control.Lens
 import Control.Lens.Setter
 import Data.List (union, intersect, (\\), partition, nub)
@@ -22,7 +22,7 @@ data Tyvar = Tyvar Id Kind deriving (Show, Eq)
 data Tycon = Tycon Id Kind deriving (Show, Eq)
 
 fn :: Type -> Type -> Type
-fn = TAp . TAp (TCon $ Tycon "->" (KFn Star (KFn Star Star)))
+fn a b = TAp (TAp tArrow a) b
 
 list       :: Type -> Type
 list t      = TAp tList t

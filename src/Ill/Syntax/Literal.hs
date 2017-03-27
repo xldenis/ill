@@ -19,6 +19,7 @@ instance Pretty Literal where
 tInteger = TCon (Tycon "Integer" Star)
 tDouble  = TCon (Tycon "Double" Star)
 tChar    = TCon (Tycon "Char" Star)
+tBool    = TCon (Tycon "Bool" Star)
 
 tString    :: Type
 tString     = T.list tChar

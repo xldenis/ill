@@ -18,6 +18,8 @@ type Inst     = Qual Pred
 data ClassEnv = ClassEnv { classes  :: Id -> Maybe Class,
                          defaults :: [Type] }
 
+type Infer e t = ClassEnv -> [Assump] -> e -> TI ([Pred], t)
+
 super     :: ClassEnv -> Id -> [Id]
 super ce i = case classes ce i of Just (is, its) -> is
 

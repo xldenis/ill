@@ -8,6 +8,7 @@ module Ill.Syntax
 , module Ill.Syntax.Literal
 , module Ill.Syntax.Expression
 , module Ill.Syntax.Pattern
+, module Ill.Syntax.Type
 , module Ill.Syntax
 ) where
 import Control.Lens.TH

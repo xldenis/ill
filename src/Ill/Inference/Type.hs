@@ -20,9 +20,10 @@ data Tyvar = Tyvar Id Kind deriving (Show, Eq)
 
 data Tycon = Tycon Id Kind deriving (Show, Eq)
 
-data Pred = IsIn Id Type deriving Eq
+data Pred = IsIn Id Type deriving (Show, Eq)
 
-data Qual t = [Pred] :=> t deriving (Eq)
+data Qual t = [Pred] :=> t deriving (Show, Eq)
+
 
 class HasKind k where
   kind :: k -> Kind
@@ -80,7 +81,7 @@ mgu (TAp l r) (TAp l' r') = do
 mgu (TVar v) t = bindVar v t
 mgu t (TVar v) = bindVar v t
 mgu (TCon c1) (TCon c2) | c1 == c2 = return []
-mgu _ _ = fail ""
+mgu a b = fail $ "can't find most general unifer: " ++ (show a) ++ "///" ++ (show b)
 
 bindVar :: Monad m => Tyvar -> Type -> m Substitution
 bindVar v t | t == TVar v       = return []
@@ -96,10 +97,10 @@ match (TAp l r) (TAp l' r') = do
   sl `merge` sr
 match (TVar v) t| kind v == kind t = return [(v,t)]
 match (TCon c1) (TCon c2) | c1 == c2 = return []
-match _ _ = fail ""
+match _ _ = fail "cant find a matching substitution"
 
 data Scheme = Forall [Kind] (Qual Type)
-            deriving Eq
+            deriving (Show, Eq)
 
 instance Types Scheme where
   apply s (Forall ks qt) = Forall ks (apply s qt)
@@ -114,7 +115,7 @@ quantify vs qt = Forall ks (apply s qt)
 toScheme      :: Type -> Scheme
 toScheme t     = Forall [] ([] :=> t)
 
-data Assump = Id :>: Scheme
+data Assump = Id :>: Scheme deriving (Show, Eq)
 
 instance Types Assump where
   apply s (i :>: sc) = i :>: apply s sc
@@ -178,7 +179,6 @@ instance Instantiate t => Instantiate (Qual t) where
 instance Instantiate Pred where
   inst ts (IsIn c t) = IsIn c (inst ts t)
 
-
 instance Types Pred where
   apply sbst (IsIn n t) = IsIn n $ apply sbst t
   free (IsIn n t) = free t
@@ -189,7 +189,7 @@ instance Types t => Types (Qual t) where
 
 
 fn :: Type -> Type -> Type
-fn = TAp . TAp (TCon $ Tycon "->" (KFun Star (KFun Star Star)))
+fn a b = TAp (TAp tArrow a) b
 
 list       :: Type -> Type
 list       = TAp tList

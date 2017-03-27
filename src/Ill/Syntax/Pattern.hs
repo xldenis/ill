@@ -24,6 +24,12 @@ tiPat (PVar i) = do v <- newTVar Star
 tiPat Wildcard   = do v <- newTVar Star
                       return ([], [], v)
 
+tiPats     :: [Pattern] -> TI ([Pred], [Assump], [Type])
+tiPats pats = do psasts <- mapM tiPat pats
+                 let ps = concat [ ps' | (ps',_,_) <- psasts ]
+                     as = concat [ as' | (_,as',_) <- psasts ]
+                     ts = [ t | (_,_,t) <- psasts ]
+                 return (ps, as, ts)
 
 -- tiPat (PAs i pat) = do (ps, as, t) <- tiPat pat
                        -- return (ps, (i:>:toScheme t):as, t)

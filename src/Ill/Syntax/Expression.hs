@@ -8,6 +8,9 @@ import Ill.Syntax.Pretty
 import Ill.Syntax.Pattern
 import Ill.Syntax.Literal
 
+import           Ill.Inference.Class (Infer)
+import           Ill.Inference.Type hiding (list)
+
 data Expression a
   = Apply a [a]
   | BinOp a a a
@@ -43,4 +46,56 @@ instance Pretty (Cofree Expression a) where
     --pretty' (Hash x) = _
     pretty' (Array ar) = list (map pretty ar)
 
-newtype Mu f = Mu (f (Mu f))
+tiExpr :: Infer (Expr a) Type
+tiExpr ce as (_ :< Var i) = do
+  sc         <- find i as
+  (ps :=> t) <- freshInst sc
+  return (ps, t)
+tiExpr ce as (_ :< Apply f es) = do
+  tes <- mapM (tiExpr ce as) es
+  (qs,tf) <- tiExpr ce as f
+  t       <- newTVar Star
+  let (epreds, te) = foldr (\(preds, te) (opreds, to) -> (preds ++ opreds, te `fn` to)) ([], t) tes
+  unify tf te
+  return (epreds ++ qs, t)
+tiExpr ce as (_ :< Body es) = do
+  tys <- mapM (tiExpr ce as) es
+  return (last tys)
+tiExpr ce as (_ :< Literal l) = do
+  (ps,t) <- tiLit l
+  return (ps, t)
+tiExpr ce as (_ :< If c l r) = do
+  (ps, condTy) <- tiExpr ce as c
+  unify condTy tBool
+
+  (lpreds, lTy) <- tiExpr ce as l
+  (rpreds, rTy) <- tiExpr ce as r
+  unify lTy rTy
+
+  return (ps ++ lpreds ++ rpreds, lTy)
+tiExpr ce as (_ :< Lambda pats body) = do
+  (pPred, pAssum, pTy) <- tiPats pats
+  (ePred, tBody) <- tiExpr ce (as ++ pAssum) body
+
+  let fTy = foldr1 fn pTy
+  return $ (pPred ++ ePred, fTy `fn` tBody)
+
+tiAlt :: Infer ([Pattern], Expr a) Type
+tiAlt ce as (pats, body) = do
+  (pPred, pAssum, pTy) <- tiPats pats
+  (ePred, tBody) <- tiExpr ce (as ++ pAssum) body
+
+  let fTy = foldr1 fn pTy
+  return $ (pPred ++ ePred, fTy `fn` tBody)
+
+-- tiAlts :: Infer [([Pattern], Expr)] Type
+-- tiAlts ce as alts = do
+--   pInf <- mapM (tiAlt ce as) alts
+
+
+bleh ce as (_ :< Apply f es) = do
+  tes <- mapM (tiExpr ce as) es
+  (qs,tf) <- tiExpr ce as f
+  t       <- newTVar Star
+  let (epreds, te) = foldr (\(opreds, to) (preds, te) -> (preds ++ opreds, te `fn` to)) ([], t) tes
+  return (tf, te)

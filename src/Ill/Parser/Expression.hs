@@ -19,7 +19,8 @@ nonBodyExpr :: Parser (Expr SourceSpan)
 nonBodyExpr = assign <|> fullExpr
 
 fullExpr :: Parser (Expr SourceSpan)
-fullExpr = makeExprParser (call <|> simpleExpr <|> consExpr) opTable
+fullExpr = makeExprParser (call <|> parens primExpr <|> primExpr) opTable
+  where primExpr = simpleExpr <|> consExpr
 
 consExpr :: Parser (Expr SourceSpan)
 consExpr = caseE <|> lambda <|> ifE
@@ -44,7 +45,7 @@ assign = withLoc $ do
 call :: Parser (Expr SourceSpan)
 call = try $ do
   start <- getPosition
-  func <- var <|> consExpr
+  func <- var <|> parens consExpr
   args <- some $ (,) <$> (parens $ list fullExpr) <*> getPosition
   return $ foldl (f start) func args
   where f startpos func (args, pos) =(SourceSpan startpos pos)  :< Apply func args
@@ -68,6 +69,7 @@ lambda :: Parser (Expr SourceSpan)
 lambda = withLoc $ do
   symbol "fn"
   args <- lexeme $ parens . list $ pattern
+  symbol "="
   body <- body
   return $ Lambda args body
 
