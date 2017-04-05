@@ -1,11 +1,13 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveFunctor #-}
 module Ill.Inference.Type where
-import Control.Lens
-import Control.Monad
+import           Control.Lens
+import           Control.Monad
+import           Control.Monad.State
 
 -- import qualified Ill.Syntax as Syntax (Name)
 
-import Data.List (union, nub, intersect)
-import Data.Maybe (fromMaybe)
+import           Data.List     (intersect, nub, union)
+import           Data.Maybe    (fromMaybe)
 
 type Id = String
 
@@ -66,12 +68,12 @@ merge s1 s2 = if agree then return (s1 ++ s2) else fail "substitution merge fail
 
 instance Types Type where
   apply subst fv@(TVar tyvar) = fromMaybe fv (lookup tyvar subst)
-  apply subst (TAp t1 t2) = TAp (apply subst t1) (apply subst t2)
-  apply _ a = a
+  apply subst (TAp t1 t2)     = TAp (apply subst t1) (apply subst t2)
+  apply _ a                   = a
 
-  free (TVar a) = [a]
+  free (TVar a)    = [a]
   free (TAp t1 t2) = free t1 `union` free t2
-  free _ = []
+  free _           = []
 
 mgu :: Monad m => Type -> Type -> m Substitution
 mgu (TAp l r) (TAp l' r') = do
@@ -125,46 +127,45 @@ find                 :: Monad m => Id -> [Assump] -> m Scheme
 find i []             = fail ("unbound identifier: " ++ i)
 find i ((i':>:sc):as) = if i==i' then return sc else find i as
 
+data UnificationState = UnificationState
+  { substitution :: Substitution
+  , nextVar :: Int
+  } deriving Show
 
-newtype TI a = TI (Substitution -> Int -> (Substitution, Int, a))
+newtype TI a = TI { unTI :: State UnificationState a }
+  deriving (Functor, Applicative, Monad, MonadState UnificationState)
 
-instance Functor TI where
-  fmap = liftM
+initialState = UnificationState nullSubst 0
 
-instance Applicative TI where
-  pure x = TI (\s n -> (s,n,x))
-  (<*>) = ap
+runTI :: TI a -> a
+runTI v = x where (x, state) = runState (unTI v) initialState
 
-instance Monad TI where
-  return   = pure
-  TI f >>= g = TI (\s n -> case f s n of
-                            (s',m,x) -> let TI gx = g x
-                                        in  gx s' m)
+getSubst :: TI Substitution
+getSubst = gets substitution
 
-runTI       :: TI a -> a
-runTI (TI f) = x where (s,n,x) = f nullSubst 0
+unify :: Type -> Type -> TI ()
+unify t1 t2 = do
+  s <- getSubst
+  u <- mgu (apply s t1) (apply s t2)
+  extSubst u
 
-getSubst   :: TI Substitution
-getSubst    = TI (\s n -> (s,n,s))
+extSubst :: Substitution -> TI ()
+extSubst s' = modify (\s -> s { substitution = s' @@ (substitution s)})
 
-unify      :: Type -> Type -> TI ()
-unify t1 t2 = do s <- getSubst
-                 u <- mgu (apply s t1) (apply s t2)
-                 extSubst u
-
-extSubst   :: Substitution -> TI ()
-extSubst s' = TI (\s n -> (s'@@s, n, ()))
-
-enumId  :: Int -> Id
+enumId :: Int -> Id
 enumId n = "v" ++ show n
 
-newTVar    :: Kind -> TI Type
-newTVar k   = TI (\s n -> let v = Tyvar (enumId n) k
-                          in  (s, n+1, TVar v))
+newTVar :: Kind -> TI Type
+newTVar k = do
+  var <- gets nextVar
+  let v = TVar $ Tyvar (enumId var) k
+  modify (\s -> s { nextVar = succ (nextVar s)})
+  return v
 
-freshInst               :: Scheme -> TI (Qual Type)
-freshInst (Forall ks qt) = do ts <- mapM newTVar ks
-                              return (inst ts qt)
+freshInst :: Scheme -> TI (Qual Type)
+freshInst (Forall ks qt) = do
+  ts <- mapM newTVar ks
+  return (inst ts qt)
 
 class Instantiate t where
   inst  :: [Type] -> t -> t
@@ -202,3 +203,4 @@ tUnit    = TCon (Tycon "()" Star)
 tList    = TCon (Tycon "[]" (KFun Star Star))
 tArrow   = TCon (Tycon "(->)" (KFun Star (KFun Star Star)))
 tTuple2  = TCon (Tycon "(,)" (KFun Star (KFun Star Star)))
+

@@ -79,6 +79,14 @@ tiExpr ce as (_ :< Lambda pats body) = do
 
   let fTy = foldr1 fn pTy
   return $ (pPred ++ ePred, fTy `fn` tBody)
+-- tiExpr ce as (_ :< Assign vars vals) = do
+--   tes <- mapM (tiExpr ce as) es
+
+--   let zipped = zip vars tes
+--       bleh = for zipped $ \(name, (preds, ty)) ->
+--     name :>: Forall [] (preds :=> ty)
+
+
 
 tiAlt :: Infer ([Pattern], Expr a) Type
 tiAlt ce as (pats, body) = do

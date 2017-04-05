@@ -58,7 +58,6 @@ fuckComonads (TraitImpl a b) = TraitImpl a b
 dropAnn :: Decl a -> Decl ()
 dropAnn = hoistCofree (fuckComonads) . (extend $ const ())
 
-
 data Masks
   = Hiding [Name]
   | Only  [Name]

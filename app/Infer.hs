@@ -10,6 +10,8 @@ import Ill.Syntax.Pretty (renderIll, defaultRenderArgs, pretty)
 
 import Text.Megaparsec
 
+import Control.Monad.State (runState)
+
 parseFromIO p = runParser p "io" <$> T.getLine
 
 infer :: IO ()
@@ -33,6 +35,6 @@ infer' = do
       putStrLn $ renderIll defaultRenderArgs (pretty (ty2sTy r))
 
 getType :: Types a => TI a -> a
-getType (TI f) = let (s, _, x) = f nullSubst 0 in apply s x
+getType (TI f) = let (x, s) = runState f initialState in apply (substitution s) x
 
-rTI (TI f) = f nullSubst 0
+rTI (TI f) = runState f initialState
