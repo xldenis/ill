@@ -11,6 +11,7 @@ import Text.Megaparsec.Expr
 
 import Control.Comonad.Cofree
 import Control.Comonad
+import Control.Monad (when)
 
 expression :: Parser (Expr SourceSpan)
 expression = body <|> nonBodyExpr
@@ -37,10 +38,10 @@ assign = withLoc $ do
   names <- try $ do
     list identifier <* symbol "="
   values <- list fullExpr
-  if (length names) /= (length values) then
-    fail "Invalid assignment: length mismatch."
-  else
-    return $ Assign names values
+
+  when (length names /= length values) $ fail "Invalid assignment: length mismatch."
+
+  Assign names values <$> (scn *> body)
 
 call :: Parser (Expr SourceSpan)
 call = try $ do
@@ -57,13 +58,13 @@ caseE = withLoc $ do
   symbol "of"
   scn
   matchers <- some $ do
-    pat <- pattern
+    pat <- try pattern
     symbol "->"
     expr <- expression
     scn
     return (pat, expr)
   symbol "end"
-  return $ Case expr matchers
+  return $ Case expr [] -- matchers
 
 lambda :: Parser (Expr SourceSpan)
 lambda = withLoc $ do

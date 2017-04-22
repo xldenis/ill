@@ -17,7 +17,7 @@ import Text.Megaparsec (runParser)
 import Data.Text (pack, unpack)
 
 import Ill.Syntax.Pretty (renderIll, defaultRenderArgs, pretty)
-import Ill.Syntax (Module(..), h)
+import Ill.Syntax (Module(..), dropAnn)
 
 import Control.Comonad (extend)
 

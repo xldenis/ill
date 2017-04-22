@@ -1,0 +1,3 @@
+case x of
+  a -> 1
+end

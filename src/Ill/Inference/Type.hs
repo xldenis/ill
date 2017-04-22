@@ -1,13 +1,14 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveFunctor #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ill.Inference.Type where
 import           Control.Lens
-import           Control.Monad
+-- import           Control.Monad
 import           Control.Monad.State
 
 -- import qualified Ill.Syntax as Syntax (Name)
 
-import           Data.List     (intersect, nub, union)
-import           Data.Maybe    (fromMaybe)
+import           Data.List           (intersect, nub, union)
+import           Data.Maybe          (fromMaybe)
 
 type Id = String
 
@@ -38,8 +39,8 @@ instance HasKind Tycon where
 
 instance HasKind Type where
   kind (TVar t) = kind t
-  kind (TAp l r) = case kind l of -- l :: k -> k', r :: k => l (r) :: k'
-    (KFun k k') -> k'
+  kind (TAp l _) = case kind l of -- l :: k -> k', r :: k => l (r) :: k'
+    (KFun _ k') -> k'
   kind (TCon c) = kind c
 
 type Substitution = [(Tyvar, Type)]
@@ -52,10 +53,11 @@ class Types a where
   free  :: a -> [Tyvar]
 
 instance Types a => Types [a] where
-  apply s ts = map (apply s) ts
+  apply s = map (apply s)
   free = nub . concatMap free
 
 infixr 4 @@
+(@@) :: Substitution -> Substitution -> Substitution
 (@@) = compose
 
 compose :: Substitution -> Substitution -> Substitution
@@ -83,7 +85,13 @@ mgu (TAp l r) (TAp l' r') = do
 mgu (TVar v) t = bindVar v t
 mgu t (TVar v) = bindVar v t
 mgu (TCon c1) (TCon c2) | c1 == c2 = return []
-mgu a b = fail $ "can't find most general unifer: " ++ (show a) ++ "///" ++ (show b)
+mgu a b = fail $ "can't find most general unifer: " ++ (prettyType a) ++ "///" ++ (prettyType b)
+
+prettyType :: Type -> String
+prettyType (TVar (Tyvar i _)) = i
+prettyType (TAp (TCon (Tycon "(->)" _)) b) = prettyType b ++ " ->"
+prettyType (TAp a b) = prettyType a ++ " " ++ prettyType b
+prettyType (TCon (Tycon i _)) = i
 
 bindVar :: Monad m => Tyvar -> Type -> m Substitution
 bindVar v t | t == TVar v       = return []
@@ -106,7 +114,7 @@ data Scheme = Forall [Kind] (Qual Type)
 
 instance Types Scheme where
   apply s (Forall ks qt) = Forall ks (apply s qt)
-  free (Forall ks qt)      = free qt
+  free (Forall _ qt)     = free qt
 
 quantify      :: [Tyvar] -> Qual Type -> Scheme
 quantify vs qt = Forall ks (apply s qt)
@@ -121,7 +129,7 @@ data Assump = Id :>: Scheme deriving (Show, Eq)
 
 instance Types Assump where
   apply s (i :>: sc) = i :>: apply s sc
-  free (i :>: sc)      = free sc
+  free (_ :>: sc)      = free sc
 
 find                 :: Monad m => Id -> [Assump] -> m Scheme
 find i []             = fail ("unbound identifier: " ++ i)
@@ -129,7 +137,7 @@ find i ((i':>:sc):as) = if i==i' then return sc else find i as
 
 data UnificationState = UnificationState
   { substitution :: Substitution
-  , nextVar :: Int
+  , nextVar      :: Int
   } deriving Show
 
 newtype TI a = TI { unTI :: State UnificationState a }
@@ -150,15 +158,15 @@ unify t1 t2 = do
   extSubst u
 
 extSubst :: Substitution -> TI ()
-extSubst s' = modify (\s -> s { substitution = s' @@ (substitution s)})
+extSubst s' = modify (\s -> s { substitution = s' @@ substitution s})
 
 enumId :: Int -> Id
 enumId n = "v" ++ show n
 
 newTVar :: Kind -> TI Type
 newTVar k = do
-  var <- gets nextVar
-  let v = TVar $ Tyvar (enumId var) k
+  tVar <- gets nextVar
+  let v = TVar $ Tyvar (enumId tVar) k
   modify (\s -> s { nextVar = succ (nextVar s)})
   return v
 
@@ -172,7 +180,7 @@ class Instantiate t where
 instance Instantiate Type where
   inst ts (TAp l r) = TAp (inst ts l) (inst ts r)
   inst ts (TGen n)  = ts !! n
-  inst ts t         = t
+  inst _  t         = t
 instance Instantiate a => Instantiate [a] where
   inst ts = map (inst ts)
 instance Instantiate t => Instantiate (Qual t) where
@@ -182,7 +190,7 @@ instance Instantiate Pred where
 
 instance Types Pred where
   apply sbst (IsIn n t) = IsIn n $ apply sbst t
-  free (IsIn n t) = free t
+  free (IsIn _ t) = free t
 
 instance Types t => Types (Qual t) where
   apply sbst (p :=> t) = apply sbst p :=> apply sbst t
@@ -190,13 +198,13 @@ instance Types t => Types (Qual t) where
 
 
 fn :: Type -> Type -> Type
-fn a b = TAp (TAp tArrow a) b
+fn a = TAp (TAp tArrow a)
 
 list       :: Type -> Type
 list       = TAp tList
 
 var :: Id -> Type
-var id = TVar (Tyvar id Star)
+var i = TVar (Tyvar i Star)
 
 tUnit    = TCon (Tycon "()" Star)
 
