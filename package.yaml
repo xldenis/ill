@@ -14,19 +14,6 @@ dependencies:
 - text
 library:
   source-dirs: src
-  exposed-modules:
-  - Lib
-  - Ill.Inference.Class
-  - Ill.Inference.Type
-  - Ill.Parser
-  - Ill.Parser.Declaration
-  - Ill.Parser.Expression
-  - Ill.Parser.Lexer
-  - Ill.Parser.Type
-  - Ill.Parser.Pattern
-  - Ill.Syntax
-  - Ill.Syntax.Pretty
-  - Ill.Inference
   dependencies:
   - base >=4.7 && <5
   - free

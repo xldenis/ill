@@ -25,30 +25,24 @@ library
   hs-source-dirs:
       src
   exposed-modules:
-      Lib
-      Ill.Inference.Class
-      Ill.Inference.Type
+      Ill.Desugar
       Ill.Parser
       Ill.Parser.Declaration
       Ill.Parser.Expression
       Ill.Parser.Lexer
-      Ill.Parser.Type
-      Ill.Parser.Pattern
-      Ill.Syntax
-      Ill.Syntax.Pretty
-      Ill.Inference
-  other-modules:
-      Ill.Desugar
-      Ill.Inference.Kind
       Ill.Parser.Module
+      Ill.Parser.Pattern
+      Ill.Parser.Type
+      Ill.Syntax
       Ill.Syntax.Core
       Ill.Syntax.Expression
       Ill.Syntax.Literal
       Ill.Syntax.Pattern
+      Ill.Syntax.Pretty
       Ill.Syntax.Type
       Ill.Syntax.Weeder
+      Lib
       Simple
-      Paths_ill
   build-depends:
       megaparsec
     , text
@@ -64,8 +58,6 @@ executable ill
   hs-source-dirs:
       app
   main-is: Main.hs
-  other-modules:
-      Infer
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       megaparsec

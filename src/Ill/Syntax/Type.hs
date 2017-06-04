@@ -1,12 +1,9 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances  #-}
 module Ill.Syntax.Type
 ( Type(..)
-, ty2sTy
 ) where
 
 import Ill.Syntax.Pretty
-
-import qualified Ill.Inference.Type as T
 
 data Type t
   = TVar t
@@ -32,10 +29,3 @@ complex :: Type t -> Bool
 complex (Constructor _) = False
 complex (Arrow _ _) = True
 complex _ = False
-
-ty2sTy :: T.Type -> Type T.Id
-ty2sTy (T.TVar (T.Tyvar i _)) = TVar i
-ty2sTy (T.TCon (T.Tycon i _)) = Constructor i
-ty2sTy (T.TAp f e) = case ty2sTy f of
-  TAp (Constructor "(->)") a -> Arrow a (ty2sTy e)
-  f' -> TAp f' (ty2sTy e)

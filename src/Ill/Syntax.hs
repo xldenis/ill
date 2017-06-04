@@ -18,10 +18,6 @@ import           Ill.Syntax.Literal as X
 import           Ill.Syntax.Pattern as X
 import           Ill.Syntax.Type as X
 
-import           Ill.Inference.Class
-import qualified Ill.Inference.Type as IT
-import           Ill.Inference.Type hiding (Type)
-
 import           Control.Comonad        (extend)
 import           Control.Lens           (each, over, _2)
 import           Ill.Syntax.Pretty
@@ -89,24 +85,3 @@ instance Pretty (Cofree (Declaration a) a) where
     where constraints c = if null c then empty else hsep (punctuate comma (map pretty c)) <+> text "|"
   pretty (_ :< TraitImpl trt body)  = nest 2 (text "impl" <+> pretty trt `above` vsep (map pretty body)) `above` text "end"
 
-type Alt a = ([Pattern], Expr a)
-
-tiAlt :: Infer (Alt a) IT.Type
-tiAlt ce as (pats, body) = do
-  (pPred, pAssum, pTy) <- tiPats pats
-  (ePred, tBody) <- tiExpr ce (as ++ pAssum) body
-
-  return (pPred ++ ePred, foldr fn tBody pTy)
-
-tiAlts :: ClassEnv -> [Assump] -> [Alt a] -> IT.Type -> TI [Pred]
-tiAlts ce as alts t = do
-  pInf <- mapM (tiAlt ce as) alts
-  mapM_ (unify t . snd) pInf
-  return (concatMap fst pInf)
-
--- tiDecleration ::  ClassEnv -> [Assump] -> Decl a -> TI [Assump]
--- tiDecleration ce as (_ :< Data nm tys) = do
---   let scheme = toScheme (TCon (Tycon nm Star))
---       assumps = map toAssum tys
---   return []
---   where toAssum (Constructor n args) = n :>: (toScheme . ty2sTy $ foldl1 (Arrow) args)
