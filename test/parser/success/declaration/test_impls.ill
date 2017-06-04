@@ -1,0 +1,5 @@
+impl Num a | Monoid a
+  fn mappend (a, b)
+    el
+  end
+end

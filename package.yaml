@@ -1,0 +1,67 @@
+name: ill
+version: '0.1.0.0'
+synopsis: Initial project template from stack
+description: Please see README.md
+category: Language
+author: Xavier Denis
+maintainer: xldenis@gmail.com
+copyright: 2016 Author Here
+license: BSD3
+github: xldenis/ill
+homepage: http://github.com/xldenis/ill#readme
+dependencies:
+- megaparsec
+- text
+library:
+  source-dirs: src
+  exposed-modules:
+  - Lib
+  - Ill.Inference.Class
+  - Ill.Inference.Type
+  - Ill.Parser
+  - Ill.Parser.Declaration
+  - Ill.Parser.Expression
+  - Ill.Parser.Lexer
+  - Ill.Parser.Type
+  - Ill.Parser.Pattern
+  - Ill.Syntax
+  - Ill.Syntax.Pretty
+  - Ill.Inference
+  dependencies:
+  - base >=4.7 && <5
+  - free
+  - comonad
+  - wl-pprint-extras
+  - lens
+  - mtl
+executables:
+  ill:
+    main: Main.hs
+    source-dirs: app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - base
+    - ill
+    - wl-pprint-extras
+    - optparse-generic
+    - mtl
+tests:
+  ill-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - base
+    - hspec
+    - hspec-discover
+    - ill
+    - directory
+    - hspec-megaparsec
+    - filepath
+    - comonad

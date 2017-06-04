@@ -5,3 +5,9 @@ A
 a -> a
 
 A -> A a
+
+A a b c -> Maybe b
+
+A (f g) -> Bool
+
+Fix f a -> Maybe (f a)

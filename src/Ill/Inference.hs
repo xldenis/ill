@@ -9,13 +9,6 @@ import Data.List ((\\), union, intersect, partition)
 
 import qualified Ill.Syntax as ST
 
-typeFromSyntax :: ST.Type Id -> Type
-typeFromSyntax (ST.TVar t) = TVar (Tyvar t Star)
-typeFromSyntax (ST.Arrow a b) = fn (typeFromSyntax a) (typeFromSyntax b)
-typeFromSyntax (ST.Constructor n args) = TCon (Tycon n (kfn $ length args))
-  where kfn 0 = Star
-        kfn n = KFun Star (kfn $ n-1)
-
 type Alt = ([ST.Pattern], ST.Expr ())
 
 tiAlt                :: Infer Alt Type

@@ -13,11 +13,25 @@ typeVar = TVar <$> identifier
 typeExp :: Parser (Type String)
 typeExp =  arrow <|> typePrim <|> parens typeExp
 
+typeAp :: Parser (Type String)
+typeAp = do
+  f <- typeCons <|> typeVar
+  as <- many typeExp
+
+  return $ foldl (TAp) f as
+
+typeCons :: Parser (Type String)
+typeCons = Constructor <$> lexeme capitalized
+
 typeProduct :: Parser (Type String)
-typeProduct =  Constructor <$> lexeme capitalized <*> many typeExp
+typeProduct = do
+  f <- typeCons
+  as <- many typeExp
+
+  return $ foldl (TAp) f as
 
 typePrim :: Parser (Type String)
-typePrim =  typeProduct <|> typeVar
+typePrim =  typeAp <|> typeVar
 
 arrow :: Parser (Type String)
 arrow =  do

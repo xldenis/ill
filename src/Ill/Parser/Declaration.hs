@@ -16,7 +16,9 @@ import Ill.Parser.Expression
 
 
 declaration :: Parser (Decl SourceSpan)
-declaration = dataDeclaration <|> typeSynonymDeclaration <|> importDeclaration <|> valueDeclaration <|> signatureDeclaration <|> traitDeclaration
+declaration =
+  dataDeclaration <|> typeSynonymDeclaration <|> importDeclaration <|>
+  valueDeclaration <|> signatureDeclaration <|> traitDeclaration <|> implDeclaration
 
 -- Need to add type variables!!!
 
@@ -24,6 +26,7 @@ dataDeclaration :: Parser (Decl SourceSpan)
 dataDeclaration = withLoc $ do
   symbol "data"
   name <- upperIdent
+  vars <- many identifier
   symbol "="
   types <- typeProduct `sepBy` (lexeme $ char '|')
   return $ Data name types
@@ -31,10 +34,11 @@ dataDeclaration = withLoc $ do
 typeSynonymDeclaration :: Parser (Decl SourceSpan)
 typeSynonymDeclaration = withLoc $ do
   try $ symbol "type"
-  alias <- typeProduct
+  alias <- upperIdent
+  vars  <- many identifier
   symbol "="
   aliasee <- typeProduct
-  return $ TypeSynonym alias aliasee
+  return $ TypeSynonym alias vars aliasee
 
 traitDeclaration :: Parser (Decl SourceSpan)
 traitDeclaration = withLoc $ do
@@ -43,6 +47,14 @@ traitDeclaration = withLoc $ do
   sep
   body <- manyTill (valueDeclaration <|> signatureDeclaration <* (sep <* scn)) $ symbol "end"
   return $ TraitDecl trt body
+
+implDeclaration :: Parser (Decl SourceSpan)
+implDeclaration = withLoc $ do
+  symbol "impl"
+  trt <- constrainedType
+  sep
+  body <- manyTill (valueDeclaration <* sep <* scn) $ symbol "end"
+  return $ TraitImpl trt body
 
 signatureDeclaration :: Parser (Decl SourceSpan)
 signatureDeclaration = try $ withLoc $ do
