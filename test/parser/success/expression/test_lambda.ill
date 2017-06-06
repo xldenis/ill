@@ -1,0 +1,5 @@
+fn (x) = x + 1 end
+
+fn (y, x) =
+  y + x
+end

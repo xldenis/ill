@@ -12,7 +12,10 @@ data Type t
   | Arrow (Type t) (Type t)
   | Trait t (Type t)
   | Constraint [Type t] (Type t)
+  -- | Constraint [Constraint t]
   deriving (Eq, Show)
+
+-- type Constraint t = (t, [Type])
 
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var

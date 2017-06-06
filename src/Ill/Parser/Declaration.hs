@@ -80,7 +80,7 @@ valueDeclaration = withLoc $ do
                   scn
                   body <- body
                   scn
-                  return (args, [body])
+                  return (args, body)
 
 importDeclaration :: Parser (Decl SourceSpan)
 importDeclaration = withLoc $ do

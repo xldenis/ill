@@ -9,12 +9,12 @@ import           Ill.Syntax.Pretty
 import           Ill.Syntax.Literal
 import           Ill.Syntax.Pattern
 
-type Patterns = Pattern
+type Patterns = [Pattern]
 
 data Expression a
   = Apply a [a]
   | BinOp a a a
-  | Assign [String] [a] a
+  | Assign [String] [a]
   | Case a [(Patterns, a)]
   | If a a a
   | Lambda [Pattern] a
@@ -31,8 +31,7 @@ instance Pretty (Cofree Expression a) where
   pretty (_ :< f) = pretty' f where
     pretty' (Apply func args) = pretty func <> tupled (map pretty args)
     pretty' (BinOp op l r) = pretty l <+> pretty op <+> pretty r
-    pretty' (Assign idents exprs body) = cat (punctuate comma (map text idents)) <+> char '=' <+> cat (punctuate comma (map pretty exprs))
-      `above` pretty body
+    pretty' (Assign idents exprs) = cat (punctuate comma (map text idents)) <+> char '=' <+> cat (punctuate comma (map pretty exprs))
     pretty' (Case cond branches) = text "case" <+> pretty cond <+> text "of" `above` vsep (map prettyBranch branches)
       where prettyBranch (pat, branch) = pretty pat <+> text "->" <+> pretty branch
     pretty' (If cond left right) =

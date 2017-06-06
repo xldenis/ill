@@ -12,15 +12,18 @@ homepage: http://github.com/xldenis/ill#readme
 dependencies:
 - megaparsec
 - text
+- base >=4.7 && <5
 library:
   source-dirs: src
   dependencies:
-  - base >=4.7 && <5
   - free
   - comonad
   - wl-pprint-extras
   - lens
   - mtl
+  - unordered-containers
+  - containers
+  default-extensions: FlexibleContexts
 executables:
   ill:
     main: Main.hs
@@ -30,7 +33,6 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - base
     - ill
     - wl-pprint-extras
     - optparse-generic
@@ -44,7 +46,6 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - base
     - hspec
     - hspec-discover
     - ill

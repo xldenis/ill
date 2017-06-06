@@ -41,7 +41,7 @@ assign = withLoc $ do
 
   when (length names /= length values) $ fail "Invalid assignment: length mismatch."
 
-  Assign names values <$> (scn *> body)
+  return $ Assign names values
 
 call :: Parser (Expr SourceSpan)
 call = try $ do
@@ -70,8 +70,9 @@ lambda :: Parser (Expr SourceSpan)
 lambda = withLoc $ do
   symbol "fn"
   args <- lexeme $ parens . list $ pattern
-  symbol "="
+  symbol "=" <* scn
   body <- body
+  symbol "end"
   return $ Lambda args body
 
 ifE :: Parser (Expr SourceSpan)

@@ -2,6 +2,7 @@ flags: {}
 extra-package-dbs: []
 packages:
 - '.'
-# extra-deps: ['optparse-generic-1.0.0']
+extra-deps:
 extra-deps:
 resolver: lts-8.3
+

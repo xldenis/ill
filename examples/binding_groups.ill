@@ -1,0 +1,33 @@
+module BindingGroups
+
+  data A = A B
+  data B = B A
+
+  data C = C Int
+
+  fn x()
+    z
+  end
+
+  fn y()
+    1
+  or y()
+    2
+  end
+
+  fn z()
+    a
+  end
+
+  fn a()
+    5
+  end
+
+  fn b()
+    c
+  end
+
+  fn c()
+    b
+  end
+end
