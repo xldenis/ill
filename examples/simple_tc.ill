@@ -1,0 +1,6 @@
+module SimpleTC
+  fn a (x)
+    1
+  end
+
+end

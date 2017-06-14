@@ -84,7 +84,7 @@ defaultUnifyState :: (Partial t) => UnifyState t
 defaultUnifyState = UnifyState 0 mempty
 
 class UnificationError t e where
-  occurscheckFailed :: t -> e
+  occursCheckFailed :: t -> e
 
 -- |
 -- The type checking monad, which provides the state of the type checker, and error reporting capabilities
@@ -133,7 +133,7 @@ substituteOne u t = Substitution $ M.singleton u t
 occursCheck :: (UnificationError t e, Monad m, MonadError e m, Partial t) => Unknown -> t -> UnifyT t m ()
 occursCheck u t =
   case isUnknown t of
-    Nothing -> when (u `elem` unknowns t) $ UnifyT . lift . throwError $ occurscheckFailed t
+    Nothing -> when (u `elem` unknowns t) $ UnifyT . lift . throwError $ occursCheckFailed t
     _ -> return ()
 
 -- |

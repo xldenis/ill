@@ -4,6 +4,7 @@ module Ill.Syntax.Type
 ) where
 
 import Ill.Syntax.Pretty
+import Control.Monad.Unify (Unknown)
 
 data Type t
   = TVar t
@@ -13,6 +14,7 @@ data Type t
   | Trait t (Type t)
   | Constraint [Type t] (Type t)
   -- | Constraint [Constraint t]
+  | TUnknown Unknown
   deriving (Eq, Show)
 
 -- type Constraint t = (t, [Type])
@@ -20,8 +22,8 @@ data Type t
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
   pretty (TAp f a) = parens $ go f <+> pretty a
-    where go (TAp f' a') = go f' <+> pretty a
-          go a           = pretty a
+    where go (TAp f' a') = go f' <+> pretty a'
+          go a'          = pretty a'
   pretty (Constructor cons) = text cons
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> text "->" <+> parensIf (complex to) (pretty to)
   pretty (Trait nm tp) = text nm <+> pretty tp

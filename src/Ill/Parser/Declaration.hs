@@ -62,7 +62,7 @@ signatureDeclaration = try $ withLoc $ do
   symbol "::"
   Signature ident <$> constrainedType
 
--- | TODO: Argument pattern matching?
+-- TODO: Argument pattern matching?
 valueDeclaration :: Parser (Decl SourceSpan)
 valueDeclaration = withLoc $ do
   symbol "fn"

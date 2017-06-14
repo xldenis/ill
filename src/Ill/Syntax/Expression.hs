@@ -1,9 +1,7 @@
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Ill.Syntax.Expression where
-import           Control.Comonad
 import           Control.Comonad.Cofree
-import Data.Traversable (forM)
 import           Ill.Syntax.Pretty
 
 import           Ill.Syntax.Literal

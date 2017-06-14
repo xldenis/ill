@@ -9,6 +9,7 @@
 module Ill.Syntax
 ( module X
 , module Ill.Syntax
+, Cofree(..)
 ) where
 import           Control.Comonad.Cofree
 import           Control.Lens.TH
@@ -53,7 +54,7 @@ isDataDecl (_ :< Data _ _) = True
 isDataDecl _ = False
 
 fuckComonads :: Declaration a b -> Declaration () b
-fuckComonads (Value n es) = Value n $ over (each . _2  ) (extend $ const ()) es
+fuckComonads (Value n es) = Value n $ over (each . _2) (extend $ const ()) es
 fuckComonads (Data a b) = Data a b
 fuckComonads (TypeSynonym a vs b) = TypeSynonym a vs b
 fuckComonads (Signature a b) = Signature a b
@@ -76,7 +77,7 @@ instance Pretty (Module a) where
   pretty (Module name decls) = nest 2 (text "module" <+> text name `aboveBreak` vsep (map pretty decls)) `aboveBreak` text "end"
 
 instance Pretty (Cofree (Declaration a) a) where
-  pretty (_ :< Data name sum) = text "data" <+> text name <+> char '=' <+> alternative (map pretty sum)
+  pretty (_ :< Data name cons) = text "data" <+> text name <+> char '=' <+> alternative (map pretty cons)
     where alternative = encloseSep empty empty (char '|')
   pretty (_ :< TypeSynonym alias vars target) = text "type" <+> pretty alias <+> pretty vars <+> text "=" <+> pretty target
   pretty (_ :< Value name cases) = text "fn" <+> text name <+> branch (head cases) `aboveBreak` vsep (map (\c -> text "or" <+> text name <+> branch c) $ tail cases) `aboveBreak` text "end"
@@ -84,12 +85,12 @@ instance Pretty (Cofree (Declaration a) a) where
   pretty (_ :< Signature func tp) = text func <+> text "::" <+> pretty tp
   pretty (_ :< Import qual msk name alias) = text "import" <-> when (const $ text "qualified") qual empty
     <-> text name <-> prettyJust alias <-> prettyMask msk
-      where prettyJust (Just alias) = text "as" <+> text alias
+      where prettyJust (Just alias') = text "as" <+> text alias'
             prettyJust  Nothing     = empty
             prettyMask (Hiding nms) = text "hiding" <+> tupled (map pretty nms)
             prettyMask (Only   nms) = tupled $ map pretty nms
             prettyMask _            = empty
   pretty (_ :< TraitDecl trt body)  = nest 2 (text "trait" <+> pretty trt `above` vsep (map pretty body)) `above` text "end"
-    where constraints c = if null c then empty else hsep (punctuate comma (map pretty c)) <+> text "|"
+    -- where constraints c = if null c then empty else hsep (punctuate comma (map pretty c)) <+> text "|"
   pretty (_ :< TraitImpl trt body)  = nest 2 (text "impl" <+> pretty trt `above` vsep (map pretty body)) `above` text "end"
 
