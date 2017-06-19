@@ -22,7 +22,7 @@ data BindingGroup a
   deriving (Show, Eq)
 
 bgNames (ValueBG ds) = map (\(_ :< (Value n _)) -> n) ds
-bgNames (DataBG  ds) = map (\(_ :< (Data n _)) -> n) ds
+bgNames (DataBG  ds) = map (\(_ :< (Data n _ _)) -> n) ds
 bgNames (OtherBG d) = []
 
 bindingGroups :: [Decl a] -> [BindingGroup a]
@@ -48,17 +48,17 @@ dataBindingGroups ds = let
   graphList = map graphNode dataDecls
   graphNode v = (v, dataName v, dataUsedNames v `intersect` allDataDecls)
   in map (DataBG . sccToDecl) (stronglyConnComp graphList)
-  where dataName (_ :< Data n _) = n
+  where dataName (_ :< Data n _ _) = n
 
 dataUsedNames :: Decl a -> [Ident]
-dataUsedNames (_ :< Data n cons) = n : (cons >>= typeUsedName)
+dataUsedNames (_ :< Data n _ cons) = n : (cons >>= typeUsedName)
 
 typeUsedName :: Type Ident -> [Ident]
-typeUsedName (TVar _)        = []
-typeUsedName (TAp l r)       = typeUsedName l ++ typeUsedName r
-typeUsedName (Constructor t) = [t]
-typeUsedName (Arrow l r)     = typeUsedName l ++ typeUsedName r
-typeUsedName _               = [] -- incorrect handling of constaints for now
+typeUsedName (TVar _)         = []
+typeUsedName (TAp l r)        = typeUsedName l ++ typeUsedName r
+typeUsedName (TConstructor t) = [t]
+typeUsedName (Arrow l r)      = typeUsedName l ++ typeUsedName r
+typeUsedName _                = [] -- incorrect handling of constaints for now
 
 -- todo intersect w names from module
 valueBindingGroups :: [Decl a] -> [BindingGroup a]

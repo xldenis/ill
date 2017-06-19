@@ -27,11 +27,11 @@ consExpr :: Parser (Expr SourceSpan)
 consExpr = caseE <|> lambda <|> ifE
 
 simpleExpr :: Parser (Expr SourceSpan)
-simpleExpr = (try $ doubleLit) <|> integerLit <|> rawString <|> var
+simpleExpr = (try $ doubleLit) <|> integerLit <|> rawString <|> var <|> constructor
 
 body :: Parser (Expr SourceSpan) -- need backtracking?
 body = withLoc $ do
-  Body <$> some (nonBodyExpr <* scn)
+  Body <$> some (nonBodyExpr <* sep <* scn)
 
 assign :: Parser (Expr SourceSpan)
 assign = withLoc $ do
@@ -46,7 +46,7 @@ assign = withLoc $ do
 call :: Parser (Expr SourceSpan)
 call = try $ do
   start <- getPosition
-  func <- var <|> parens consExpr
+  func <- var <|> constructor <|> parens consExpr
   args <- some $ (,) <$> (parens $ list fullExpr) <*> getPosition
   return $ foldl (f start) func args
   where f startpos func (args, pos) =(SourceSpan startpos pos)  :< Apply func args
@@ -99,6 +99,9 @@ rawString = withLoc (Literal . RawString <$> str)
 
 var :: Parser (Expr SourceSpan)
 var = try $ withLoc (Var <$> identifier)
+
+constructor :: Parser (Expr SourceSpan)
+constructor = withLoc (Constructor <$> capitalized)
 
 opTable :: [[Operator Parser (Expr SourceSpan)]]
 opTable = [ [ binary "*"

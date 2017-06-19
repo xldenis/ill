@@ -2,33 +2,45 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import Infer
 import Ill.Parser
 import Ill.Syntax.Pretty (renderIll, defaultRenderArgs)
 
 import Text.Megaparsec
 import Text.PrettyPrint.Free
 
+import Ill.Syntax (Module)
+import Ill.Parser.Lexer (SourceSpan)
+
 import Options.Generic
 
 import qualified Data.Text.IO as T (readFile)
 
 data Config
-  = Build
+  = Build String
   | Format String
-  | Infer
+  | Infer String
   deriving (Generic, Show)
 
 instance ParseRecord Config
+
+file (Build f) = f
+file (Format f) = f
+file (Infer f) = f
 
 parseFromFile p file = runParser p file <$> T.readFile file
 
 main :: IO ()
 main = do
   config <- getRecord "Ill Compiler" :: IO Config
-  case config of
-    Build -> putStrLn "build"
-    Format file -> do
-      res <- parseFromFile illParser file
-      case res of
-        Right ast -> putStrLn $ renderIll defaultRenderArgs (pretty ast)
-        Left err -> putStrLn $ parseErrorPretty err
+  parsed <- parseFromFile illParser (file config)
+  case parsed of
+    Left err -> putStrLn $ parseErrorPretty err
+    Right ast -> handleCommands config ast
+
+handleCommands :: Config -> Module SourceSpan -> IO ()
+handleCommands (Build f)  ast = putStrLn "build"
+handleCommands (Format f) ast = putStrLn $ renderIll defaultRenderArgs (pretty ast)
+handleCommands (Infer f)  ast = infer ast
+
+

@@ -17,6 +17,7 @@ data Expression a
   | If a a a
   | Lambda [Pattern] a
   | Var String
+  | Constructor String
   | Literal Literal
   | Body [a]
   -- | Hash [(a, a)]

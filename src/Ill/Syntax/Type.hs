@@ -9,7 +9,7 @@ import Control.Monad.Unify (Unknown)
 data Type t
   = TVar t
   | TAp (Type t) (Type t)
-  | Constructor t
+  | TConstructor t
   | Arrow (Type t) (Type t)
   | Trait t (Type t)
   | Constraint [Type t] (Type t)
@@ -24,13 +24,14 @@ instance Pretty (Type String) where
   pretty (TAp f a) = parens $ go f <+> pretty a
     where go (TAp f' a') = go f' <+> pretty a'
           go a'          = pretty a'
-  pretty (Constructor cons) = text cons
+  pretty (TConstructor cons) = text cons
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> text "->" <+> parensIf (complex to) (pretty to)
   pretty (Trait nm tp) = text nm <+> pretty tp
   pretty (Constraint trts tp) = alternative (map pretty trts) <+> pretty tp
     where alternative = encloseSep empty (empty <+> char '|') (char ',')
+  pretty (TUnknown u) = text "unknown" <+> text (show u)
 
 complex :: Type t -> Bool
-complex (Constructor _) = False
+complex (TConstructor _) = False
 complex (Arrow _ _) = True
 complex _ = False

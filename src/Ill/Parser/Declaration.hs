@@ -28,8 +28,8 @@ dataDeclaration = withLoc $ do
   name <- upperIdent
   vars <- many identifier
   symbol "="
-  types <- typeProduct `sepBy` (lexeme $ char '|')
-  return $ Data name types
+  types <- typeProduct `sepBy1` (lexeme $ char '|')
+  return $ Data name vars types
 
 typeSynonymDeclaration :: Parser (Decl SourceSpan)
 typeSynonymDeclaration = withLoc $ do

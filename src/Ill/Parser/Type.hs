@@ -21,14 +21,14 @@ typeAp = do
   return $ foldl (TAp) f as
 
 typeCons :: Parser (Type String)
-typeCons = Constructor <$> lexeme capitalized
+typeCons = TConstructor <$> lexeme capitalized
 
 typeProduct :: Parser (Type String)
 typeProduct = do
   f <- typeCons
-  as <- many typeExp
+  as <- many (typeVar <|> parens typeExp)
 
-  return $ foldl (TAp) f as
+  return $ foldl TAp f as
 
 typePrim :: Parser (Type String)
 typePrim =  typeAp <|> typeVar

@@ -21,7 +21,7 @@ symbol = L.symbol sc
 
 identifier :: Parser String
 identifier = p >>= res
-  where p = label "identifier" . lexeme $ ((:) <$> letterChar <*> many alphaNumChar)
+  where p = label "identifier" . lexeme $ ((:) <$> lowerChar <*> many alphaNumChar)
         res i = if i `elem` reserved then
             fail $ "The reserved word `" ++ i ++ "` cannot be used as an identifier."
           else

@@ -1,6 +1,36 @@
 module SimpleTC
+  # data A = A
+
+  # data B a = A | B
+
+  data Bool = True | False
+
+  data Maybe a = Just a | Nothing
+
+  data List a = Cons a (List a)| Nil
+
+  # divide :: Int -> Int -> Maybe Int
+  # fn divide (top, denom)
+  #   if denom == 0 then
+  #     Nothing
+  #   else
+  #     top / denom
+  #   end
+  # end
+
   fn a (x)
-    1
+    Just(1)
   end
 
+  fn b (x)
+    'a'
+  end
+
+  fn d (x)
+    d + 2
+  end
+
+  fn list(x)
+    Cons(1, Cons(2, Nil))
+  end
 end

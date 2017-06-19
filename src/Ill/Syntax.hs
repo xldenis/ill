@@ -18,6 +18,7 @@ import           Ill.Syntax.Expression as X
 import           Ill.Syntax.Literal as X
 import           Ill.Syntax.Pattern as X
 import           Ill.Syntax.Type as X
+import           Ill.Syntax.Kind as X
 
 import           Control.Comonad        (extend)
 import           Control.Lens           (each, over, _2)
@@ -34,7 +35,7 @@ type Alias = Maybe String
 data Module a = Module Name [Decl a] deriving (Eq, Show)
 
 data Declaration a b
-  = Data Name [Type Name]
+  = Data Name [Name] [Type Name]
   | TypeSynonym Name [Name] (Type Name)
   | Value Name [([Pattern], Expr a)]
   | Signature Name (Type Name)
@@ -50,20 +51,22 @@ isValue (_ :< Value _ _) = True
 isValue _ = False
 
 isDataDecl :: Decl a -> Bool
-isDataDecl (_ :< Data _ _) = True
+isDataDecl (_ :< Data _ _ _) = True
 isDataDecl _ = False
 
-fuckComonads :: Declaration a b -> Declaration () b
-fuckComonads (Value n es) = Value n $ over (each . _2) (extend $ const ()) es
-fuckComonads (Data a b) = Data a b
-fuckComonads (TypeSynonym a vs b) = TypeSynonym a vs b
-fuckComonads (Signature a b) = Signature a b
-fuckComonads (Import q m s a) =  Import q m s a
-fuckComonads (TraitDecl a b) = TraitDecl a b
-fuckComonads (TraitImpl a b) = TraitImpl a b
+nestedFmap :: (a -> b) -> Decl a -> Decl b
+nestedFmap f v = hoistCofree (go f) $ fmap f v
+  where
+  go f (Value n es) = Value n $ over (each . _2) (fmap f) es
+  go f (Data a v b) = Data a v b
+  go f (TypeSynonym a vs b) = TypeSynonym a vs b
+  go f (Signature a b) = Signature a b
+  go f (Import q m s a) =  Import q m s a
+  go f (TraitDecl a b) = TraitDecl a b
+  go f (TraitImpl a b) = TraitImpl a b
 
 dropAnn :: Decl a -> Decl ()
-dropAnn = hoistCofree fuckComonads . extend (const ())
+dropAnn = nestedFmap (const ())
 
 data Masks
   = Hiding [Name]
@@ -77,7 +80,7 @@ instance Pretty (Module a) where
   pretty (Module name decls) = nest 2 (text "module" <+> text name `aboveBreak` vsep (map pretty decls)) `aboveBreak` text "end"
 
 instance Pretty (Cofree (Declaration a) a) where
-  pretty (_ :< Data name cons) = text "data" <+> text name <+> char '=' <+> alternative (map pretty cons)
+  pretty (_ :< Data name vars cons) = text "data" <+> text name <+> pretty vars <+> char '=' <+> alternative (map pretty cons)
     where alternative = encloseSep empty empty (char '|')
   pretty (_ :< TypeSynonym alias vars target) = text "type" <+> pretty alias <+> pretty vars <+> text "=" <+> pretty target
   pretty (_ :< Value name cases) = text "fn" <+> text name <+> branch (head cases) `aboveBreak` vsep (map (\c -> text "or" <+> text name <+> branch c) $ tail cases) `aboveBreak` text "end"

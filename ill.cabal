@@ -2,20 +2,20 @@
 --
 -- see: https://github.com/sol/hpack
 
-name:                ill
-version:             0.1.0.0
-synopsis:            Initial project template from stack
-description:         Please see README.md
-homepage:            http://github.com/xldenis/ill#readme
-bug-reports:         https://github.com/xldenis/ill/issues
-license:             BSD3
-license-file:        LICENSE
-author:              Xavier Denis
-maintainer:          xldenis@gmail.com
-copyright:           2016 Author Here
-category:            Language
-build-type:          Simple
-cabal-version:       >= 1.10
+name:           ill
+version:        0.1.0.0
+synopsis:       Initial project template from stack
+description:    Please see README.md
+category:       Language
+homepage:       http://github.com/xldenis/ill#readme
+bug-reports:    https://github.com/xldenis/ill/issues
+author:         Xavier Denis
+maintainer:     xldenis@gmail.com
+copyright:      2016 Author Here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
 
 source-repository head
   type: git
@@ -25,28 +25,6 @@ library
   hs-source-dirs:
       src
   default-extensions: FlexibleContexts
-  exposed-modules:
-      Control.Monad.Unify
-      Ill.Desugar
-      Ill.Infer
-      Ill.Infer.Monad
-      Ill.Parser
-      Ill.Parser.Declaration
-      Ill.Parser.Expression
-      Ill.Parser.Lexer
-      Ill.Parser.Module
-      Ill.Parser.Pattern
-      Ill.Parser.Type
-      Ill.Syntax
-      Ill.Syntax.Core
-      Ill.Syntax.Expression
-      Ill.Syntax.Literal
-      Ill.Syntax.Pattern
-      Ill.Syntax.Pretty
-      Ill.Syntax.Type
-      Ill.Syntax.Weeder
-      Lib
-      Simple
   build-depends:
       megaparsec
     , text
@@ -58,12 +36,36 @@ library
     , mtl
     , unordered-containers
     , containers
+  exposed-modules:
+      Control.Monad.Unify
+      Ill.Desugar
+      Ill.Infer
+      Ill.Infer.Kind
+      Ill.Infer.Monad
+      Ill.Parser
+      Ill.Parser.Declaration
+      Ill.Parser.Expression
+      Ill.Parser.Lexer
+      Ill.Parser.Module
+      Ill.Parser.Pattern
+      Ill.Parser.Type
+      Ill.Syntax
+      Ill.Syntax.Core
+      Ill.Syntax.Expression
+      Ill.Syntax.Kind
+      Ill.Syntax.Literal
+      Ill.Syntax.Pattern
+      Ill.Syntax.Pretty
+      Ill.Syntax.Type
+      Ill.Syntax.Weeder
+      Lib
+      Simple
   default-language: Haskell2010
 
 executable ill
+  main-is: Main.hs
   hs-source-dirs:
       app
-  main-is: Main.hs
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       megaparsec
@@ -73,13 +75,16 @@ executable ill
     , wl-pprint-extras
     , optparse-generic
     , mtl
+  other-modules:
+      Infer
   default-language: Haskell2010
 
 test-suite ill-test
   type: exitcode-stdio-1.0
+  main-is: Spec.hs
   hs-source-dirs:
       test
-  main-is: Spec.hs
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       megaparsec
     , text
@@ -97,5 +102,4 @@ test-suite ill-test
       Ill.Parser.TypeSpec
       Ill.ParserSpec
       SpecHelper
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   default-language: Haskell2010
