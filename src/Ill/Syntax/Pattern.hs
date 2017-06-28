@@ -15,3 +15,8 @@ instance Pretty Pattern where
           complex _ = False
   pretty Wildcard = text "_"
   pretty (PVar x) = text x
+
+patternNames :: Pattern -> [String]
+patternNames (PVar n) = [n]
+patternNames (Destructor _ pats) = concatMap patternNames pats
+patternNames Wildcard = []

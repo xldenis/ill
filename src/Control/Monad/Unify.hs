@@ -56,6 +56,7 @@ class (Partial t) => Unifiable m t | t -> m where
 -- A substitution maintains a mapping from unification variables to their values
 --
 data Substitution t = Substitution { runSubstitution :: M.HashMap Int t }
+  deriving (Show)
 
 instance (Partial t) => Monoid (Substitution t) where
   mempty = Substitution M.empty

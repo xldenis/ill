@@ -1,6 +1,9 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances  #-}
 module Ill.Syntax.Type
 ( Type(..)
+, varIfUnknown
+, varsInType
+, replaceVar
 ) where
 
 import Ill.Syntax.Pretty
@@ -35,3 +38,28 @@ complex :: Type t -> Bool
 complex (TConstructor _) = False
 complex (Arrow _ _) = True
 complex _ = False
+
+varIfUnknown :: Type String -> Type String
+varIfUnknown (TAp l r) = TAp (varIfUnknown l) (varIfUnknown r)
+varIfUnknown (Arrow l r) = Arrow (varIfUnknown l) (varIfUnknown r)
+varIfUnknown (Trait n t) = Trait n (varIfUnknown t)
+varIfUnknown (Constraint ts t') = Constraint (map varIfUnknown ts) (varIfUnknown t')
+varIfUnknown (TUnknown u) = TVar toName
+  where toName = "a" ++ show u
+varIfUnknown a = a
+
+replaceVar :: String -> Type String -> Type String -> Type String
+replaceVar v t (TAp l r) = TAp (replaceVar v t l) (replaceVar v t r)
+replaceVar v t (Arrow l r) = Arrow (replaceVar v t l) (replaceVar v t r)
+replaceVar v t (Trait n t') = Trait n (replaceVar v t t')
+replaceVar v t (Constraint ts t') = Constraint (map (replaceVar v t) ts) (replaceVar v t t')
+replaceVar v t (TVar n) | n == v = t
+replaceVar v t a = a
+
+varsInType :: Type String -> [String]
+varsInType (TAp l r) = varsInType l ++ varsInType r
+varsInType (Arrow l r) = varsInType l ++ varsInType r
+varsInType (Trait n t) = varsInType t
+varsInType (Constraint ts t') = concatMap varsInType ts ++ varsInType t'
+varsInType (TVar t) = [t]
+varsInType a = []

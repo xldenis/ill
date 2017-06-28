@@ -5,18 +5,19 @@ module Ill.Infer where
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Unify
-import qualified Data.HashMap.Strict  as H
+import           Data.Coerce
+import           Data.List (unfoldr, uncons)
 import           Data.Map             as M (union)
 import           Data.Maybe
+
 import           Ill.Desugar
+import           Ill.Infer.Kind
 import           Ill.Infer.Monad
 import           Ill.Parser.Lexer     (SourceSpan)
+
 import           Ill.Syntax
-import           Ill.Infer.Kind
-
-import Data.List (unfoldr, uncons)
-
-import Data.Coerce
+import           Ill.Syntax.Type
+import qualified Data.HashMap.Strict  as H
 
 type RawDecl = Decl SourceSpan
 
@@ -25,11 +26,19 @@ typeCheck bgs = mapM go bgs
   where
   go :: BindingGroup SourceSpan -> Check (BindingGroup TypedAnn)
   go (ValueBG ds)                  = do
-    t <- fmap appSubs . liftUnify $ do
-      (ut, _, dict, untypedDict) <- typeDictionary ds
-      forM ut $ \e -> typeForBindingGroupEl e untypedDict
-    forM t $ \v -> addValue (valueName v) (typeOf v)
-    return $ ValueBG t
+    v' <- liftUnify $ do
+          (ut, _, dict, untypedDict) <- typeDictionary ds
+          forM ut $ \e -> typeForBindingGroupEl e untypedDict
+    let t = appSubs v'
+
+    -- throwError . show $ snd v'
+    t' <- forM t $ \v -> do
+      let t :< v' = v
+          t' = varIfUnknown $ (\(Type a) -> a) (ty t)
+          tAnn' = t { ty = Type t' }
+      addValue (valueName v) t'
+      return $ tAnn' :< v'
+    return $ ValueBG t'
     where valueName (_ :< Value n _) = n
           appSubs (ts, sub) = map (\t -> nestedFmap (\a -> a { ty = fmapTy (sub $?) (ty a) }) t) ts
           fmapTy f (Type t) = Type (f t)
@@ -58,7 +67,7 @@ typeCheck bgs = mapM go bgs
     unfoldCons a = [a]
 
   go (OtherBG (_ :< TypeSynonym _ _ _)) = throwError "oops"
-  go (OtherBG (a :< (Import q m n al))) = return $ OtherBG $ Ann a (Type tBool) :< (Import q m n al)
+  go (OtherBG (a :< (Import q m n al))) = return $ OtherBG $ Ann a None :< (Import q m n al)
   go (OtherBG (_ :< TraitDecl _ _))     = throwError "oops"
   go (OtherBG (_ :< TraitImpl _ _))     = throwError "oops"
   go (OtherBG (_))                 = throwError "oops"
@@ -98,12 +107,15 @@ data TypeAnn
 infer :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
 infer (a :< Apply l args) = do
   f' <- infer l
-  args' <- mapM infer args
+  fTy <- freshenFunction (typeOf f')
 
+  args' <- mapM infer args
   retTy <- fresh
-  typeOf f' =?= foldr Arrow retTy (map typeOf args')
+
+  fTy =?= foldr Arrow retTy (map typeOf args')
 
   return $ Ann a (Type retTy) :< Apply f' args'
+
 infer (a :< If cond left right) = do
   cond' <- check cond tBool
   left' <- infer left
@@ -112,10 +124,12 @@ infer (a :< If cond left right) = do
   typeOf left' =?= typeOf right'
 
   return $ Ann a (Type $ typeOf left') :< If cond' left' right'
+
 infer (a :< Body es) = do
   tys <- mapM infer es
 
   return $ Ann a (Type . typeOf $ last tys) :< Body tys
+
 infer (a :< BinOp op l r) = do
   op' <- infer op
   l' <- infer l
@@ -194,8 +208,6 @@ unifyTypes (TConstructor c1) (TConstructor c2) =
   if c1 == c2
   then return ()
   else throwError "types do not unify"
--- unifyTypes t1@(TConstructor c1) t2@(TVar v1) = t1 =:= t2
--- unifyTypes t1@(TVar v1) t2@(TConstructor c1) = t1 =:= t2
 unifyTypes (Constraint ts1 t1) t2 = throwError "constrained type unification"
 unifyTypes t1 (Constraint ts2 t2) = throwError "constrained type unification"
 unifyTypes t1 t2 = throwError $ "types do not unify: " ++ show t1 ++ " " ++ show t2
@@ -214,16 +226,47 @@ typeDictionary vals = do
 
 typeForBindingGroupEl :: Decl SourceSpan -> [(Name, Type Name)] -> UnifyT (Type Name) Check (Decl TypedAnn)
 typeForBindingGroupEl (a :< Value name els) dict = do
+  let (pats, vals) = unzip els
+  patTys <- replicateM (length pats) fresh
+
   vals' <- forM els $ \(pats, val) -> do
-    -- patTys <- inferPats pats
-    val' <- bindNames dict (infer val)
+    patDict <- inferPats (zip patTys pats)
+
+    val' <- bindNames (patDict ++ dict) (infer val)
 
     typeOf val' =?= fromJust (lookup name dict)
     return (pats, val')
-  return $ Ann a (Type . typeOf . snd $ last vals') :< Value name vals'
+
+  let retTy = foldr Arrow (typeOf . snd $ last vals') patTys
+  return $ Ann a (Type retTy) :< Value name vals'
+
+inferPats pats = concat <$> mapM (uncurry inferPat) pats
+
+inferPat :: Type Name -> Pattern -> UnifyT (Type Name) Check [(Name, Type Name)]
+inferPat ty (PVar n) = do
+  f <- fresh
+  ty =?= f
+  return [(n, f)]
+inferPat ty (Destructor n pats) = do
+  (_, t, _) <- lookupConstructor n
+  freshened <- freshenFunction t
+  go pats t
+  where
+  go :: [Pattern] -> Type Name -> UnifyT (Type Name) Check [(Name, Type Name)]
+  go [] ty' = ty =?= ty' *> pure []
+  go (pat : pats) (TAp (TAp f a) b) =
+    (++) <$> inferPat a pat <*> go pats b
 
 replaceTypeVars :: [(Name, Type Name)] -> Type Name -> Type Name
 replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)
 replaceTypeVars subs (Arrow l r) = Arrow (replaceTypeVars subs l) (replaceTypeVars subs r)
 replaceTypeVars subs (TAp f a) = TAp (replaceTypeVars subs f) (replaceTypeVars subs a)
 replaceTypeVars subs a = a
+
+freshenFunction :: Type Name -> UnifyT (Type Name) Check (Type Name)
+freshenFunction ty = do
+  let vars = varsInType ty
+  replacements <- forM vars $ \var -> (,) <$> pure var <*> fresh
+
+  return $ foldr (\(i, varTy) t -> replaceVar i varTy t) ty replacements
+

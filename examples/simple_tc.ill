@@ -18,6 +18,14 @@ module SimpleTC
   #   end
   # end
 
+  fn g(x)
+    x + 1
+  end
+
+  fn f (x)
+    a(1)
+  end
+
   fn a (x)
     Just(1)
   end
@@ -26,11 +34,16 @@ module SimpleTC
     'a'
   end
 
+  # should fail
   fn d (x)
     d + 2
   end
 
   fn list(x)
-    Cons(1, Cons(2, Nil))
+    Cons(x, Cons(2, Nil))
   end
+
+#  fn head(Cons x r)
+#    x
+#  end
 end

@@ -41,9 +41,9 @@ instance Pretty (Cofree Expression a) where
       </> text "end"
     pretty' (Lambda args body) = text "fn" <+> tupled (map pretty args) `above` pretty body `above` text "end"
     pretty' (Var v) = text v
+    pretty' (Constructor c) = text c
     pretty' (Literal l) = pretty l
     pretty' (Body body) = nest 2 $ vsep (map pretty body)
     --pretty' (Hash x) = _
     pretty' (Array ar) = list (map pretty ar)
-
 

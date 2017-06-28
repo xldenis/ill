@@ -69,8 +69,17 @@ lookupTypeVariable name = do
     Just a -> return a
 
 bindNames :: MonadState CheckState m => [(Name, Type Name)] -> m a -> m a
-bindNames nms action = localState (\s -> s { env = (env s) { names = (names $ env s) ++ nms }}) action
+bindNames nms action = do
+  orig <- get
+  modify (\s -> s { env = (env s) { names = (names $ env s) ++ nms } })
+  a <- action
+  modify (\s -> s { env = (env s) { names = names . env $ orig } })
+  return a
 
 bindTypeVariables :: MonadState CheckState m => [(Name, Kind)] -> m a -> m a
-bindTypeVariables tyVars action = localState (\s -> s { env = (env s) { types = (types $ env s) ++ tyVars }}) action
-
+bindTypeVariables tyVars action = do
+  orig <- get
+  modify (\s -> s { env = (env s) { types = (types $ env s) ++ tyVars } })
+  a <- action
+  modify (\s -> s { env = (env s) { types = types . env $ orig } })
+  return a
