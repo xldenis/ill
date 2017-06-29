@@ -27,6 +27,7 @@ data Expression a
 type Expr a = Cofree Expression a
 
 instance Pretty (Cofree Expression a) where
+  prettyList es = vsep $ empty `intersperse` (map pretty es)
   pretty (_ :< f) = pretty' f where
     pretty' (Apply func args) = pretty func <> tupled (map pretty args)
     pretty' (BinOp op l r) = pretty l <+> pretty op <+> pretty r

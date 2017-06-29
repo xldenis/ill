@@ -24,6 +24,8 @@ import           Control.Comonad        (extend)
 import           Control.Lens           (each, over, _2)
 import           Ill.Syntax.Pretty
 
+import Data.List (intersperse)
+
 type Prefix = String
 
 type Qualified = Bool
@@ -77,14 +79,18 @@ data Masks
 makePrisms ''Declaration
 
 instance Pretty (Module a) where
-  pretty (Module name decls) = nest 2 (text "module" <+> text name `aboveBreak` vsep (map pretty decls)) `aboveBreak` text "end"
+  pretty (Module name decls) = nest 2 (text "module" <+> text name `aboveBreak`
+    vsep (intersperse empty (map pretty decls))) `aboveBreak`
+    text "end"
 
 instance Pretty (Cofree (Declaration a) a) where
-  pretty (_ :< Data name vars cons) = text "data" <+> text name <+> pretty vars <+> char '=' <+> alternative (map pretty cons)
-    where alternative = encloseSep empty empty (char '|')
+  pretty (_ :< Data name vars cons) = text "data" <+> text name <+> hsep (map pretty vars) <+> char '=' <+> alternative (map pretty cons)
+    where alternative = encloseSep empty empty (empty <+> char '|')
   pretty (_ :< TypeSynonym alias vars target) = text "type" <+> pretty alias <+> pretty vars <+> text "=" <+> pretty target
-  pretty (_ :< Value name cases) = text "fn" <+> text name <+> branch (head cases) `aboveBreak` vsep (map (\c -> text "or" <+> text name <+> branch c) $ tail cases) `aboveBreak` text "end"
+  pretty (_ :< Value name cases) = vsep (headBranch : map otherBranch (tail cases)) `aboveBreak` text "end"
     where branch (args, body) = nest 2 $ tupled (map pretty args) `aboveBreak` pretty body
+          headBranch    = text "fn" <+> text name <+> branch (head cases)
+          otherBranch b = text "or" <+> text name <+> branch b
   pretty (_ :< Signature func tp) = text func <+> text "::" <+> pretty tp
   pretty (_ :< Import qual msk name alias) = text "import" <-> when (const $ text "qualified") qual empty
     <-> text name <-> prettyJust alias <-> prettyMask msk

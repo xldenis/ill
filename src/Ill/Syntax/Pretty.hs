@@ -6,10 +6,12 @@ module Ill.Syntax.Pretty
 , renderIll
 , defaultRenderArgs
 , (<->)
+, intersperse
 ) where
 
 import Text.PrettyPrint.Free hiding (width)
 import Text.PrettyPrint.Free.Internal (Doc(..))
+import Data.List (intersperse)
 
 parensIf :: Bool -> Doc a -> Doc a
 parensIf = when parens

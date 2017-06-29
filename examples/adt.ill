@@ -1,0 +1,5 @@
+module ADT
+  data Bool = True | False
+
+  data List = Cons a (List a) | Nil
+end

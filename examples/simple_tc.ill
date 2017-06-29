@@ -24,6 +24,8 @@ module SimpleTC
 
   fn f (x)
     a(1)
+  or f (y)
+    Just(2)
   end
 
   fn a (x)

@@ -24,8 +24,8 @@ data Type t
 
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
-  pretty (TAp f a) = parens $ go f <+> pretty a
-    where go (TAp f' a') = go f' <+> pretty a'
+  pretty (TAp f a) = pretty f <+> parensIf (complex a) (pretty a)
+    where go (TAp f' a') = go f' <+> parensIf (complex a') (pretty a')
           go a'          = pretty a'
   pretty (TConstructor cons) = text cons
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> text "->" <+> parensIf (complex to) (pretty to)
@@ -37,6 +37,7 @@ instance Pretty (Type String) where
 complex :: Type t -> Bool
 complex (TConstructor _) = False
 complex (Arrow _ _) = True
+complex (TAp _ _) = True
 complex _ = False
 
 varIfUnknown :: Type String -> Type String
