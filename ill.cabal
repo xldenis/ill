@@ -32,13 +32,15 @@ library
     , mtl
     , free
     , comonad
-    , wl-pprint-extras
+    , prettyprinter
+    , prettyprinter-compat-wl-pprint
     , lens
     , unordered-containers
     , containers
   exposed-modules:
       Control.Monad.Unify
       Ill.Desugar
+      Ill.Error
       Ill.Infer
       Ill.Infer.Kind
       Ill.Infer.Monad
@@ -73,7 +75,6 @@ executable ill
     , base >=4.7 && <5
     , mtl
     , ill
-    , wl-pprint-extras
     , optparse-generic
   other-modules:
       Infer

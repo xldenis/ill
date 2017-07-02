@@ -105,9 +105,13 @@ constructor = withLoc (Constructor <$> lexeme capitalized)
 
 opTable :: [[Operator Parser (Expr SourceSpan)]]
 opTable = [ [ binary "*"
-            , binary "/" ]
+            , binary "/"
+            , binary "&&"]
           , [ binary "+"
-            , binary "-"]
+            , binary "-"
+            , binary "||"]
+          , [ binary ">"
+            , binary "<"]
           ]
 
 binary :: String -> Operator Parser (Expr SourceSpan)

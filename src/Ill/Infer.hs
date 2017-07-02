@@ -10,6 +10,7 @@ import           Data.List (unfoldr, uncons)
 import           Data.Map             as M (union)
 import           Data.Maybe
 
+import           Ill.Error
 import           Ill.Desugar
 import           Ill.Infer.Kind
 import           Ill.Infer.Monad
@@ -58,18 +59,18 @@ typeCheck bgs = mapM go bgs
     where
     addAnn :: Declaration (SourceSpan) (Decl SourceSpan) -> Check (Declaration TypedAnn (Decl TypedAnn))
     addAnn (Data n vars cons) = return $ Data n vars cons
-    addAnn n             = throwError "internal error"
+    addAnn n             = throwError $ InternalError "Non data value found in data binding group"
 
     consPair :: Type Name -> (Name, [Type Name])
     consPair   = (\(TConstructor n, b) -> (n,b)) . fromJust . uncons . reverse . unfoldCons
     unfoldCons (TAp f a) = a : unfoldCons f
     unfoldCons a = [a]
 
-  go (OtherBG (_ :< TypeSynonym _ _ _)) = throwError "oops"
+  go (OtherBG (_ :< TypeSynonym _ _ _)) = throwError $ NotImplementedError "oops"
   go (OtherBG (a :< (Import q m n al))) = return $ OtherBG $ Ann a None :< (Import q m n al)
-  go (OtherBG (_ :< TraitDecl _ _))     = throwError "oops"
-  go (OtherBG (_ :< TraitImpl _ _))     = throwError "oops"
-  go (OtherBG (_))                 = throwError "oops"
+  go (OtherBG (_ :< TraitDecl _ _))     = throwError $ NotImplementedError "oops"
+  go (OtherBG (_ :< TraitImpl _ _))     = throwError $ NotImplementedError "oops"
+  go (OtherBG (_))                 = throwError $ NotImplementedError "oops"
 
 addValue :: Ident -> Type Name -> Check ()
 addValue name ty = do
@@ -165,6 +166,12 @@ typeOf (ann :< _) = fromType $ ty ann
   where fromType (Type t) = t
 
 check :: Type Name -> Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
+check expected (a :< If cond l r) = do
+  cond' <- check tBool cond
+  left' <- check expected l
+  right' <- check expected r
+
+  return $ Ann a (Type expected) :< If cond' left' right'
 check expected (a :< Var nm) = do
   ty <- lookupVariable nm
   ty =?= expected
@@ -175,10 +182,13 @@ check expected (a :< Constructor nm) = do
   subs <- mapM (\a -> (,) <$> pure a <*> fresh) args
 
   let nT = replaceTypeVars subs ty
-
   nT =?= expected
 
   return $ Ann a (Type nT) :< Constructor nm
+check expected v@(a :< BinOp op l r)= do
+  rTy <- infer v
+  (typeOf rTy) =?= expected
+  return rTy
 check expected ty = error (show ty)
 
 
@@ -201,8 +211,8 @@ instance Partial (Type a) where
   ($?) sub t@(TUnknown u)    = fromMaybe t $ H.lookup u (runSubstitution sub)
   ($?) sub other             = other
 
-instance UnificationError (Type Name) String where
-  occursCheckFailed t = "occurs check failed: " ++ show t
+instance UnificationError (Type Name) MultiError where
+  occursCheckFailed t = TypeOccursError t
 
 instance Unifiable Check (Type Name) where
   (=?=) = unifyTypes
@@ -218,13 +228,13 @@ unifyTypes (TAp l1 r1) (TAp l2 r2) = do
 unifyTypes (Arrow l1 r1) (Arrow l2 r2) = do
   l1 `unifyTypes` l2
   r1 `unifyTypes` r2
-unifyTypes (TConstructor c1) (TConstructor c2) =
+unifyTypes c1@(TConstructor cNm1) c2@(TConstructor cNm2) =
   if c1 == c2
   then return ()
-  else throwError "types do not unify"
-unifyTypes (Constraint ts1 t1) t2 = throwError "constrained type unification"
-unifyTypes t1 (Constraint ts2 t2) = throwError "constrained type unification"
-unifyTypes t1 t2 = throwError $ "types do not unify: " ++ show t1 ++ " " ++ show t2
+  else throwError $ UnificationError c1 c2
+unifyTypes (Constraint ts1 t1) t2 = throwError $ NotImplementedError "constrained type unification"
+unifyTypes t1 (Constraint ts2 t2) = throwError $ NotImplementedError "constrained type unification"
+unifyTypes t1 t2 = throwError $ UnificationError t1 t2
 
 type Alt a = ([Pattern], Expr a)
 
@@ -240,8 +250,11 @@ typeDictionary vals = do
 
 typeForBindingGroupEl :: Decl SourceSpan -> [(Name, Type Name)] -> UnifyT (Type Name) Check (Decl TypedAnn)
 typeForBindingGroupEl (a :< Value name els) dict = do
-  let (pats, vals) = unzip els
-  patTys <- replicateM (length pats) fresh
+  let (pats, _) = unzip els
+      numArgs = length $ head pats
+  when (any (/= numArgs) $ map length pats) . throwError $ InternalError "branches have different amounts of patterns"
+
+  patTys <- replicateM (numArgs) fresh
 
   vals' <- forM els $ \(pats, val) -> do
     patDict <- inferPats (zip patTys pats)
@@ -272,7 +285,7 @@ inferPat ty (Destructor n pats) = do
     (++) <$> inferPat a pat <*> go pats b
   go (pat : pats) (Arrow a b) =
     (++) <$> inferPat a pat <*> go pats b
-  go _ _ = error "Aaaaa"
+  go _ _ = throwError $ InternalError "Impossible"
 
 replaceTypeVars :: [(Name, Type Name)] -> Type Name -> Type Name
 replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)

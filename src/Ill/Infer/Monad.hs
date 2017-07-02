@@ -1,8 +1,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ill.Infer.Monad where
 
-import Ill.Syntax (Name, Type(..), Kind(..), tInteger, tFn)
-
+import Ill.Syntax.Type
+import Ill.Syntax.Kind
+import Ill.Syntax (Name)
+import Ill.Error
 import Control.Monad.State
 import Control.Monad.Unify
 import Control.Monad.Except
@@ -18,10 +20,16 @@ data CheckState = CheckState
   , nextVar :: Int
   } deriving (Show, Eq)
 
-newtype Check a = Check { runCheck :: StateT CheckState (Except String) a}
-  deriving (Functor, Applicative, Monad, MonadError String, MonadState CheckState)
+newtype Check a = Check { runCheck :: StateT CheckState (Except MultiError) a}
+  deriving (Functor, Applicative, Monad, MonadError MultiError, MonadState CheckState)
 
-defaultCheckEnv = CheckState (Environment [("+", tInteger `tFn` tInteger `tFn` tInteger)] [] []) 0
+defaultCheckEnv = CheckState (Environment
+  [ ("+", tInteger `tFn` tInteger `tFn` tInteger)
+  , ("-", tInteger `tFn` tInteger `tFn` tInteger)
+  , ("*", tInteger `tFn` tInteger `tFn` tInteger)
+  , ("/", tInteger `tFn` tInteger `tFn` tInteger)
+  , (">", tInteger `tFn` tInteger `tFn` tBool)
+  ] [] []) 0
 
 putEnv :: MonadState CheckState m => Environment -> m ()
 putEnv e = modify (\s -> s { env  = e })
@@ -42,25 +50,25 @@ liftUnify action = do
   let uust = unifyCurrentSubstitution ust
   return (a, uust)
 
-lookupVariable :: (MonadError String m, MonadState CheckState m) => Name -> m (Type Name)
+lookupVariable :: (MonadError MultiError m, MonadState CheckState m) => Name -> m (Type Name)
 lookupVariable name = do
   env <- env <$> get
   case lookup name (names env) of
-    Nothing -> throwError $ "variable not defined: " ++ name
+    Nothing -> throwError $ UndefinedVariable name
     Just a -> return a
 
-lookupConstructor :: (MonadError String m, MonadState CheckState m) => Name -> m (Name, Type Name, [Name])
+lookupConstructor :: (MonadError MultiError m, MonadState CheckState m) => Name -> m (Name, Type Name, [Name])
 lookupConstructor name = do
   env <- env <$> get
   case lookup name (constructors env) of
-    Nothing -> throwError $ "constructor not defined: " ++ name
+    Nothing -> throwError $ UndefinedConstructor name
     Just a -> return a
 
-lookupTypeVariable ::  (MonadError String m, MonadState CheckState m) => Name -> m Kind
+lookupTypeVariable ::  (MonadError MultiError m, MonadState CheckState m) => Name -> m Kind
 lookupTypeVariable name = do
   env <- env <$> get
   case lookup name (types env) of
-    Nothing -> throwError $ "type not defined: " ++ name
+    Nothing -> throwError $ UndefinedType name
     Just a -> return a
 
 bindNames :: MonadState CheckState m => [(Name, Type Name)] -> m a -> m a

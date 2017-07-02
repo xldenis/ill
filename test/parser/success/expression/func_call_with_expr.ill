@@ -1,0 +1,14 @@
+a(test - 1)
+
+a(test - 1, Nil)
+
+if True then
+  a(test -1)
+else
+  False
+end
+
+go(times - 1, Cons(val, Nil))
+
+# incorrect error message about -
+# go(times - 1, Cons val Nil)

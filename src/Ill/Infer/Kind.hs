@@ -2,7 +2,7 @@
 module Ill.Infer.Kind
 ( kindsOfAll
 ) where
-
+import           Ill.Error
 import           Control.Monad.Unify
 import           Control.Monad.Trans
 import           Control.Monad.Except
@@ -38,10 +38,10 @@ instance Unifiable Check Kind where
   KFn k1 k2 =?= KFn k3 k4 = do
     k1 =?= k3
     k2 =?= k4
-  a =?= b = throwError $ "kinds do not unify: " ++ show a ++ " " ++ show b
+  a =?= b = throwError $ KindUnificationError a b
 
-instance UnificationError Kind String where
-  occursCheckFailed t = "occurs check failed: " ++ show t
+instance UnificationError Kind MultiError where
+  occursCheckFailed t = KindOccursError t
 
 -- kindsOfAll :: _
 -- Bind synonym names

@@ -14,7 +14,7 @@ infer (Module _ ds) = let
   bg = bindingGroups ds
   typed = runExcept $ runStateT (runCheck $ typeCheck bg) defaultCheckEnv
   in case typed of
-    Left e -> putStrLn e
+    Left e -> putStrLn $ show e
     Right (ts, _) -> printBG ts
 
 printBG ((ValueBG ds):bgs) = printTypes ds >> printBG bgs
