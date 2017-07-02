@@ -1,0 +1,7 @@
+module TC2
+  data A a = A a
+
+  fn x (A a)
+    a + 1
+  end
+end

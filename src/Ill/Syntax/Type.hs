@@ -1,13 +1,10 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances  #-}
-module Ill.Syntax.Type
-( Type(..)
-, varIfUnknown
-, varsInType
-, replaceVar
-) where
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances, PatternSynonyms  #-}
+module Ill.Syntax.Type where
 
 import Ill.Syntax.Pretty
 import Control.Monad.Unify (Unknown)
+
+-- pattern Arrow a b = (TAp (TAp (TConstructor "->") a) b)
 
 data Type t
   = TVar t
@@ -24,6 +21,7 @@ data Type t
 
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
+  pretty (TAp (TConstructor "->") a) = pretty a <+> (text "->")
   pretty (TAp f a) = pretty f <+> parensIf (complex a) (pretty a)
     where go (TAp f' a') = go f' <+> parensIf (complex a') (pretty a')
           go a'          = pretty a'
@@ -33,6 +31,19 @@ instance Pretty (Type String) where
   pretty (Constraint trts tp) = alternative (map pretty trts) <+> pretty tp
     where alternative = encloseSep empty (empty <+> char '|') (char ',')
   pretty (TUnknown u) = text "unknown" <+> text (show u)
+
+tArrow :: Type String
+tArrow = TConstructor "->"
+
+tFn :: Type String -> Type String -> Type String
+tFn a b = tArrow `TAp` a `TAp` b
+
+tString :: Type String
+tString = TConstructor "String"
+
+tBool = TConstructor "Bool"
+tInteger = TConstructor "Int"
+tDouble = TConstructor "Double"
 
 complex :: Type t -> Bool
 complex (TConstructor _) = False

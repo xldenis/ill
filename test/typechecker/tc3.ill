@@ -1,0 +1,11 @@
+module TC3
+  data A a = A a
+
+  fn x (A a)
+    z(a)
+  end
+
+  fn z(y)
+    y + 1
+  end
+end

@@ -29,11 +29,11 @@ library
       megaparsec
     , text
     , base >=4.7 && <5
+    , mtl
     , free
     , comonad
     , wl-pprint-extras
     , lens
-    , mtl
     , unordered-containers
     , containers
   exposed-modules:
@@ -71,10 +71,10 @@ executable ill
       megaparsec
     , text
     , base >=4.7 && <5
+    , mtl
     , ill
     , wl-pprint-extras
     , optparse-generic
-    , mtl
   other-modules:
       Infer
   default-language: Haskell2010
@@ -89,6 +89,7 @@ test-suite ill-test
       megaparsec
     , text
     , base >=4.7 && <5
+    , mtl
     , hspec
     , hspec-discover
     , ill
@@ -97,6 +98,7 @@ test-suite ill-test
     , filepath
     , comonad
   other-modules:
+      Ill.InferSpec
       Ill.Parser.ExpressionSpec
       Ill.Parser.PatternSpec
       Ill.Parser.TypeSpec

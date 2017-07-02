@@ -31,7 +31,7 @@ simpleExpr = (try $ doubleLit) <|> integerLit <|> rawString <|> var <|> construc
 
 body :: Parser (Expr SourceSpan) -- need backtracking?
 body = withLoc $ do
-  Body <$> some (nonBodyExpr <* sep <* scn)
+  Body <$> some (nonBodyExpr <* scn)
 
 assign :: Parser (Expr SourceSpan)
 assign = withLoc $ do
@@ -54,7 +54,7 @@ call = try $ do
 caseE :: Parser (Expr SourceSpan)
 caseE = withLoc $ do
   symbol "case"
-  expr <- expression
+  expr <- fullExpr
   symbol "of"
   scn
   matchers <- some $ do
@@ -78,7 +78,7 @@ lambda = withLoc $ do
 ifE :: Parser (Expr SourceSpan)
 ifE = withLoc $ do
   symbol "if"
-  cond <- expression
+  cond <- fullExpr
   symbol "then" <* scn
   left <- expression
   symbol "else" <* scn
@@ -101,7 +101,7 @@ var :: Parser (Expr SourceSpan)
 var = try $ withLoc (Var <$> identifier)
 
 constructor :: Parser (Expr SourceSpan)
-constructor = withLoc (Constructor <$> capitalized)
+constructor = withLoc (Constructor <$> lexeme capitalized)
 
 opTable :: [[Operator Parser (Expr SourceSpan)]]
 opTable = [ [ binary "*"
@@ -112,6 +112,6 @@ opTable = [ [ binary "*"
 
 binary :: String -> Operator Parser (Expr SourceSpan)
 binary op = InfixL $ do
-  op <- withLoc $ Var <$> symbol op
-  return $ \a b -> SourceSpan (begin$extract a) (end$extract b) :< (BinOp op a b)
+  op <- withLoc $ Var <$> (symbol op)
+  return $ \a b -> SourceSpan (begin $ extract a) (end $ extract b) :< (BinOp op a b)
 

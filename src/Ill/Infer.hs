@@ -31,7 +31,6 @@ typeCheck bgs = mapM go bgs
           forM ut $ \e -> typeForBindingGroupEl e untypedDict
     let t = appSubs v'
 
-    -- throwError . show $ snd v'
     t' <- forM t $ \v -> do
       let t :< v' = v
           t' = varIfUnknown $ (\(Type a) -> a) (ty t)
@@ -90,7 +89,7 @@ addDataConstructor :: Name -> [Name] -> Name -> [Type Name] -> Check ()
 addDataConstructor name args dctor tys = do
   env <- env <$> get
   let retTy = foldl TAp (TConstructor name) (map TVar args)
-      consTy = foldr Arrow retTy tys
+      consTy = foldr tFn retTy tys
       fields = args
   putEnv $ env { constructors = (dctor, (name, consTy, fields)) : (constructors env)}
   return ()
@@ -112,12 +111,12 @@ infer (a :< Apply l args) = do
   args' <- mapM infer args
   retTy <- fresh
 
-  fTy =?= foldr Arrow retTy (map typeOf args')
+  fTy =?= foldr tFn retTy (map typeOf args')
 
   return $ Ann a (Type retTy) :< Apply f' args'
 
 infer (a :< If cond left right) = do
-  cond' <- check cond tBool
+  cond' <- check tBool cond
   left' <- infer left
   right' <- infer right
 
@@ -136,7 +135,7 @@ infer (a :< BinOp op l r) = do
   r' <- infer r
   tRet <- fresh
 
-  typeOf op' =?= (typeOf l' `TAp` (typeOf r' `TAp` tRet))
+  typeOf op' =?= (typeOf l' `tFn` typeOf r' `tFn` tRet)
 
   return $ Ann a (Type tRet) :< BinOp op' l' r'
 
@@ -165,8 +164,23 @@ typeOf :: Cofree a TypedAnn -> (Type Name)
 typeOf (ann :< _) = fromType $ ty ann
   where fromType (Type t) = t
 
-check :: Expr SourceSpan -> Type Name -> UnifyT (Type Name) Check (Expr TypedAnn)
-check = undefined
+check :: Type Name -> Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
+check expected (a :< Var nm) = do
+  ty <- lookupVariable nm
+  ty =?= expected
+  return $ Ann a (Type ty) :< Var nm
+check expected (a :< Constructor nm) = do
+  (_, ty, args) <- lookupConstructor nm
+
+  subs <- mapM (\a -> (,) <$> pure a <*> fresh) args
+
+  let nT = replaceTypeVars subs ty
+
+  nT =?= expected
+
+  return $ Ann a (Type nT) :< Constructor nm
+check expected ty = error (show ty)
+
 
 instance Partial (Type a) where
   unknown                    = TUnknown
@@ -237,7 +251,7 @@ typeForBindingGroupEl (a :< Value name els) dict = do
     typeOf val' =?= fromJust (lookup name dict)
     return (pats, val')
 
-  let retTy = foldr Arrow (typeOf . snd $ last vals') patTys
+  let retTy = foldr tFn (typeOf . snd $ last vals') patTys
   return $ Ann a (Type retTy) :< Value name vals'
 
 inferPats pats = concat <$> mapM (uncurry inferPat) pats
@@ -250,12 +264,15 @@ inferPat ty (PVar n) = do
 inferPat ty (Destructor n pats) = do
   (_, t, _) <- lookupConstructor n
   freshened <- freshenFunction t
-  go pats t
+  go pats freshened
   where
   go :: [Pattern] -> Type Name -> UnifyT (Type Name) Check [(Name, Type Name)]
   go [] ty' = ty =?= ty' *> pure []
-  go (pat : pats) (TAp (TAp f a) b) =
+  go (pat : pats) (TAp (TAp f a) b) | f == tArrow =
     (++) <$> inferPat a pat <*> go pats b
+  go (pat : pats) (Arrow a b) =
+    (++) <$> inferPat a pat <*> go pats b
+  go _ _ = error "Aaaaa"
 
 replaceTypeVars :: [(Name, Type Name)] -> Type Name -> Type Name
 replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)

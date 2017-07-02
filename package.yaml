@@ -13,6 +13,7 @@ dependencies:
 - megaparsec
 - text
 - base >=4.7 && <5
+- mtl
 library:
   source-dirs: src
   dependencies:
@@ -20,7 +21,6 @@ library:
   - comonad
   - wl-pprint-extras
   - lens
-  - mtl
   - unordered-containers
   - containers
   default-extensions: FlexibleContexts
@@ -36,7 +36,6 @@ executables:
     - ill
     - wl-pprint-extras
     - optparse-generic
-    - mtl
 tests:
   ill-test:
     main: Spec.hs

@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ill.Infer.Monad where
 
-import Ill.Syntax (Name, Type(..), Kind(..))
+import Ill.Syntax (Name, Type(..), Kind(..), tInteger, tFn)
 
 import Control.Monad.State
 import Control.Monad.Unify
@@ -21,12 +21,7 @@ data CheckState = CheckState
 newtype Check a = Check { runCheck :: StateT CheckState (Except String) a}
   deriving (Functor, Applicative, Monad, MonadError String, MonadState CheckState)
 
-defaultCheckEnv = CheckState (Environment [("+", tInteger `TAp` (tInteger `TAp` tInteger))] [] []) 0
-
-tBool = TConstructor "Bool"
-tInteger = TConstructor "Int"
-tDouble = TConstructor "Double"
-tString = TConstructor "String"
+defaultCheckEnv = CheckState (Environment [("+", tInteger `tFn` tInteger `tFn` tInteger)] [] []) 0
 
 putEnv :: MonadState CheckState m => Environment -> m ()
 putEnv e = modify (\s -> s { env  = e })

@@ -1,0 +1,14 @@
+module TC5
+  data List a = Cons a (List a) | Nil
+
+  fn replicate(times, val)
+    go(times - 1, Cons val Nil)
+  end
+
+  fn go(times, val, acc)
+    if times > 0
+    then go(times - 1, Cons val acc)
+    else acc
+    end
+  end
+end
