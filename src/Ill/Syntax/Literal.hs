@@ -9,7 +9,7 @@ data Literal
   deriving (Eq, Show)
 
 instance Pretty Literal where
-  pretty (RawString x) = squotes (text x)
-  pretty (EscString x) = dquotes (text x)
+  pretty (RawString x) = squotes (pretty x)
+  pretty (EscString x) = dquotes (pretty x)
   pretty (Integer x) = pretty x
   pretty (Double x) = pretty x

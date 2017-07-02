@@ -19,7 +19,8 @@ library:
   dependencies:
   - free
   - comonad
-  - wl-pprint-extras
+  - prettyprinter
+  - prettyprinter-ansi-terminal
   - lens
   - unordered-containers
   - containers
@@ -34,7 +35,8 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - ill
-    - wl-pprint-extras
+    - prettyprinter
+    - prettyprinter-ansi-terminal
     - optparse-generic
 tests:
   ill-test:

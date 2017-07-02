@@ -33,7 +33,7 @@ library
     , free
     , comonad
     , prettyprinter
-    , prettyprinter-compat-wl-pprint
+    , prettyprinter-ansi-terminal
     , lens
     , unordered-containers
     , containers
@@ -75,6 +75,8 @@ executable ill
     , base >=4.7 && <5
     , mtl
     , ill
+    , prettyprinter
+    , prettyprinter-ansi-terminal
     , optparse-generic
   other-modules:
       Infer

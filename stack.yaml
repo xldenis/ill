@@ -3,6 +3,7 @@ extra-package-dbs: []
 packages:
 - '.'
 extra-deps:
-extra-deps:
-resolver: lts-8.3
+- prettyprinter-1.1
+- prettyprinter-ansi-terminal-1.1
+resolver: lts-8.21
 

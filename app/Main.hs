@@ -4,16 +4,16 @@ module Main where
 
 import Infer
 import Ill.Parser
-import Ill.Syntax.Pretty (renderIll, defaultRenderArgs)
+import Ill.Syntax.Pretty
 
 import Text.Megaparsec
-import Text.PrettyPrint.Free
 
 import Ill.Syntax (Module)
 import Ill.Parser.Lexer (SourceSpan)
 
 import Options.Generic
 
+import qualified Data.Text.Lazy.IO as T (putStrLn)
 import qualified Data.Text.IO as T (readFile)
 
 data Config
@@ -40,7 +40,7 @@ main = do
 
 handleCommands :: Config -> Module SourceSpan -> IO ()
 handleCommands (Build f)  ast = putStrLn "build"
-handleCommands (Format f) ast = putStrLn $ renderIll defaultRenderArgs (pretty ast)
+handleCommands (Format f) ast = T.putStrLn $ renderIll defaultRenderArgs (pretty ast)
 handleCommands (Infer f)  ast = infer ast
 
 

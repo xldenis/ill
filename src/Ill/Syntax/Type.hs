@@ -21,16 +21,16 @@ data Type t
 
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
-  pretty (TAp (TConstructor "->") a) = pretty a <+> (text "->")
+  pretty (TAp (TConstructor "->") a) = pretty a <+> (pretty "->")
   pretty (TAp f a) = pretty f <+> parensIf (complex a) (pretty a)
     where go (TAp f' a') = go f' <+> parensIf (complex a') (pretty a')
           go a'          = pretty a'
-  pretty (TConstructor cons) = text cons
-  pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> text "->" <+> parensIf (complex to) (pretty to)
-  pretty (Trait nm tp) = text nm <+> pretty tp
+  pretty (TConstructor cons) = pretty cons
+  pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> pretty "->" <+> parensIf (complex to) (pretty to)
+  pretty (Trait nm tp) = pretty nm <+> pretty tp
   pretty (Constraint trts tp) = alternative (map pretty trts) <+> pretty tp
-    where alternative = encloseSep empty (empty <+> char '|') (char ',')
-  pretty (TUnknown u) = text "unknown" <+> text (show u)
+    where alternative = encloseSep mempty (mempty <+> pretty '|') (pretty ',')
+  pretty (TUnknown u) = pretty "unknown" <+> pretty (show u)
 
 tArrow :: Type String
 tArrow = TConstructor "->"

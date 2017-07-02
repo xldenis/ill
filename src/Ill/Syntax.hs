@@ -79,27 +79,27 @@ data Masks
 makePrisms ''Declaration
 
 instance Pretty (Module a) where
-  pretty (Module name decls) = nest 2 (text "module" <+> text name `aboveBreak`
-    vsep (intersperse empty (map pretty decls))) `aboveBreak`
-    text "end"
+  pretty (Module name decls) = nest 2 (pretty "module" <+> pretty name `above`
+    vsep (intersperse mempty (map pretty decls))) `above`
+    pretty "end"
 
 instance Pretty (Cofree (Declaration a) a) where
-  pretty (_ :< Data name vars cons) = text "data" <+> text name <+> hsep (map pretty vars) <+> char '=' <+> alternative (map pretty cons)
-    where alternative = encloseSep empty empty (empty <+> char '|')
-  pretty (_ :< TypeSynonym alias vars target) = text "type" <+> pretty alias <+> pretty vars <+> text "=" <+> pretty target
-  pretty (_ :< Value name cases) = vsep (headBranch : map otherBranch (tail cases)) `aboveBreak` text "end"
-    where branch (args, body) = nest 2 $ tupled (map pretty args) `aboveBreak` pretty body
-          headBranch    = text "fn" <+> text name <+> branch (head cases)
-          otherBranch b = text "or" <+> text name <+> branch b
-  pretty (_ :< Signature func tp) = text func <+> text "::" <+> pretty tp
-  pretty (_ :< Import qual msk name alias) = text "import" <-> when (const $ text "qualified") qual empty
-    <-> text name <-> prettyJust alias <-> prettyMask msk
-      where prettyJust (Just alias') = text "as" <+> text alias'
-            prettyJust  Nothing     = empty
-            prettyMask (Hiding nms) = text "hiding" <+> tupled (map pretty nms)
+  pretty (_ :< Data name vars cons) = pretty "data" <+> pretty name <+> hsep (map pretty vars) <+> pretty '=' <+> alternative (map pretty cons)
+    where alternative = encloseSep mempty mempty (mempty <+> pretty '|')
+  pretty (_ :< TypeSynonym alias vars target) = pretty "type" <+> pretty alias <+> pretty vars <+> pretty "=" <+> pretty target
+  pretty (_ :< Value name cases) = vsep (headBranch : map otherBranch (tail cases)) `above` pretty "end"
+    where branch (args, body) = nest 2 $ tupled (map pretty args) `above` pretty body
+          headBranch    = pretty "fn" <+> pretty name <+> branch (head cases)
+          otherBranch b = pretty "or" <+> pretty name <+> branch b
+  pretty (_ :< Signature func tp) = pretty func <+> pretty "::" <+> pretty tp
+  pretty (_ :< Import qual msk name alias) = pretty "import" <-> when (const $ pretty "qualified") qual mempty
+    <-> pretty name <-> prettyJust alias <-> prettyMask msk
+      where prettyJust (Just alias') = pretty "as" <+> pretty alias'
+            prettyJust  Nothing     = mempty
+            prettyMask (Hiding nms) = pretty "hiding" <+> tupled (map pretty nms)
             prettyMask (Only   nms) = tupled $ map pretty nms
-            prettyMask _            = empty
-  pretty (_ :< TraitDecl trt body)  = nest 2 (text "trait" <+> pretty trt `above` vsep (map pretty body)) `above` text "end"
-    -- where constraints c = if null c then empty else hsep (punctuate comma (map pretty c)) <+> text "|"
-  pretty (_ :< TraitImpl trt body)  = nest 2 (text "impl" <+> pretty trt `above` vsep (map pretty body)) `above` text "end"
+            prettyMask _            = mempty
+  pretty (_ :< TraitDecl trt body)  = nest 2 (pretty "trait" <+> pretty trt `above` vsep (map pretty body)) `above` pretty "end"
+    -- where constraints c = if null c then mempty else hsep (punctuate comma (map pretty c)) <+> pretty "|"
+  pretty (_ :< TraitImpl trt body)  = nest 2 (pretty "impl" <+> pretty trt `above` vsep (map pretty body)) `above` pretty "end"
 

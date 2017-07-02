@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Infer where
 
 import Ill.Syntax
@@ -10,11 +11,15 @@ import Ill.Syntax.Pretty
 import Control.Monad.State (runStateT)
 import Control.Monad.Except (runExcept)
 
+import Prelude hiding (putStrLn, putStr)
+import Data.Text.Lazy.IO
+import Data.Text.Lazy
+
 infer (Module _ ds) = let
   bg = bindingGroups ds
   typed = runExcept $ runStateT (runCheck $ typeCheck bg) defaultCheckEnv
   in case typed of
-    Left e -> putStrLn $ show e
+    Left e -> putStrLn . pack $ show e
     Right (ts, _) -> printBG ts
 
 printBG ((ValueBG ds):bgs) = printTypes ds >> printBG bgs
@@ -23,8 +28,8 @@ printBG (_ : bgs) = printBG bgs
 printBG []        = return ()
 
 printTypes :: [Decl TypedAnn] -> IO ()
-printTypes ((a :< Value n _):ts)   = putStr (n ++ ": ") >> putStrLn (prettyType a) >> printTypes ts
-printTypes ((a :< Data  n _ _):ts) = putStr (n ++ ": ") >> putStrLn (prettyType a) >> printTypes ts
+printTypes ((a :< Value n _):ts)   = putStr (pack n <> ": ") >> putStrLn (prettyType a) >> printTypes ts
+printTypes ((a :< Data  n _ _):ts) = putStr (pack n <> ": ") >> putStrLn (prettyType a) >> printTypes ts
 printTypes (_ : ts) = printTypes ts
 printTypes [] = return ()
 
@@ -40,3 +45,4 @@ instance Pretty Kind where
   pretty (KFn f a) = pretty f <+> text "->" <+> parensIf (complex a) (pretty a)
     where complex (KFn _ _) = True
           complex a         = False
+

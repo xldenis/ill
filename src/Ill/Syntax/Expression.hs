@@ -27,24 +27,25 @@ data Expression a
 type Expr a = Cofree Expression a
 
 instance Pretty (Cofree Expression a) where
-  prettyList es = vsep $ empty `intersperse` (map pretty es)
+  prettyList es = vsep $ (map pretty es)
   pretty (_ :< f) = pretty' f where
     pretty' (Apply func args) = pretty func <> tupled (map pretty args)
     pretty' (BinOp op l r) = pretty l <+> pretty op <+> pretty r
-    pretty' (Assign idents exprs) = cat (punctuate comma (map text idents)) <+> char '=' <+> cat (punctuate comma (map pretty exprs))
-    pretty' (Case cond branches) = text "case" <+> pretty cond <+> text "of" `above` vsep (map prettyBranch branches)
-      where prettyBranch (pat, branch) = pretty pat <+> text "->" <+> pretty branch
-    pretty' (If cond left right) =
-      text "if" <+> pretty cond <+> text "then"
-      </> indent 2 (pretty left)
-      </> text "else"
-      </> indent 2 (pretty right)
-      </> text "end"
-    pretty' (Lambda args body) = text "fn" <+> tupled (map pretty args) `above` pretty body `above` text "end"
-    pretty' (Var v) = text v
-    pretty' (Constructor c) = text c
+    pretty' (Assign idents exprs) = cat (punctuate comma (map pretty idents)) <+> pretty '=' <+> cat (punctuate comma (map pretty exprs))
+    pretty' (Case cond branches) = pretty "case" <+> pretty cond <+> pretty "of" `above` vsep (map prettyBranch branches)
+      where prettyBranch (pat, branch) = pretty pat <+> pretty "->" <+> pretty branch
+    pretty' (If cond left right) = vsep
+      [ pretty "if" <+> pretty cond <+> pretty "then"
+      , indent 2 (pretty left)
+      , pretty "else"
+      , indent 2 (pretty right)
+      , pretty "end"
+      ]
+    pretty' (Lambda args body) = pretty "fn" <+> tupled (map pretty args) `above` pretty body `above` pretty "end"
+    pretty' (Var v) = pretty v
+    pretty' (Constructor c) = pretty c
     pretty' (Literal l) = pretty l
-    pretty' (Body body) = nest 2 $ vsep (map pretty body)
+    pretty' (Body body) = prettyList body
     --pretty' (Hash x) = _
     pretty' (Array ar) = list (map pretty ar)
 

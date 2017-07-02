@@ -12,7 +12,7 @@ import Ill.Syntax
 import Control.Monad.State
 import Control.Monad.Except
 import Ill.Infer.Monad
-
+import Ill.Error
 spec :: Spec
 spec = do
   describe "unifyTypes" $ do
@@ -29,5 +29,5 @@ spec = do
       (fst <$> tc) `shouldBe` Right ()
 
 
-runTC :: Check a -> Either String (a, CheckState)
+runTC :: Check a -> Either MultiError (a, CheckState)
 runTC t = runExcept $ runStateT (runCheck t) defaultCheckEnv

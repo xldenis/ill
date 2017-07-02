@@ -14,7 +14,8 @@ import SpecHelper
 import Control.Monad (forM_)
 
 import Text.Megaparsec (runParser)
-import Data.Text (pack, unpack)
+import Data.Text.Lazy (pack, unpack)
+import Data.Text.Lazy (toStrict)
 
 import Ill.Syntax.Pretty (renderIll, defaultRenderArgs, pretty)
 import Ill.Syntax (Module(..), dropAnn)
@@ -37,7 +38,7 @@ spec = parallel $ do
         propPrettyParse file ast
 
 propPrettyParse f ast = do
-  let result = (parse $ prettyText ast)
+  let result = (parse . toStrict $ prettyText ast)
   case result of
     Right ast' | (noPos ast') == (noPos ast) -> return ()
     Right ast' -> do
@@ -45,6 +46,6 @@ propPrettyParse f ast = do
     Left  err -> do
       expectationFailure $ (unpack $ prettyText ast) ++ "\n\n" ++ (showParseError err)
   where parse = runParser illParser f
-        prettyText a = pack $ renderIll defaultRenderArgs (pretty a)
+        prettyText a = renderIll defaultRenderArgs (pretty a)
         noPos :: Module a -> Module ()
         noPos (Module n ds) = Module n $ map (dropAnn) ds
