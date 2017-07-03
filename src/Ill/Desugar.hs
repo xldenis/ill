@@ -95,8 +95,8 @@ expUsedName s (_ :< Assign names vals) =
   in (s', concat vNms)
 expUsedName s (_ :< Case e branches) = -- need to bind branches
   let eNms = getUsedNames s e
-      bNms = map (\(pats, value ) ->
-        let s' = foldl (\acc n -> fst $ patUsedName acc n) s pats
+      bNms = map (\(pat, value ) ->
+        let s' = fst $ patUsedName s pat
         in snd $ expUsedName s' value
         ) branches
   in (s, eNms ++ concat bNms)

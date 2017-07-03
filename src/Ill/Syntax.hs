@@ -39,7 +39,7 @@ data Module a = Module Name [Decl a] deriving (Eq, Show)
 data Declaration a b
   = Data Name [Name] [Type Name]
   | TypeSynonym Name [Name] (Type Name)
-  | Value Name [([Pattern], Expr a)]
+  | Value Name [(Patterns, Expr a)]
   | Signature Name (Type Name)
   | Import Qualified Masks String Alias
   | TraitDecl (Type Name) [b]

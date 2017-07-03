@@ -1,0 +1,10 @@
+module TC10
+  data Bool = True | False
+
+  fn x ()
+    case True of
+      True -> 2
+      False -> 1
+    end
+  end
+end

@@ -7,13 +7,11 @@ import           Ill.Syntax.Pretty
 import           Ill.Syntax.Literal
 import           Ill.Syntax.Pattern
 
-type Patterns = [Pattern]
-
 data Expression a
   = Apply a [a]
   | BinOp a a a
   | Assign [String] [a]
-  | Case a [(Patterns, a)]
+  | Case a [(Pattern, a)]
   | If a a a
   | Lambda [Pattern] a
   | Var String

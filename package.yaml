@@ -15,6 +15,8 @@ dependencies:
 - base >=4.7 && <5
 - mtl
 library:
+  ghc-options:
+  - -fwarn-incomplete-uni-patterns
   source-dirs: src
   dependencies:
   - free

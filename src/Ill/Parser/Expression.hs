@@ -64,7 +64,7 @@ caseE = withLoc $ do
     scn
     return (pat, expr)
   symbol "end"
-  return $ Case expr [] -- matchers
+  return $ Case expr matchers -- matchers
 
 lambda :: Parser (Expr SourceSpan)
 lambda = withLoc $ do

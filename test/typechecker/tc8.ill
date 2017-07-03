@@ -1,0 +1,9 @@
+module TC8
+  data Bool = True | False
+
+  fn ifThenElse(True, a, b)
+    a
+  or ifThenElse(False, a, b)
+    b
+  end
+end

@@ -125,6 +125,19 @@ infer (a :< If cond left right) = do
 
   return $ Ann a (Type $ typeOf left') :< If cond' left' right'
 
+infer (a :< Case cond branches) = do
+  cond' <- infer cond
+  retTy <- fresh
+
+  branches' <- forM branches $ \(pattern, expr) -> do
+    dict <- inferPat (typeOf cond') pattern
+
+    expr' <- bindNames dict (infer expr)
+    typeOf expr' =?= retTy
+
+    return $ (pattern, expr')
+
+  return $ Ann a (Type . typeOf . snd $ last branches') :< Case cond' branches'
 infer (a :< Body es) = do
   tys <- mapM infer es
 
@@ -139,6 +152,15 @@ infer (a :< BinOp op l r) = do
   typeOf op' =?= (typeOf l' `tFn` typeOf r' `tFn` tRet)
 
   return $ Ann a (Type tRet) :< BinOp op' l' r'
+
+infer (a :< Lambda pats expr) = do
+  patTys <- replicateM (length pats) fresh
+
+  patDict <- inferPats (zip patTys pats)
+  expr' <- bindNames patDict (infer expr)
+
+  let retTy = foldr tFn (typeOf expr') patTys
+  return $ Ann a (Type retTy) :< Lambda pats expr'
 
 infer (a :< Var nm) = do
   ty <- lookupVariable nm

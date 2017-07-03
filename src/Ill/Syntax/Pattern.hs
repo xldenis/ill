@@ -10,6 +10,8 @@ data Pattern
   | PLit Literal
   deriving (Eq, Show)
 
+type Patterns = [Pattern]
+
 instance Pretty Pattern where
   pretty (Destructor cons args) = pretty cons <+> hsep (map (\a -> parensIf (complex a) (pretty a)) args)
     where complex (Destructor _ _) = True

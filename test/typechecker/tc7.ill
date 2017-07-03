@@ -2,6 +2,6 @@ module TC7
   fn fact(0)
     1
   or fact(n)
-    n * fact(n-1)
+    n * fact(n - 1)
   end
 end

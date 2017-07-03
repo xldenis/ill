@@ -1,0 +1,27 @@
+module TC9
+  fn ccc (x)
+    fn (y) = x end
+  end
+
+  fn omg ()
+    fn (cond) =
+      if cond then
+        1
+      else
+        2
+      end
+    end
+  end
+
+  fn zzz ()
+    (fn (x) = x + 1 end)(2)
+  end
+
+  data L a = C a (L a) | Nil
+
+  fn map(f, C a ls)
+    C(f(a), map(f,ls))
+  or map(f, Nil)
+    Nil
+  end
+end
