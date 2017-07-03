@@ -48,6 +48,7 @@ library
       Ill.Parser.Declaration
       Ill.Parser.Expression
       Ill.Parser.Lexer
+      Ill.Parser.Literal
       Ill.Parser.Module
       Ill.Parser.Pattern
       Ill.Parser.Type

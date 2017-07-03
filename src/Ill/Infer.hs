@@ -155,11 +155,6 @@ infer (a :< Constructor nm) = do
 infer (a :< Literal l) = do
   let ty = inferLit l
   return $ Ann a (Type ty) :< Literal l
-  where
-  inferLit (RawString _) = tString
-  inferLit (EscString _) = tString
-  inferLit (Integer _ )  = tInteger
-  inferLit (Double _)    = tDouble
 
 typeOf :: Cofree a TypedAnn -> (Type Name)
 typeOf (ann :< _) = fromType $ ty ann
@@ -238,6 +233,11 @@ unifyTypes t1 t2 = throwError $ UnificationError t1 t2
 
 type Alt a = ([Pattern], Expr a)
 
+inferLit (RawString _) = tString
+inferLit (EscString _) = tString
+inferLit (Integer _ )  = tInteger
+inferLit (Double _)    = tDouble
+
 typeDictionary :: [Decl SourceSpan] -> UnifyT (Type Name) Check ([Decl SourceSpan], [Decl SourceSpan], [Decl SourceSpan], [(Name, Type Name)])
 typeDictionary vals = do
   let (untyped, typed) = (vals, [])
@@ -255,17 +255,19 @@ typeForBindingGroupEl (a :< Value name els) dict = do
   when (any (/= numArgs) $ map length pats) . throwError $ InternalError "branches have different amounts of patterns"
 
   patTys <- replicateM (numArgs) fresh
+  retTy <- fresh
 
   vals' <- forM els $ \(pats, val) -> do
     patDict <- inferPats (zip patTys pats)
-
     val' <- bindNames (patDict ++ dict) (infer val)
 
-    typeOf val' =?= fromJust (lookup name dict)
+    typeOf val' =?= retTy
     return (pats, val')
 
-  let retTy = foldr tFn (typeOf . snd $ last vals') patTys
-  return $ Ann a (Type retTy) :< Value name vals'
+  let fTy = foldr tFn (typeOf . snd $ last vals') patTys
+  fTy =?= fromJust (lookup name dict)
+
+  return $ Ann a (Type $ fromJust (lookup name dict)) :< Value name vals'
 
 inferPats pats = concat <$> mapM (uncurry inferPat) pats
 
@@ -286,6 +288,10 @@ inferPat ty (Destructor n pats) = do
   go (pat : pats) (Arrow a b) =
     (++) <$> inferPat a pat <*> go pats b
   go _ _ = throwError $ InternalError "Impossible"
+inferPat ty (PLit lit) = do
+  let litTy = inferLit lit
+  litTy =?= ty
+  return []
 
 replaceTypeVars :: [(Name, Type Name)] -> Type Name -> Type Name
 replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)

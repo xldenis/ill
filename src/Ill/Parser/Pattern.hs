@@ -2,6 +2,7 @@ module Ill.Parser.Pattern (pattern) where
 
 import Ill.Syntax
 import Ill.Parser.Lexer
+import Ill.Parser.Literal
 
 import Text.Megaparsec.Text
 import Text.Megaparsec
@@ -9,7 +10,7 @@ import Text.Megaparsec
 import Control.Applicative ((<|>))
 
 pattern :: Parser Pattern
-pattern = (parens pattern) <|> wildcard <|> destructor <|> var
+pattern = (parens pattern) <|> wildcard <|> destructor <|> pLit <|> var
 
 destructor :: Parser Pattern
 destructor = do
@@ -22,3 +23,5 @@ var = PVar <$> identifier
 
 wildcard :: Parser Pattern
 wildcard = symbol "_" *> (return Wildcard)
+
+pLit = PLit <$> literal

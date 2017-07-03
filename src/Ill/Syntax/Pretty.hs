@@ -27,6 +27,9 @@ defaultRenderArgs = RenderArgs {ribbon = 1.0, width = 100}
 renderIll :: RenderArgs -> Doc a -> Text
 renderIll RenderArgs{ribbon , width} doc = renderLazy (layoutPretty (LayoutOptions $ AvailablePerLine width ribbon) doc)
 
+renderIll' :: Doc a -> Text
+renderIll' = renderIll defaultRenderArgs
+
 (<->) :: Doc a -> Doc a -> Doc a
 a <-> Empty = a
 Empty <-> a = a

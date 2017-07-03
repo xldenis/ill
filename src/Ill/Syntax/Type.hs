@@ -21,10 +21,8 @@ data Type t
 
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
-  pretty (TAp (TConstructor "->") a) = pretty a <+> (pretty "->")
+  pretty (TAp (TAp (TConstructor "->") a) b) = parensIf (complex a) (pretty a) <+> (pretty "->") <+> (pretty b)
   pretty (TAp f a) = pretty f <+> parensIf (complex a) (pretty a)
-    where go (TAp f' a') = go f' <+> parensIf (complex a') (pretty a')
-          go a'          = pretty a'
   pretty (TConstructor cons) = pretty cons
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> pretty "->" <+> parensIf (complex to) (pretty to)
   pretty (Trait nm tp) = pretty nm <+> pretty tp
@@ -46,7 +44,6 @@ tInteger = TConstructor "Int"
 tDouble = TConstructor "Double"
 
 complex :: Type t -> Bool
-complex (TConstructor _) = False
 complex (Arrow _ _) = True
 complex (TAp _ _) = True
 complex _ = False

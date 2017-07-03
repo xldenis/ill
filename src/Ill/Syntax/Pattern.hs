@@ -1,12 +1,13 @@
 module Ill.Syntax.Pattern where
-import Ill.Syntax.Pretty
 
+import Ill.Syntax.Pretty
+import Ill.Syntax.Literal
 
 data Pattern
   = Destructor String [Pattern]
   | Wildcard
   | PVar String
-  -- | PLit Literal
+  | PLit Literal
   deriving (Eq, Show)
 
 instance Pretty Pattern where

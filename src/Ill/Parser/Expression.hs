@@ -2,7 +2,7 @@ module Ill.Parser.Expression where
 
 import Ill.Parser.Lexer
 import Ill.Parser.Pattern
-
+import Ill.Parser.Literal
 import Ill.Syntax
 
 import Text.Megaparsec
@@ -27,7 +27,7 @@ consExpr :: Parser (Expr SourceSpan)
 consExpr = caseE <|> lambda <|> ifE
 
 simpleExpr :: Parser (Expr SourceSpan)
-simpleExpr = (try $ doubleLit) <|> integerLit <|> rawString <|> var <|> constructor
+simpleExpr = literalE <|> var <|> constructor
 
 body :: Parser (Expr SourceSpan) -- need backtracking?
 body = withLoc $ do
@@ -87,15 +87,7 @@ ifE = withLoc $ do
 
   return $ If cond left right
 
-integerLit :: Parser (Expr SourceSpan)
-integerLit = withLoc (Literal . Integer <$> integer)
-
-doubleLit :: Parser (Expr SourceSpan)
-doubleLit = withLoc (Literal . Double <$> double)
-
-rawString :: Parser (Expr SourceSpan)
-rawString = withLoc (Literal . RawString <$> str)
-  where str = squotes (many $ noneOf "'")
+literalE = withLoc (Literal <$> literal)
 
 var :: Parser (Expr SourceSpan)
 var = try $ withLoc (Var <$> identifier)
