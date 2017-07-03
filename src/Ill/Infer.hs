@@ -217,14 +217,14 @@ instance Partial (Type a) where
 
   unknowns (TAp l r)         = unknowns l ++ unknowns r
   unknowns (Arrow l r)       = unknowns l ++ unknowns r
-  unknowns (Trait _ r)       = unknowns r
-  unknowns (Constraint ts t) = concatMap unknowns ts ++ unknowns t
+  unknowns (Constrained ts t) = concatMap unknowns' ts ++ unknowns t
+    where unknowns' (nm, ts) = concatMap unknowns ts
   unknowns _                 = []
 
   ($?) sub (TAp l r)         = TAp (sub $? l) (sub $? r)
   ($?) sub (Arrow l r)       = Arrow (sub $? l) (sub $? r)
-  ($?) sub (Trait n t)       = Trait n (sub $? t)
-  ($?) sub (Constraint ts t) = Constraint (map (sub $?) ts) (sub $? t)
+  ($?) sub (Constrained ts t) = Constrained (map sub' ts) (sub $? t)
+    where sub' (nm, ts) = (nm, map (sub $?) ts)
   ($?) sub t@(TUnknown u)    = fromMaybe t $ H.lookup u (runSubstitution sub)
   ($?) sub other             = other
 
@@ -249,8 +249,8 @@ unifyTypes c1@(TConstructor cNm1) c2@(TConstructor cNm2) =
   if c1 == c2
   then return ()
   else throwError $ UnificationError c1 c2
-unifyTypes (Constraint ts1 t1) t2 = throwError $ NotImplementedError "constrained type unification"
-unifyTypes t1 (Constraint ts2 t2) = throwError $ NotImplementedError "constrained type unification"
+unifyTypes (Constrained ts1 t1) t2 = throwError $ NotImplementedError "constrained type unification"
+unifyTypes t1 (Constrained ts2 t2) = throwError $ NotImplementedError "constrained type unification"
 unifyTypes t1 t2 = throwError $ UnificationError t1 t2
 
 type Alt a = ([Pattern], Expr a)

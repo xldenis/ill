@@ -11,13 +11,11 @@ data Type t
   | TAp (Type t) (Type t)
   | TConstructor t
   | Arrow (Type t) (Type t)
-  | Trait t (Type t)
-  | Constraint [Type t] (Type t)
-  -- | Constraint [Constraint t]
+  | Constrained [Constraint t] (Type t)
   | TUnknown Unknown
   deriving (Eq, Show)
 
--- type Constraint t = (t, [Type])
+type Constraint t = (t, [Type t])
 
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
@@ -25,9 +23,9 @@ instance Pretty (Type String) where
   pretty (TAp f a) = pretty f <+> parensIf (complex a) (pretty a)
   pretty (TConstructor cons) = pretty cons
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> pretty "->" <+> parensIf (complex to) (pretty to)
-  pretty (Trait nm tp) = pretty nm <+> pretty tp
-  pretty (Constraint trts tp) = alternative (map pretty trts) <+> pretty tp
+  pretty (Constrained trts tp) = alternative (map prettyCons trts) <+> pretty tp
     where alternative = encloseSep mempty (mempty <+> pretty '|') (pretty ',')
+          prettyCons (nm, ts) = pretty nm <+> hsep (map pretty ts)
   pretty (TUnknown u) = pretty "unknown" <+> pretty (show u)
 
 tArrow :: Type String
@@ -51,8 +49,8 @@ complex _ = False
 varIfUnknown :: Type String -> Type String
 varIfUnknown (TAp l r) = TAp (varIfUnknown l) (varIfUnknown r)
 varIfUnknown (Arrow l r) = Arrow (varIfUnknown l) (varIfUnknown r)
-varIfUnknown (Trait n t) = Trait n (varIfUnknown t)
-varIfUnknown (Constraint ts t') = Constraint (map varIfUnknown ts) (varIfUnknown t')
+varIfUnknown (Constrained ts t') = Constrained (map varIfUnknown' ts) (varIfUnknown t')
+  where varIfUnknown' (a, ts) = (a, map varIfUnknown ts)
 varIfUnknown (TUnknown u) = TVar toName
   where toName = "a" ++ show u
 varIfUnknown a = a
@@ -60,15 +58,15 @@ varIfUnknown a = a
 replaceVar :: String -> Type String -> Type String -> Type String
 replaceVar v t (TAp l r) = TAp (replaceVar v t l) (replaceVar v t r)
 replaceVar v t (Arrow l r) = Arrow (replaceVar v t l) (replaceVar v t r)
-replaceVar v t (Trait n t') = Trait n (replaceVar v t t')
-replaceVar v t (Constraint ts t') = Constraint (map (replaceVar v t) ts) (replaceVar v t t')
+replaceVar v t (Constrained ts t') = Constrained (map replaceVar' ts) (replaceVar v t t')
+  where replaceVar' (n, ts) = (n, map (replaceVar v t) ts)
 replaceVar v t (TVar n) | n == v = t
 replaceVar v t a = a
 
 varsInType :: Type String -> [String]
 varsInType (TAp l r) = varsInType l ++ varsInType r
 varsInType (Arrow l r) = varsInType l ++ varsInType r
-varsInType (Trait n t) = varsInType t
-varsInType (Constraint ts t') = concatMap varsInType ts ++ varsInType t'
+varsInType (Constrained ts t') = concatMap varsInType' ts ++ varsInType t'
+  where varsInType' (n, ts') = concatMap varsInType ts'
 varsInType (TVar t) = [t]
 varsInType a = []

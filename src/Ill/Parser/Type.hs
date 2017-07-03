@@ -39,11 +39,11 @@ arrow =  do
   r <- typeExp
   return $ Arrow l r
 
-trait :: Parser (Type String)
-trait =  Trait <$> upperIdent <*> typeExp
+trait :: Parser (Constraint String)
+trait =  (,) <$> upperIdent <*> some typeExp
 
-constraints :: Parser [Type String]
+constraints :: Parser [Constraint Name]
 constraints = try $ trait `sepBy` symbol "," <* symbol "|"
 
 constrainedType :: Parser (Type String)
-constrainedType =  Constraint <$> (constraints <|> return []) <*> typeExp
+constrainedType =  Constrained <$> (constraints <|> return []) <*> typeExp

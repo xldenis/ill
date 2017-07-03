@@ -19,9 +19,61 @@ module TC9
 
   data L a = C a (L a) | Nil
 
+  data Maybe a = Just a | Nothing
+
+  fn head(C a ls)
+    Just(a)
+  or head(Nil)
+    Nothing
+  end
+
+  fn tail(C a ls)
+    Just(ls)
+  or tail(Nil)
+    Nothing
+  end
+
+  fn mapMaybe(f, Just x)
+    f(x)
+  or mapMaybe(f, Nothing)
+    Nothing
+  end
+
+  fn sort(list)
+    sort_(list, Nil)
+  end
+
+  fn sort_(C el ls, acc)
+    sort_(ls, insert_sorted(el, acc))
+  or sort_(Nil, acc)
+    acc
+  end
+
+  fn insert_sorted(el, C list_el ls)
+    if list_el > el then
+      C(el, C(list_el, ls))
+    else
+      C(list_el, insert_sorted(el, ls))
+    end
+  or insert_sorted(el, Nil)
+    C(el, Nil)
+  end
+
   fn map(f, C a ls)
     C(f(a), map(f,ls))
   or map(f, Nil)
     Nil
   end
+
+  # foldl :: (a -> b -> a) -> a -> L a -> a
+  fn foldl(f, z, C a ls)
+    foldl(f, f(z, a), ls)
+  or foldl(f, z, Nil)
+    z
+  end
+
+  fn id (x)
+    x
+  end
+
 end

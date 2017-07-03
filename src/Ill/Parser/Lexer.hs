@@ -21,17 +21,19 @@ symbol = L.symbol sc
 
 identifier :: Parser String
 identifier = p >>= res
-  where p = label "identifier" . lexeme $ ((:) <$> lowerChar <*> many alphaNumChar)
+  where p = label "identifier" . lexeme $ ((:) <$> lowerChar <*> many identLetters)
         res i = if i `elem` reserved then
             fail $ "The reserved word `" ++ i ++ "` cannot be used as an identifier."
           else
             return i
 
+identLetters = oneOf "_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
 upperIdent :: Parser String
 upperIdent = lexeme capitalized
 
 capitalized :: Parser String
-capitalized = (:) <$> upperChar <*> many alphaNumChar
+capitalized = (:) <$> upperChar <*> many identLetters
 
 scn :: Parser ()
 scn = L.space (void spaceChar) lineComment empty
