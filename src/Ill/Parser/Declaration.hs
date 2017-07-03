@@ -20,8 +20,6 @@ declaration =
   dataDeclaration <|> typeSynonymDeclaration <|> importDeclaration <|>
   valueDeclaration <|> signatureDeclaration <|> traitDeclaration <|> implDeclaration
 
--- Need to add type variables!!!
-
 dataDeclaration :: Parser (Decl SourceSpan)
 dataDeclaration = withLoc $ do
   symbol "data"

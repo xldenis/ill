@@ -1,0 +1,15 @@
+module TC6
+
+  fn cont(f)
+    f(1)
+  end
+
+  fn cont2(f)
+    f(1,2)
+  end
+
+  fn cont3(f, g)
+    f(1, g)
+    g(3)
+  end
+end
