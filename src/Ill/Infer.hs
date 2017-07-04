@@ -68,7 +68,19 @@ typeCheck bgs = mapM go bgs
 
   go (OtherBG (_ :< TypeSynonym _ _ _)) = throwError $ NotImplementedError "oops"
   go (OtherBG (a :< (Import q m n al))) = return $ OtherBG $ Ann a None :< (Import q m n al)
-  go (OtherBG (_ :< TraitDecl _ _))     = throwError $ NotImplementedError "oops"
+  go (OtherBG (a :< TraitDecl supers name args members)) = do
+    let memTys = map toPair members
+        members' = map annSigs members
+    addTrait name supers args memTys
+
+    return . OtherBG $ Ann a None :< (TraitDecl supers name args members')
+    where
+    toPair (_ :< Signature nm ty) = (nm, ty)
+    toPair _ = error "trait declaration contains non signature value"
+
+    annSigs (a :< Signature nm ty) = Ann a (Type ty) :< Signature nm ty
+    annSigs _ = error "trait declaration contains non signature value"
+
   go (OtherBG (_ :< TraitImpl _ _))     = throwError $ NotImplementedError "oops"
   go (OtherBG (_))                 = throwError $ NotImplementedError "oops"
 

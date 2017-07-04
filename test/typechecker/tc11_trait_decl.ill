@@ -1,0 +1,14 @@
+module TC11TraitDecl
+
+  trait Functor f
+    fmap :: (a -> b) -> f a -> f b
+  end
+
+  fn id (x)
+    x
+  end
+
+  fn map(a)
+    fmap id a
+  end
+end

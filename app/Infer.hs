@@ -20,7 +20,9 @@ infer (Module _ ds) = let
   typed = runExcept $ runStateT (runCheck $ typeCheck bg) defaultCheckEnv
   in case typed of
     Left e -> putStrLn . pack $ show e
-    Right (ts, _) -> printBG ts
+    Right (ts, checkState) -> do
+      printBG ts
+      putStrLn . pack $ show (traits . env $ checkState)
 
 printBG ((ValueBG ds):bgs) = printTypes ds >> printBG bgs
 printBG ((DataBG  ds):bgs) = printTypes ds >> printBG bgs

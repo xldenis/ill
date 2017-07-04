@@ -21,6 +21,8 @@ module TC9
 
   data Maybe a = Just a | Nothing
 
+  data Numbers = One | Two | Three
+
   fn head(C a ls)
     Just(a)
   or head(Nil)

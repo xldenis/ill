@@ -41,10 +41,12 @@ typeSynonymDeclaration = withLoc $ do
 traitDeclaration :: Parser (Decl SourceSpan)
 traitDeclaration = withLoc $ do
   symbol "trait"
-  trt <- constrainedType
+  supers <- constraints <|> (pure [])
+  name <- lexeme capitalized
+  args <- some identifier
   sep
-  body <- manyTill (valueDeclaration <|> signatureDeclaration <* (sep <* scn)) $ symbol "end"
-  return $ TraitDecl trt body
+  body <- manyTill (signatureDeclaration <* (sep <* scn)) $ symbol "end"
+  return $ TraitDecl supers name args body
 
 implDeclaration :: Parser (Decl SourceSpan)
 implDeclaration = withLoc $ do

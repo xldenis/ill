@@ -42,7 +42,7 @@ data Declaration a b
   | Value Name [(Patterns, Expr a)]
   | Signature Name (Type Name)
   | Import Qualified Masks String Alias
-  | TraitDecl (Type Name) [b]
+  | TraitDecl [Constraint Name] Name [Name] [b]
   | TraitImpl (Type Name) [b]
   deriving (Eq, Functor, Show)
 
@@ -64,7 +64,7 @@ nestedFmap f v = hoistCofree (go f) $ fmap f v
   go f (TypeSynonym a vs b) = TypeSynonym a vs b
   go f (Signature a b) = Signature a b
   go f (Import q m s a) =  Import q m s a
-  go f (TraitDecl a b) = TraitDecl a b
+  go f (TraitDecl a b c d) = TraitDecl a b c d
   go f (TraitImpl a b) = TraitImpl a b
 
 dropAnn :: Decl a -> Decl ()
@@ -99,7 +99,8 @@ instance Pretty (Cofree (Declaration a) a) where
             prettyMask (Hiding nms) = pretty "hiding" <+> tupled (map pretty nms)
             prettyMask (Only   nms) = tupled $ map pretty nms
             prettyMask _            = mempty
-  pretty (_ :< TraitDecl trt body)  = nest 2 (pretty "trait" <+> pretty trt `above` vsep (map pretty body)) `above` pretty "end"
-    -- where constraints c = if null c then mempty else hsep (punctuate comma (map pretty c)) <+> pretty "|"
+  pretty (_ :< TraitDecl super name args body)  = nest 2 (pretty "trait" <+> declarationLine `above` vsep (map pretty body)) `above` pretty "end"
+    where constraints c = if null c then mempty else hsep (punctuate comma (map pretty c)) <+> pretty "|"
+          declarationLine = constraints super <+> pretty name <+> (hsep $ map pretty args)
   pretty (_ :< TraitImpl trt body)  = nest 2 (pretty "impl" <+> pretty trt `above` vsep (map pretty body)) `above` pretty "end"
 

@@ -13,7 +13,10 @@ data Environment = Environment
   { names :: [(Name, Type Name)]
   , types :: [(Name, Kind)]
   , constructors :: [(Name, (Name, Type Name, [Name]))]
+  , traits :: [(Name, ClassEntry)]
   } deriving (Show, Eq)
+
+type ClassEntry = ([Constraint Name], [Name], [(Name, Type Name)])
 
 data CheckState = CheckState
   { env :: Environment
@@ -29,7 +32,7 @@ defaultCheckEnv = CheckState (Environment
   , ("*", tInteger `tFn` tInteger `tFn` tInteger)
   , ("/", tInteger `tFn` tInteger `tFn` tInteger)
   , (">", tInteger `tFn` tInteger `tFn` tBool)
-  ] [] []) 0
+  ] [] [] []) 0
 
 putEnv :: MonadState CheckState m => Environment -> m ()
 putEnv e = modify (\s -> s { env  = e })
@@ -47,6 +50,7 @@ liftUnify action = do
   st <- get
   let ut = runUnify (defaultUnifyState { unifyNextVar = (nextVar st)}) action
   (a, ust) <- ut
+  modify $ \st -> st { nextVar = unifyNextVar ust }
   let uust = unifyCurrentSubstitution ust
   return (a, uust)
 
@@ -86,3 +90,6 @@ bindTypeVariables tyVars action = do
   a <- action
   modify (\s -> s { env = (env s) { types = types . env $ orig } })
   return a
+
+addTrait name supers args members = do
+  modify $ \st -> st { env = (env st) { traits = (name, (supers, args, members)) : (traits $ env st) } }

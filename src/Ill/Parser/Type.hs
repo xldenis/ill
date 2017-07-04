@@ -35,7 +35,7 @@ typePrim =  typeAp <|> typeVar
 
 arrow :: Parser (Type String)
 arrow =  do
-  l <- try $ typePrim <* symbol "->"
+  l <- try $ (typePrim <|> parens typeExp) <* symbol "->"
   r <- typeExp
   return $ Arrow l r
 
