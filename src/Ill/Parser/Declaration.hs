@@ -51,7 +51,7 @@ traitDeclaration = withLoc $ do
 implDeclaration :: Parser (Decl SourceSpan)
 implDeclaration = withLoc $ do
   symbol "impl"
-  trt <- constrainedType
+  trt <- fullType
   sep
   body <- manyTill (valueDeclaration <* sep <* scn) $ symbol "end"
   return $ TraitImpl trt body
@@ -60,7 +60,7 @@ signatureDeclaration :: Parser (Decl SourceSpan)
 signatureDeclaration = try $ withLoc $ do
   ident <- identifier
   symbol "::"
-  Signature ident <$> constrainedType
+  Signature ident <$> fullType
 
 -- TODO: Argument pattern matching?
 valueDeclaration :: Parser (Decl SourceSpan)

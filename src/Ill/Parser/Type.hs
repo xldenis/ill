@@ -3,6 +3,7 @@ import Control.Applicative
 
 import Text.Megaparsec.Text
 import Text.Megaparsec
+import Text.Megaparsec.Expr
 
 import Ill.Syntax
 import Ill.Parser.Lexer
@@ -10,15 +11,12 @@ import Ill.Parser.Lexer
 typeVar :: Parser (Type String)
 typeVar = TVar <$> identifier
 
-typeExp :: Parser (Type String)
-typeExp =  arrow <|> typePrim <|> parens typeExp
-
 typeAp :: Parser (Type String)
 typeAp = do
   f <- typeCons <|> typeVar
-  as <- many typeExp
+  as <- many $ typeVar <|> parens typeExp
 
-  return $ foldl (TAp) f as
+  return $ foldl TAp f as
 
 typeCons :: Parser (Type String)
 typeCons = TConstructor <$> lexeme capitalized
@@ -30,20 +28,21 @@ typeProduct = do
 
   return $ foldl TAp f as
 
-typePrim :: Parser (Type String)
-typePrim =  typeAp <|> typeVar
-
-arrow :: Parser (Type String)
-arrow =  do
-  l <- try $ (typePrim <|> parens typeExp) <* symbol "->"
-  r <- typeExp
-  return $ Arrow l r
-
 trait :: Parser (Constraint String)
 trait =  (,) <$> upperIdent <*> some typeExp
 
 constraints :: Parser [Constraint Name]
-constraints = try $ trait `sepBy` symbol "," <* symbol "|"
+constraints = try $ trait `sepBy1` symbol "," <* symbol "|"
 
 constrainedType :: Parser (Type String)
-constrainedType =  Constrained <$> (constraints <|> return []) <*> typeExp
+constrainedType = Constrained <$> constraints <*> typeExp
+
+fullType :: Parser (Type String)
+fullType = constrainedType <|> typeExp
+
+typeExp = makeExprParser (typePrim <|> parens typeExp) opTable
+  where
+  opTable = [[InfixR $ lexeme $ string "->" *> return Arrow]]
+
+  typePrim :: Parser (Type String)
+  typePrim =  typeAp <|> typeVar
