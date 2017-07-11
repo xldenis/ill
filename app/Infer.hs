@@ -5,7 +5,7 @@ import Ill.Syntax
 import Ill.Infer
 import Ill.Infer.Monad
 import Ill.Desugar
-
+import Ill.Error
 import Ill.Syntax.Pretty
 
 import Control.Monad.State (runStateT)
@@ -19,7 +19,10 @@ infer (Module _ ds) = let
   bg = bindingGroups ds
   typed = runExcept $ runStateT (runCheck $ typeCheck bg) defaultCheckEnv
   in case typed of
-    Left e -> putStrLn . pack $ show e
+    Left e -> 
+      case e of
+        -- UnificationError t1 t2 -> putStrLn "UnificationError: " >> (putStrLn $ prettyType t1) >> (putStrLn $ prettyType t1)
+        otherwise -> putStrLn . pack $ show e
     Right (ts, checkState) -> do
       printBG ts
       putStrLn . pack $ show (traits . env $ checkState)
@@ -30,12 +33,12 @@ printBG (_ : bgs) = printBG bgs
 printBG []        = return ()
 
 printTypes :: [Decl TypedAnn] -> IO ()
-printTypes ((a :< Value n _):ts)   = putStr (pack n <> ": ") >> putStrLn (prettyType a) >> printTypes ts
-printTypes ((a :< Data  n _ _):ts) = putStr (pack n <> ": ") >> putStrLn (prettyType a) >> printTypes ts
+printTypes ((a :< Value n _):ts)   = putStr (pack n <> ": ") >> putStrLn (prettyType $ ty a) >> printTypes ts
+printTypes ((a :< Data  n _ _):ts) = putStr (pack n <> ": ") >> putStrLn (prettyType $ ty a) >> printTypes ts
 printTypes (_ : ts) = printTypes ts
 printTypes [] = return ()
 
-prettyType a = renderIll defaultRenderArgs (pretty $ ty a)
+prettyType a = renderIll defaultRenderArgs (pretty $ a)
 
 instance Pretty TypeAnn where
   pretty (Type ty) = pretty ty
