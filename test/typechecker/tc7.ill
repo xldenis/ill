@@ -4,4 +4,14 @@ module TC7
   or fact(n)
     n * fact(n - 1)
   end
+
+  fn fact_tail(0, acc)
+    acc
+  or fact_tail(n, acc)
+    fact_tail(n - 1, n * acc)
+  end
+
+  fn fact2(n)
+    fact_tail(n, 1)
+  end
 end

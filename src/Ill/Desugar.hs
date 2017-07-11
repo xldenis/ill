@@ -120,4 +120,5 @@ getUsedNames s e = snd $ expUsedName s e
 patUsedName :: Set Ident -> Pattern -> (Set Ident, [Ident])
 patUsedName s (Destructor _ pats) = (foldl (\s' p -> fst $ patUsedName s' p) s pats, [])
 patUsedName s (PVar nm) = (nm `insert` s, [])
+patUsedName s (PLit _) = (s, [])
 patUsedName s Wildcard = (s, [])
