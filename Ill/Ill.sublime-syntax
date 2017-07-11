@@ -1,0 +1,227 @@
+%YAML1.2
+---
+# See http://www.sublimetext.com/docs/3/syntax.html
+file_extensions:
+  - ill
+scope: source.ill
+variables:
+  identifier: '[A-Za-z_][A-Za-z_0-9]*'
+  constructor: '[A-Z][a-z]*'
+
+contexts:
+  prototype:
+    - include: line_comment
+
+  main:
+    - match: 'module'
+      scope: keyword.control.ill
+      set: mod_name
+    - match: 'end'
+      scope: invalid.illegal
+
+  mod_name:
+    - match: '{{constructor}}'
+      set:
+        - match: 'end'
+          scope: keyword.control.ill
+          pop: true
+        - include: decls
+
+  decls:
+    # Strings begin and end with quotes, and use backslashes as an escape
+    # character
+
+    - match: 'if|else|then'
+      scope: invalid.illegal
+
+    # Keywords are if, else for and while.
+    # Note that blackslashes don't need to be escaped within single quoted
+    # strings in YAML. When using single quoted strings, only single quotes
+    # need to be escaped: this is done by using two single quotes next to each
+    # other.
+    - match: 'data|type'
+      scope: keyword.control.ill
+      push: data
+
+    - match: 'fn'
+      scope: keyword.control.ill
+      push: function
+
+    - match: 'trait'
+      scope: keyword.control.ill
+      push: trait
+
+    - match: 'import'
+      scope: keyword.control.ill
+      push: import
+
+    - match: 'fn|type|data'
+      scope: invalid.illegal
+
+
+    - match: '\b{{identifier}}\b'
+      scope: entity.name.function.ill meta.function.type-declaration.ill
+      push: annotation
+    # Numbers
+
+  import:
+    - match: 'qualified'
+      set: import_name
+    - include: import_name
+
+  import_name:
+    - match: '{{constructor}}(.{{constructor}})+'
+      pop: true
+    - match: 'hiding'
+      scope: keyword
+    - match: 'as'
+      scope: keyword
+
+  annotation:
+    - match: '::'
+      scope: keyword.other.double-colon.ill
+      set: type
+
+  data:
+    - match: '{{identifier}}'
+      scope: constant.other.ill entity.name.type.ill
+      set:
+        - match: '='
+          scope: keyword.operator.ill
+          set: type
+
+  function:
+    - match: '{{identifier}}'
+      scope: entity.name.function.ill
+      set:
+        - match: '\('
+          set: func_args
+
+  func_args:
+    - match: '\)'
+      set: func_body
+    - include: pattern
+
+  func_body:
+    - include: expression
+    - match: '^\s+or\s'
+      scope: keyword.control.ill
+      set: function
+    - match: 'end'
+      scope: keyword.control.ill
+      pop: true
+
+  pattern:
+    - match: '_'
+    - match: '{{constructor}}'
+      scope: constant.other.ill entity.name.type.ill
+    - include: literal
+    # - match: '{{identifier}}'
+
+  trait:
+    - match: '{{constructor}}'
+      scope: storage.type.ill
+      set: trait_body
+
+  trait_body:
+    - match: 'end'
+      scope: keyword.control.ill
+      pop: true
+    - match: 'data|type'
+      scope: keyword.control.ill
+      push: data
+
+    - match: 'fn'
+      scope: keyword.control.ill
+      push: function
+
+    - match: '\b{{identifier}}\b'
+      scope: entity.name.function.ill meta.function.type-declaration.ill
+      push: annotation
+
+  type:
+    - meta_scope: storage.type.ill
+    - match: '$'
+      pop: true
+
+  double_quoted_string:
+    - meta_scope: string.quoted.double.ill
+    - match: '\\.'
+      scope: constant.character.escape.ill
+    - match: '"'
+      scope: punctuation.definition.string.end.ill
+      pop: true
+
+  single_quoted_string:
+    - meta_scope: string.quoted.single.ill
+    - match: '\\.'
+      scope: constant.character.escape.ill
+    - match: ''''
+      scope: punctuation.definition.string.end.ill
+      pop: true
+
+  line_comment:
+    - match: '#'
+      push:
+        - meta_scope: comment.line
+        - match: $
+          pop: true
+
+  expression:
+    - include: literal
+    - match: 'if'
+      scope: keyword.control.ill
+      push: ifexpr
+    - match: 'case'
+      scope: keyword.control.ill
+      push: case
+    - match: 'fn'
+      scope: keyword.control.ill
+      push: fn_1
+
+    # - match: '{{identifier}}'
+    #   pop: true
+
+  ifexpr:
+    - include: expression
+    - match: 'then'
+      scope: keyword.control.ill
+    - match: 'else'
+      scope: keyword.control.ill
+    - match: 'end'
+      pop: true
+      scope: keyword.control.ill
+
+  case:
+    - match: 'end'
+      pop: true
+      scope: keyword.control.ill
+    - include: pattern
+    - include: expression
+
+  fn_1:
+    - match: '\('
+      set: fn_2
+
+  fn_2:
+    - match: '\)'
+      set:
+      - match: '='
+        set:
+        - match: 'end'
+          scope: keyword.control.ill
+          pop: true
+        - include: expression
+    - include: pattern
+
+  literal:
+    - match: '\b(-)?[0-9.]+\b'
+      scope: constant.numeric.ill
+    - match: '"'
+      scope: punctuation.definition.string.begin.ill
+      push: double_quoted_string
+    - match: ''''
+      scope: punctuation.definition.string.begin.ill
+      push: single_quoted_string
+    - match: '{{constructor}}'
+      scope: constant entity.name.type.ill
