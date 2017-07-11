@@ -1,0 +1,9 @@
+module Bug1
+  fn id(x)
+    x
+  end
+
+  fn x ()
+    2
+  end
+end

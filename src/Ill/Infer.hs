@@ -40,7 +40,7 @@ typeCheck bgs = mapM go bgs
       return $ tAnn' :< v'
     return $ ValueBG t'
     where valueName (_ :< Value n _) = n
-          appSubs (ts, sub) = map (\t -> nestedFmap (\a -> a { ty = fmapTy (sub $?) (ty a) }) t) ts
+          appSubs (ts, sub) = map (\t -> nestedFmap (\a -> a { ty = fmapTy (\t -> flattenConstraints $ sub $? t) (ty a) }) t) ts
           fmapTy f (Type t) = Type (f t)
           fmapTy f t = t
 
@@ -124,9 +124,14 @@ infer (a :< Apply l args) = do
   args' <- mapM infer args
   retTy <- fresh
 
-  fTy =?= foldr tFn retTy (map typeOf args')
+  let (cons1, fTy')   = unconstrained fTy
+      (cons2, argTy') = unconstrained $ foldr tFn retTy (map typeOf args')
 
-  return $ Ann a (Type retTy) :< Apply f' args'
+  fTy' =?= argTy'
+
+  let retTy' = Constrained (cons1 ++ cons2) retTy
+
+  return $ Ann a (Type retTy') :< Apply f' args'
 
 infer (a :< If cond left right) = do
   cond' <- check tBool cond
@@ -261,8 +266,6 @@ unifyTypes c1@(TConstructor cNm1) c2@(TConstructor cNm2) =
   if c1 == c2
   then return ()
   else throwError $ UnificationError c1 c2
-unifyTypes (Constrained ts1 t1) t2 = throwError $ NotImplementedError "constrained type unification"
-unifyTypes t1 (Constrained ts2 t2) = throwError $ NotImplementedError "constrained type unification"
 unifyTypes t1 t2 = throwError $ UnificationError t1 t2
 
 type Alt a = ([Pattern], Expr a)
@@ -339,4 +342,3 @@ freshenFunction ty = do
   replacements <- forM vars $ \var -> (,) <$> pure var <*> fresh
 
   return $ foldr (\(i, varTy) t -> replaceVar i varTy t) ty replacements
-

@@ -4,11 +4,21 @@ module TC11TraitDecl
     fmap :: (a -> b) -> f a -> f b
   end
 
+  data List a = Nil | Cons a
+
   fn id (x)
     x
   end
 
-  fn map(a)
-    fmap id a
+  fn id_map (a)
+    fmap(id)(a)
+  end
+
+  fn map_nil (f)
+    fmap(f)(Nil)
+  end
+
+  fn y ()
+    fmap
   end
 end

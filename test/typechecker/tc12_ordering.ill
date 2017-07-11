@@ -1,0 +1,7 @@
+module TC12Ordering
+  fn f ()
+    A
+  end
+
+  data B = A
+end

@@ -33,7 +33,7 @@ bindingGroups ds = let
   valueBGs = valueBindingGroups valueDecls
 
   others = map OtherBG $ filter (\d -> not (isValue d) && not (isDataDecl d)) ds
-  in dataBGs ++ valueBGs ++ others
+  in dataBGs ++ others ++ valueBGs
 
 sccToDecl :: SCC (Decl a) -> [Decl a]
 sccToDecl (AcyclicSCC d)  = [d]

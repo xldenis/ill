@@ -32,7 +32,8 @@ tArrow :: Type String
 tArrow = TConstructor "->"
 
 tFn :: Type String -> Type String -> Type String
-tFn a b = tArrow `TAp` a `TAp` b
+tFn = Arrow
+-- tFn a b = tArrow `TAp` a `TAp` b
 
 tString :: Type String
 tString = TConstructor "String"
@@ -42,7 +43,7 @@ tInteger = TConstructor "Int"
 tDouble = TConstructor "Double"
 
 complex :: Type t -> Bool
-complex (Arrow _ _) = True
+complex (Arrow _ _) = False
 complex (TAp _ _) = True
 complex _ = False
 
@@ -70,3 +71,21 @@ varsInType (Constrained ts t') = concatMap varsInType' ts ++ varsInType t'
   where varsInType' (n, ts') = concatMap varsInType ts'
 varsInType (TVar t) = [t]
 varsInType a = []
+
+unconstrained :: Type String -> ([Constraint String], Type String)
+unconstrained (Constrained cons t) = (cons, t)
+unconstrained t@(TAp l r) = let 
+  (cons1, l') = unconstrained l 
+  (cons2, r') = unconstrained r
+  in (cons1 ++ cons2, TAp l' r')
+unconstrained t@(Arrow l r) = let 
+  (cons1, l') = unconstrained l 
+  (cons2, r') = unconstrained r
+  in (cons1 ++ cons2, Arrow l' r')
+unconstrained t = ([], t)
+
+flattenConstraints :: Type String -> Type String
+flattenConstraints t = case unconstrained t of
+  ([], t) -> t
+  (ts, t) -> Constrained ts t
+
