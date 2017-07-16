@@ -31,9 +31,6 @@ contexts:
     # Strings begin and end with quotes, and use backslashes as an escape
     # character
 
-    - match: 'if|else|then'
-      scope: invalid.illegal
-
     # Keywords are if, else for and while.
     # Note that blackslashes don't need to be escaped within single quoted
     # strings in YAML. When using single quoted strings, only single quotes
@@ -62,6 +59,9 @@ contexts:
     - match: '\b{{identifier}}\b'
       scope: entity.name.function.ill meta.function.type-declaration.ill
       push: annotation
+
+    - match: 'if|else|then'
+      scope: invalid.illegal
     # Numbers
 
   import:

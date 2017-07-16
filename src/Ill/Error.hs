@@ -1,6 +1,10 @@
-module Ill.Error where
+module Ill.Error
+  ( module Ill.Error
+  , module Control.Monad.Except
+  ) where
 
 import Ill.Syntax (Type, Name, Kind)
+import           Control.Monad.Except
 
 data MultiError
   = UnificationError (Type Name) (Type Name)
@@ -13,3 +17,6 @@ data MultiError
   | KindOccursError Kind
   | TypeOccursError (Type Name)
   deriving (Show, Eq)
+
+internalError :: MonadError MultiError m => String -> m ()
+internalError = throwError . InternalError

@@ -6,7 +6,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Unify
 import           Data.Coerce
-import           Data.List (unfoldr, uncons)
+import           Data.List (unfoldr, uncons, partition, elem, sortOn)
 import           Data.Map             as M (union)
 import           Data.Maybe
 
@@ -28,8 +28,11 @@ typeCheck bgs = mapM go bgs
   go :: BindingGroup SourceSpan -> Check (BindingGroup TypedAnn)
   go (ValueBG ds)                  = do
     v' <- liftUnify $ do
-          (ut, _, dict, untypedDict) <- typeDictionary ds
-          forM ut $ \e -> typeForBindingGroupEl e untypedDict
+          (ut, et, dict, untypedDict) <- typeDictionary ds
+          explicit <- forM et $ \e -> uncurry checkBindingGroupEl e dict
+          implicit <- forM ut $ \e -> typeForBindingGroupEl e dict
+
+          return $ explicit ++ implicit
     let t = appSubs v'
 
     t' <- forM t $ \v -> do
@@ -129,10 +132,9 @@ infer (a :< Apply l args) = do
 
   fTy' =?= argTy'
 
-  let retTy' = Constrained (cons1 ++ cons2) retTy
+  let retTy' = flattenConstraints $ Constrained (cons1 ++ cons2) retTy
 
   return $ Ann a (Type retTy') :< Apply f' args'
-
 infer (a :< If cond left right) = do
   cond' <- check tBool cond
   left' <- infer left
@@ -141,7 +143,6 @@ infer (a :< If cond left right) = do
   typeOf left' =?= typeOf right'
 
   return $ Ann a (Type $ typeOf left') :< If cond' left' right'
-
 infer (a :< Case cond branches) = do
   cond' <- infer cond
   retTy <- fresh
@@ -156,10 +157,9 @@ infer (a :< Case cond branches) = do
 
   return $ Ann a (Type . typeOf . snd $ last branches') :< Case cond' branches'
 infer (a :< Body es) = do
-  tys <- mapM infer es
+  tys <- bindNames [] $ mapM infer es
 
   return $ Ann a (Type . typeOf $ last tys) :< Body tys
-
 infer (a :< BinOp op l r) = do
   op' <- infer op
   l' <- infer l
@@ -169,7 +169,6 @@ infer (a :< BinOp op l r) = do
   typeOf op' =?= (typeOf l' `tFn` typeOf r' `tFn` tRet)
 
   return $ Ann a (Type tRet) :< BinOp op' l' r'
-
 infer (a :< Lambda pats expr) = do
   patTys <- replicateM (length pats) fresh
 
@@ -178,7 +177,12 @@ infer (a :< Lambda pats expr) = do
 
   let retTy = foldr tFn (typeOf expr') patTys
   return $ Ann a (Type retTy) :< Lambda pats expr'
+infer (a :< Assign lnames exps) = do
+  exps' <- mapM infer exps
+  let bound = zip lnames (map typeOf exps')
+  modifyEnv $ \e -> e { names = bound ++ (names e) }
 
+  return $ Ann a (Type tNil) :< Assign lnames exps'
 infer (a :< Var nm) = do
   ty <- lookupVariable nm
 
@@ -219,10 +223,19 @@ check expected (a :< Constructor nm) = do
   nT =?= expected
 
   return $ Ann a (Type nT) :< Constructor nm
-check expected v@(a :< BinOp op l r)= do
+check expected v@(_ :< BinOp _ _ _)= do
   rTy <- infer v
   (typeOf rTy) =?= expected
   return rTy
+check expected (a :< Body es) = do
+  tys <- mapM infer es
+
+  let (cons, retTy)   = unconstrained (typeOf $ last tys)
+
+  retTy =?= expected
+
+  return $ Ann a (Type . typeOf $ last tys) :< Body tys
+
 check expected ty = error (show ty)
 
 
@@ -268,6 +281,13 @@ unifyTypes c1@(TConstructor cNm1) c2@(TConstructor cNm2) =
   else throwError $ UnificationError c1 c2
 unifyTypes t1 t2 = throwError $ UnificationError t1 t2
 
+constrainedUnification :: Type Name -> Type Name -> UnifyT (Type Name) Check [Constraint Name]
+constrainedUnification t1 t2 = let
+  (cons1, t1') = unconstrained t1
+  (cons2, t2') = unconstrained t2
+
+  in t1' =?= t2' >> return (cons1 ++ cons2)
+
 type Alt a = ([Pattern], Expr a)
 
 inferLit (RawString _) = tString
@@ -275,17 +295,27 @@ inferLit (EscString _) = tString
 inferLit (Integer _ )  = tInteger
 inferLit (Double _)    = tDouble
 
-typeDictionary :: [Decl SourceSpan] -> UnifyT (Type Name) Check ([Decl SourceSpan], [Decl SourceSpan], [Decl SourceSpan], [(Name, Type Name)])
+type TypedDict   = [(Name, Type Name)]
+type UntypedDict = [(Name, Type Name)]
+
+typeDictionary :: [Decl SourceSpan] -> UnifyT (Type Name) Check ([Decl SourceSpan], [(Type Name, Decl SourceSpan)], TypedDict, UntypedDict)
 typeDictionary vals = do
-  let (untyped, typed) = (vals, [])
-      untyped' = untyped
+  let values = sortOn valueName $ filter isValue vals
+      sigs =  sortOn signatureName $ filter isSignature vals
+      sigNames = map signatureName sigs
+      (typedVals, untyped) = partition (\v -> valueName v `elem` sigNames) values
+      typed = zip (map signatureType sigs) typedVals
+
   untypedNames <- replicateM (length untyped) fresh
-  let untypedDict = zip (map valueName untyped') untypedNames
-  return (untyped', typed, [], untypedDict)
+  let untypedDict = zip (map valueName untyped) untypedNames
+      typedDict   = map (\(t, v) -> (valueName v, t)) typed 
+  return (untyped, typed, typedDict ++ untypedDict, untypedDict)
   where
   valueName (_ :< Value n _) = n
+  signatureName (_ :< Signature n _) = n
+  signatureType (_ :< Signature _ t) = t
 
-typeForBindingGroupEl :: Decl SourceSpan -> [(Name, Type Name)] -> UnifyT (Type Name) Check (Decl TypedAnn)
+typeForBindingGroupEl :: Decl SourceSpan -> UntypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
 typeForBindingGroupEl (a :< Value name els) dict = do
   let (pats, _) = unzip els
       numArgs = length $ head pats
@@ -305,6 +335,26 @@ typeForBindingGroupEl (a :< Value name els) dict = do
   fTy =?= fromJust (lookup name dict)
 
   return $ Ann a (Type $ fromJust (lookup name dict)) :< Value name vals'
+
+checkBindingGroupEl ty (a :< Value name els) dict = do
+  let (constraints, ty') = unconstrained ty
+      unwrapped = unwrapFnType ty'
+      argTys    = if length unwrapped > 1 then init unwrapped else []
+      retTy     = last unwrapped
+
+  vals' <- forM els $ \(pats, val) -> do
+    let patTys = zip argTys pats
+
+    patTys' <- inferPats patTys 
+    val' <- bindNames (patTys' ++ dict) (check retTy val)
+
+    cons <- retTy `constrainedUnification` typeOf val'
+    return (pats, val')
+
+  return $ Ann a (Type $ ty) :< Value name vals'
+
+
+checkPats = undefined
 
 inferPats pats = concat <$> mapM (uncurry inferPat) pats
 
@@ -330,15 +380,9 @@ inferPat ty (PLit lit) = do
   litTy =?= ty
   return []
 
-replaceTypeVars :: [(Name, Type Name)] -> Type Name -> Type Name
-replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)
-replaceTypeVars subs (Arrow l r) = Arrow (replaceTypeVars subs l) (replaceTypeVars subs r)
-replaceTypeVars subs (TAp f a) = TAp (replaceTypeVars subs f) (replaceTypeVars subs a)
-replaceTypeVars subs a = a
-
 freshenFunction :: Type Name -> UnifyT (Type Name) Check (Type Name)
 freshenFunction ty = do
   let vars = varsInType ty
   replacements <- forM vars $ \var -> (,) <$> pure var <*> fresh
 
-  return $ foldr (\(i, varTy) t -> replaceVar i varTy t) ty replacements
+  return $ foldr (\(i, varTy) t -> replaceTypeVars [(i,varTy)] t) ty replacements

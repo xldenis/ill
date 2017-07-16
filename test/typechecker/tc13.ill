@@ -1,0 +1,29 @@
+module TC13TypeAnnotation
+  
+  f :: a -> a
+  fn f (x)
+    x
+  end
+
+  fn f2(x)
+    f(x) + 1
+  end
+
+  ifStmt :: Int -> Int
+  fn ifStmt(x)
+    if x > 2 then 
+      5
+    else 
+      5
+    end
+  end
+
+  trait Show a
+    show :: a -> String
+  end
+
+  constrained :: Show a | a -> String
+  fn constrained(x)
+    show(x)
+  end
+end

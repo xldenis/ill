@@ -91,6 +91,8 @@ bindTypeVariables tyVars action = do
   modify (\s -> s { env = (env s) { types = types . env $ orig } })
   return a
 
+modifyEnv f = modify $ \st -> st { env = f (env st) }
+
 addTrait :: MonadState CheckState m => Name  -- class name
   -> [Constraint Name] -- super classes
   -> [Name] -- variables of class
@@ -103,4 +105,3 @@ addTrait name supers args members = do
   where
   qualifyType t = Constrained fullConstraints t
   fullConstraints = (name, (map TVar args)) : supers
-  modifyEnv f = modify $ \st -> st { env = f (env st) }

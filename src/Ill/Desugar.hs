@@ -28,11 +28,11 @@ bgNames (OtherBG d) = []
 bindingGroups :: [Decl a] -> [BindingGroup a]
 bindingGroups ds = let
   dataDecls = filter isDataDecl ds
-  valueDecls = filter isValue ds
+  valueDecls = filter isValue ds ++ filter isSignature ds
   dataBGs = dataBindingGroups dataDecls
   valueBGs = valueBindingGroups valueDecls
 
-  others = map OtherBG $ filter (\d -> not (isValue d) && not (isDataDecl d)) ds
+  others = map OtherBG $ filter (\d -> not (isValue d || isDataDecl d || isSignature d)) ds
   in dataBGs ++ others ++ valueBGs
 
 sccToDecl :: SCC (Decl a) -> [Decl a]
@@ -62,14 +62,16 @@ typeUsedName _                = [] -- incorrect handling of constaints for now
 
 -- todo intersect w names from module
 valueBindingGroups :: [Decl a] -> [BindingGroup a]
-valueBindingGroups ds = let
-  values = filter isValue ds
+valueBindingGroups values = let
+  -- values = filter isValue ds
   graphList = map graphNode values
-  graphNode v = (v, valueName v, valueUsedName v)
+  graphNode v = (v, valueName v, (signatureName $ valueName v) : valueUsedName v `intersect` allValues)
   allValues = map valueName values
   in map (ValueBG . sccToDecl) (stronglyConnComp graphList)
   where valueName (_ :< Value n _) = n
+        valueName (_ :< Signature n _) = signatureName n
         valueBody (Value _ v) = v
+        signatureName n = n ++ "_sig"
 
 valueUsedName :: Decl a -> [Ident]
 valueUsedName (_ :< Value n alts) = let
@@ -78,6 +80,7 @@ valueUsedName (_ :< Value n alts) = let
     s' = foldl (\acc p -> fst $ patUsedName acc p) s pats
     in getUsedNames s' ex'
   in concatMap (uncurry f) alts
+valueUsedName (_ :< Signature n _) = [n]
 
 expUsedName :: Set Ident -> Expr a -> (Set Ident, [Ident])
 expUsedName s (_ :< Apply a bs) = let

@@ -56,6 +56,10 @@ isDataDecl :: Decl a -> Bool
 isDataDecl (_ :< Data _ _ _) = True
 isDataDecl _ = False
 
+isSignature :: Decl a -> Bool
+isSignature (_ :< Signature _ _) = True
+isSignature _ = False
+
 nestedFmap :: (a -> b) -> Decl a -> Decl b
 nestedFmap f v = hoistCofree (go f) $ fmap f v
   where

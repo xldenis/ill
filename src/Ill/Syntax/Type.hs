@@ -3,6 +3,8 @@ module Ill.Syntax.Type where
 
 import Ill.Syntax.Pretty
 import Control.Monad.Unify (Unknown)
+import Data.Maybe 
+import Data.List
 
 -- pattern Arrow a b = (TAp (TAp (TConstructor "->") a) b)
 
@@ -42,6 +44,8 @@ tBool = TConstructor "Bool"
 tInteger = TConstructor "Int"
 tDouble = TConstructor "Double"
 
+tNil = TConstructor "Nil"
+
 complex :: Type t -> Bool
 complex (Arrow _ _) = False
 complex (TAp _ _) = True
@@ -55,14 +59,6 @@ varIfUnknown (Constrained ts t') = Constrained (map varIfUnknown' ts) (varIfUnkn
 varIfUnknown (TUnknown u) = TVar toName
   where toName = "a" ++ show u
 varIfUnknown a = a
-
-replaceVar :: String -> Type String -> Type String -> Type String
-replaceVar v t (TAp l r) = TAp (replaceVar v t l) (replaceVar v t r)
-replaceVar v t (Arrow l r) = Arrow (replaceVar v t l) (replaceVar v t r)
-replaceVar v t (Constrained ts t') = Constrained (map replaceVar' ts) (replaceVar v t t')
-  where replaceVar' (n, ts) = (n, map (replaceVar v t) ts)
-replaceVar v t (TVar n) | n == v = t
-replaceVar v t a = a
 
 varsInType :: Type String -> [String]
 varsInType (TAp l r) = varsInType l ++ varsInType r
@@ -84,8 +80,28 @@ unconstrained t@(Arrow l r) = let
   in (cons1 ++ cons2, Arrow l' r')
 unconstrained t = ([], t)
 
+constrain :: [Constraint String] -> Type String -> Type String
+constrain cs (Constrained cs' t) = Constrained (cs ++ cs') t
+constrain cs a = Constrained cs a
+
 flattenConstraints :: Type String -> Type String
 flattenConstraints t = case unconstrained t of
   ([], t) -> t
   (ts, t) -> Constrained ts t
 
+unwrapFnType :: Type String -> [Type String]
+unwrapFnType t = unfoldr' go t
+  where
+  unfoldr' f b = case f b of
+    (a, Just b') -> a : unfoldr' f b'
+    (a, Nothing) -> [a]
+
+  go (TAp (TAp (TConstructor "->") a) b) = (a, Just b)
+  go (Arrow a b) = (a, Just b)
+  go a           = (a, Nothing)
+
+replaceTypeVars :: [(String, Type String)] -> Type String -> Type String
+replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)
+replaceTypeVars subs (Arrow l r) = Arrow (replaceTypeVars subs l) (replaceTypeVars subs r)
+replaceTypeVars subs (TAp f a) = TAp (replaceTypeVars subs f) (replaceTypeVars subs a)
+replaceTypeVars subs a = a
