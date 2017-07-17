@@ -75,6 +75,13 @@ lookupTypeVariable name = do
     Nothing -> throwError $ UndefinedType name
     Just a -> return a
 
+lookupTrait :: (MonadError MultiError m, MonadState CheckState m) => Name -> m ClassEntry
+lookupTrait name = do
+  env <- env <$> get
+  case lookup name (traits env) of
+    Nothing -> throwError $ UndefinedTrait name
+    Just a -> return a
+
 bindNames :: MonadState CheckState m => [(Name, Type Name)] -> m a -> m a
 bindNames nms action = do
   orig <- get

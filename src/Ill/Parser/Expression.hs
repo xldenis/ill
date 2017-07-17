@@ -31,7 +31,7 @@ simpleExpr = literalE <|> var <|> constructor
 
 body :: Parser (Expr SourceSpan) -- need backtracking?
 body = withLoc $ do
-  Body <$> some (nonBodyExpr <* scn)
+  Body <$> some (nonBodyExpr <* sep)
 
 assign :: Parser (Expr SourceSpan)
 assign = withLoc $ do
@@ -58,8 +58,9 @@ caseE = withLoc $ do
   symbol "of"
   scn
   matchers <- some $ do
-    pat <- try pattern
-    symbol "->"
+    symbol "when"
+    pat  <- pattern
+    symbol ":"
     expr <- expression
     scn
     return (pat, expr)

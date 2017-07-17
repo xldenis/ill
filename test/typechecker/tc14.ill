@@ -1,10 +1,34 @@
 module TC14Assignment
   data Bool = True | False
 
+  impl Show Bool
+    fn show (True)
+      'True'
+    or show (False)
+      'False'
+    end
+  end
+
+  trait Show a
+    show :: a -> String
+  end
+
+  trait Functor f
+    map :: (a -> b) -> f a -> f b
+  end
+
   fn x (x)
     a = x
-
     a
+  end
+
+  fn z (x)
+    if x then
+      1
+    else
+      2
+    end
+    show(x)
   end
 
   fn y ()
@@ -14,5 +38,14 @@ module TC14Assignment
     else
       5
     end
+  end
+
+  zzz :: String
+  fn zzz ()
+    show(True)
+  end
+
+  fn yyy (x)
+    map(show, x)
   end
 end

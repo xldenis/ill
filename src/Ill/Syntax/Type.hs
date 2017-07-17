@@ -3,7 +3,7 @@ module Ill.Syntax.Type where
 
 import Ill.Syntax.Pretty
 import Control.Monad.Unify (Unknown)
-import Data.Maybe 
+import Data.Maybe
 import Data.List
 
 -- pattern Arrow a b = (TAp (TAp (TConstructor "->") a) b)
@@ -26,7 +26,7 @@ instance Pretty (Type String) where
   pretty (TConstructor cons) = pretty cons
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> pretty "->" <+> parensIf (complex to) (pretty to)
   pretty (Constrained trts tp) = alternative (map prettyCons trts) <+> pretty tp
-    where alternative = encloseSep mempty (mempty <+> pretty '|') (pretty ',')
+    where alternative = encloseSep mempty (mempty <+> pretty '|') (pretty ", ")
           prettyCons (nm, ts) = pretty nm <+> hsep (map pretty ts)
   pretty (TUnknown u) = pretty "unknown" <+> pretty (show u)
 
@@ -70,12 +70,12 @@ varsInType a = []
 
 unconstrained :: Type String -> ([Constraint String], Type String)
 unconstrained (Constrained cons t) = (cons, t)
-unconstrained t@(TAp l r) = let 
-  (cons1, l') = unconstrained l 
+unconstrained t@(TAp l r) = let
+  (cons1, l') = unconstrained l
   (cons2, r') = unconstrained r
   in (cons1 ++ cons2, TAp l' r')
-unconstrained t@(Arrow l r) = let 
-  (cons1, l') = unconstrained l 
+unconstrained t@(Arrow l r) = let
+  (cons1, l') = unconstrained l
   (cons2, r') = unconstrained r
   in (cons1 ++ cons2, Arrow l' r')
 unconstrained t = ([], t)
@@ -104,4 +104,17 @@ replaceTypeVars :: [(String, Type String)] -> Type String -> Type String
 replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)
 replaceTypeVars subs (Arrow l r) = Arrow (replaceTypeVars subs l) (replaceTypeVars subs r)
 replaceTypeVars subs (TAp f a) = TAp (replaceTypeVars subs f) (replaceTypeVars subs a)
+replaceTypeVars subs (Constrained cs a) = Constrained cs' (replaceTypeVars subs a)
+  where cs' = map (fmap $ map (replaceTypeVars subs)) cs
 replaceTypeVars subs a = a
+
+
+unwrapProduct :: Type String -> [Type String]
+unwrapProduct t = reverse $ unfoldr' go t
+  where
+  go (TAp f a) = (a, Just f)
+  go a         = (a, Nothing)
+
+  unfoldr' f b = case f b of
+    (a, Just b') -> a : unfoldr' f b'
+    (a, Nothing) -> [a]

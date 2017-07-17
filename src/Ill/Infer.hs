@@ -6,7 +6,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Unify
 import           Data.Coerce
-import           Data.List (unfoldr, uncons, partition, elem, sortOn)
+import           Data.List 
 import           Data.Map             as M (union)
 import           Data.Maybe
 
@@ -14,11 +14,12 @@ import           Ill.Error
 import           Ill.Desugar
 import           Ill.Infer.Kind
 import           Ill.Infer.Monad
-import           Ill.Parser.Lexer     (SourceSpan)
+import           Ill.Parser.Lexer     (SourceSpan(..))
 
 import           Ill.Syntax
 import           Ill.Syntax.Type
 import qualified Data.HashMap.Strict  as H
+import           Text.Megaparsec (initialPos)
 
 type RawDecl = Decl SourceSpan
 
@@ -84,7 +85,32 @@ typeCheck bgs = mapM go bgs
     annSigs (a :< Signature nm ty) = Ann a (Type ty) :< Signature nm ty
     annSigs _ = error "trait declaration contains non signature value"
 
-  go (OtherBG (_ :< TraitImpl _ _))     = throwError $ NotImplementedError "oops"
+  go (OtherBG (a :< TraitImpl supers nm args ds)) = do
+    let constraints' = (nm, args) : supers
+
+    (_, varNms, memSigs) <- lookupTrait nm
+
+    let tySubs     = zip varNms args
+        sigTys     = map (fmap (constrain constraints' . replaceTypeVars tySubs)) memSigs 
+        signatures = map (\(name, sigTy) -> Signature name $ constrain constraints' sigTy) sigTys
+        annotated  = map (\sig -> emptySpan :< sig) signatures
+
+    (vals', _) <- liftUnify $ do
+      (ut, et, dict, untypedDict) <- typeDictionary (annotated ++ ds)
+
+      when (length ut > 0 || length untypedDict > 0) $ internalError "there are implicitly typed members to trait impl"
+
+      forM et $ \e -> uncurry checkBindingGroupEl e dict
+
+    return . OtherBG $ Ann a None :< (TraitImpl supers nm args $ filter isValue vals')
+
+    where
+    traitName (Constrained _ t) = traitName t
+    traitName (TAp f _) = traitName f
+    traitName (TConstructor c) = c
+
+    emptySpan = SourceSpan (initialPos "") (initialPos "")
+
   go (OtherBG (_))                 = throwError $ NotImplementedError "oops"
 
 addValue :: Ident -> Type Name -> Check ()
@@ -122,12 +148,11 @@ data TypeAnn
 infer :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
 infer (a :< Apply l args) = do
   f' <- infer l
-  fTy <- freshenFunction (typeOf f')
 
   args' <- mapM infer args
   retTy <- fresh
 
-  let (cons1, fTy')   = unconstrained fTy
+  let (cons1, fTy')   = unconstrained (typeOf f')
       (cons2, argTy') = unconstrained $ foldr tFn retTy (map typeOf args')
 
   fTy' =?= argTy'
@@ -184,9 +209,10 @@ infer (a :< Assign lnames exps) = do
 
   return $ Ann a (Type tNil) :< Assign lnames exps'
 infer (a :< Var nm) = do
-  ty <- lookupVariable nm
+  ty <-  lookupVariable nm
+  ty' <- freshenFunction ty
 
-  return $ Ann a (Type ty) :< Var nm
+  return $ Ann a (Type ty') :< Var nm
 infer (a :< Constructor nm) = do
   (_, ty, args) <- lookupConstructor nm
 
@@ -336,6 +362,7 @@ typeForBindingGroupEl (a :< Value name els) dict = do
 
   return $ Ann a (Type $ fromJust (lookup name dict)) :< Value name vals'
 
+checkBindingGroupEl :: Type Name -> Decl SourceSpan -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
 checkBindingGroupEl ty (a :< Value name els) dict = do
   let (constraints, ty') = unconstrained ty
       unwrapped = unwrapFnType ty'
@@ -382,7 +409,7 @@ inferPat ty (PLit lit) = do
 
 freshenFunction :: Type Name -> UnifyT (Type Name) Check (Type Name)
 freshenFunction ty = do
-  let vars = varsInType ty
+  let vars = nub $ varsInType ty
   replacements <- forM vars $ \var -> (,) <$> pure var <*> fresh
 
-  return $ foldr (\(i, varTy) t -> replaceTypeVars [(i,varTy)] t) ty replacements
+  return $ replaceTypeVars replacements ty

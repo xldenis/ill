@@ -10,6 +10,7 @@ data MultiError
   = UnificationError (Type Name) (Type Name)
   | InternalError String
   | UndefinedType String
+  | UndefinedTrait String
   | UndefinedVariable String
   | UndefinedConstructor String
   | NotImplementedError String
@@ -18,5 +19,5 @@ data MultiError
   | TypeOccursError (Type Name)
   deriving (Show, Eq)
 
-internalError :: MonadError MultiError m => String -> m ()
+internalError :: (MonadError MultiError m) => String -> m ()
 internalError = throwError . InternalError

@@ -14,7 +14,7 @@ typeVar = TVar <$> identifier
 typeAp :: Parser (Type String)
 typeAp = do
   f <- typeCons <|> typeVar
-  as <- many $ typeVar <|> parens typeExp
+  as <- many $ typeCons <|> typeVar <|> parens typeExp
 
   return $ foldl TAp f as
 

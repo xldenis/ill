@@ -4,8 +4,8 @@ module TC10
   fn x ()
     # maybe call this switch and case???
     case True of
-      True -> 2
-      False -> 1
+      when True: 2
+      when False: 1
     end
   end
 end

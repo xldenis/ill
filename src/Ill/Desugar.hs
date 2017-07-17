@@ -6,6 +6,7 @@ import           Ill.Syntax.Pattern
 import           Ill.Syntax
 
 import           Control.Comonad.Cofree
+import           Control.Monad (liftM2)
 import           Data.Set                  (Set, insert, notMember, singleton)
 
 import           Data.Graph
@@ -31,9 +32,14 @@ bindingGroups ds = let
   valueDecls = filter isValue ds ++ filter isSignature ds
   dataBGs = dataBindingGroups dataDecls
   valueBGs = valueBindingGroups valueDecls
+  otherCond  = not <$> foldr1 (liftM2 (||)) [isValue, isDataDecl, isSignature, isImpl, isDecl]
+  others = map OtherBG $ filter otherCond ds
 
-  others = map OtherBG $ filter (\d -> not (isValue d || isDataDecl d || isSignature d)) ds
-  in dataBGs ++ others ++ valueBGs
+  in dataBGs ++
+     map OtherBG (filter isDecl ds) ++
+     map OtherBG (filter isImpl ds) ++
+     others ++
+     valueBGs
 
 sccToDecl :: SCC (Decl a) -> [Decl a]
 sccToDecl (AcyclicSCC d)  = [d]
