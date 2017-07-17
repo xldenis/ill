@@ -52,9 +52,15 @@ implDeclaration :: Parser (Decl SourceSpan)
 implDeclaration = withLoc $ do
   symbol "impl"
   trt <- fullType
+  let (constraints, ty) = unconstrained trt
+      className : vars  = unwrapProduct ty
+
+  className' <- case className of
+    TConstructor t -> return t
+    a -> fail $ "`" ++ show a ++ "` is not a valid class name."
   sep
   body <- manyTill (valueDeclaration <* sep <* scn) $ symbol "end"
-  return $ TraitImpl trt body
+  return $ TraitImpl constraints className' vars body
 
 signatureDeclaration :: Parser (Decl SourceSpan)
 signatureDeclaration = try $ withLoc $ do

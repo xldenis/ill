@@ -48,6 +48,10 @@ contexts:
       scope: keyword.control.ill
       push: trait
 
+    - match: 'impl'
+      scope: keyword.control.ill
+      push: trait
+
     - match: 'import'
       scope: keyword.control.ill
       push: import
@@ -119,7 +123,8 @@ contexts:
     # - match: '{{identifier}}'
 
   trait:
-    - match: '{{constructor}}'
+    - meta_scope: storage.type.ill
+    - match: '$'
       scope: storage.type.ill
       set: trait_body
 
@@ -127,9 +132,6 @@ contexts:
     - match: 'end'
       scope: keyword.control.ill
       pop: true
-    - match: 'data|type'
-      scope: keyword.control.ill
-      push: data
 
     - match: 'fn'
       scope: keyword.control.ill
@@ -195,6 +197,8 @@ contexts:
   case:
     - match: 'end'
       pop: true
+      scope: keyword.control.ill
+    - match: 'when'
       scope: keyword.control.ill
     - include: pattern
     - include: expression
