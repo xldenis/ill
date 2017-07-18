@@ -13,19 +13,22 @@ import Control.Monad.Except (runExcept)
 
 import Prelude hiding (putStrLn, putStr)
 import Data.Text.Lazy.IO
-import Data.Text.Lazy
+import Data.Text.Lazy hiding (map)
 
 infer (Module _ ds) = let
   bg = bindingGroups ds
   typed = runExcept $ runStateT (runCheck $ typeCheck bg) defaultCheckEnv
   in case typed of
-    Left e -> 
+    Left e ->
       case e of
         -- UnificationError t1 t2 -> putStrLn "UnificationError: " >> (putStrLn $ prettyType t1) >> (putStrLn $ prettyType t1)
         otherwise -> putStrLn . pack $ show e
     Right (ts, checkState) -> do
       printBG ts
-      putStrLn . pack $ show (traits . env $ checkState)
+
+      putStrLn "\nTraits\n"
+
+      void $ forM (traits . env $ checkState) $ putStrLn . prettyTraitInfo
 
 printBG ((ValueBG ds):bgs) = printTypes ds >> printBG bgs
 printBG ((DataBG  ds):bgs) = printTypes ds >> printBG bgs
@@ -40,6 +43,10 @@ printTypes [] = return ()
 
 prettyType a = renderIll defaultRenderArgs (pretty $ a)
 
+prettyTraitInfo (nm, (supers, args, mems)) =
+  let topRow = pretty nm <+> (hsep $ map pretty args)
+      mems'  = map (\(memNm, ty) -> pretty memNm <+> "::" <+> pretty ty) mems
+  in renderIll defaultRenderArgs (nest 2 $ topRow `above` vsep mems')
 instance Pretty TypeAnn where
   pretty (Type ty) = pretty ty
   pretty (Kind k) = pretty k
