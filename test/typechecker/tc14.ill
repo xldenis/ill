@@ -1,5 +1,6 @@
 module TC14Assignment
   data Bool = True | False
+  data Maybe a = Just a | Nothing
 
   impl Show Bool
     fn show (True)
@@ -24,11 +25,10 @@ module TC14Assignment
 
   fn z (x)
     if x then
-      1
+      show(x)
     else
-      2
+      'a'
     end
-    show(x)
   end
 
   fn y ()
@@ -38,6 +38,13 @@ module TC14Assignment
     else
       5
     end
+  end
+
+  fn bodyAccumulatesConstraints ()
+    show('Text')
+    show(True)
+
+    map(x, Just(False))
   end
 
   zzz :: String

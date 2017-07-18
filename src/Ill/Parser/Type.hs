@@ -31,11 +31,11 @@ typeProduct = do
 trait :: Parser (Constraint String)
 trait =  (,) <$> upperIdent <*> some typeExp
 
-constraints :: Parser [Constraint Name]
-constraints = try $ trait `sepBy1` symbol "," <* symbol "|"
+constraintP :: Parser [Constraint Name]
+constraintP = try $ trait `sepBy1` symbol "," <* symbol "|"
 
 constrainedType :: Parser (Type String)
-constrainedType = Constrained <$> constraints <*> typeExp
+constrainedType = Constrained <$> constraintP <*> typeExp
 
 fullType :: Parser (Type String)
 fullType = constrainedType <|> typeExp

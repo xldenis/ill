@@ -81,8 +81,12 @@ unconstrained t@(Arrow l r) = let
 unconstrained t = ([], t)
 
 constrain :: [Constraint String] -> Type String -> Type String
-constrain cs (Constrained cs' t) = Constrained (cs ++ cs') t
+constrain cs (Constrained cs' t) = Constrained (nub $ cs ++ cs') t
 constrain cs a = Constrained cs a
+
+constraints :: Type String -> [Constraint String]
+constraints (Constrained cons _) = cons
+constraints _ = []
 
 flattenConstraints :: Type String -> Type String
 flattenConstraints t = case unconstrained t of
@@ -107,7 +111,6 @@ replaceTypeVars subs (TAp f a) = TAp (replaceTypeVars subs f) (replaceTypeVars s
 replaceTypeVars subs (Constrained cs a) = Constrained cs' (replaceTypeVars subs a)
   where cs' = map (fmap $ map (replaceTypeVars subs)) cs
 replaceTypeVars subs a = a
-
 
 unwrapProduct :: Type String -> [Type String]
 unwrapProduct t = reverse $ unfoldr' go t

@@ -6,7 +6,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Unify
 import           Data.Coerce
-import           Data.List 
+import           Data.List
 import           Data.Map             as M (union)
 import           Data.Maybe
 
@@ -91,7 +91,7 @@ typeCheck bgs = mapM go bgs
     (_, varNms, memSigs) <- lookupTrait nm
 
     let tySubs     = zip varNms args
-        sigTys     = map (fmap (constrain constraints' . replaceTypeVars tySubs)) memSigs 
+        sigTys     = map (fmap (constrain constraints' . replaceTypeVars tySubs)) memSigs
         signatures = map (\(name, sigTy) -> Signature name $ constrain constraints' sigTy) sigTys
         annotated  = map (\sig -> emptySpan :< sig) signatures
 
@@ -152,22 +152,20 @@ infer (a :< Apply l args) = do
   args' <- mapM infer args
   retTy <- fresh
 
-  let (cons1, fTy')   = unconstrained (typeOf f')
-      (cons2, argTy') = unconstrained $ foldr tFn retTy (map typeOf args')
-
-  fTy' =?= argTy'
-
-  let retTy' = flattenConstraints $ Constrained (cons1 ++ cons2) retTy
+  constraints <- typeOf f' `constrainedUnification` foldr tFn retTy (map typeOf args')
+  let retTy' = constrain constraints retTy
 
   return $ Ann a (Type retTy') :< Apply f' args'
 infer (a :< If cond left right) = do
   cond' <- check tBool cond
   left' <- infer left
   right' <- infer right
+  constraints <- typeOf left' `constrainedUnification` typeOf right'
 
-  typeOf left' =?= typeOf right'
+  let (cons, _) = unconstrained $ typeOf cond'
+      retTy     = constrain (cons ++ constraints) $ typeOf left'
 
-  return $ Ann a (Type $ typeOf left') :< If cond' left' right'
+  return $ Ann a (Type $ retTy) :< If cond' left' right'
 infer (a :< Case cond branches) = do
   cond' <- infer cond
   retTy <- fresh
@@ -184,7 +182,10 @@ infer (a :< Case cond branches) = do
 infer (a :< Body es) = do
   tys <- bindNames [] $ mapM infer es
 
-  return $ Ann a (Type . typeOf $ last tys) :< Body tys
+  let bodyCons = tys >>= constraints . typeOf
+      retTy    = constrain bodyCons (typeOf $ last tys)
+
+  return $ Ann a (Type retTy) :< Body tys
 infer (a :< BinOp op l r) = do
   op' <- infer op
   l' <- infer l
@@ -334,7 +335,7 @@ typeDictionary vals = do
 
   untypedNames <- replicateM (length untyped) fresh
   let untypedDict = zip (map valueName untyped) untypedNames
-      typedDict   = map (\(t, v) -> (valueName v, t)) typed 
+      typedDict   = map (\(t, v) -> (valueName v, t)) typed
   return (untyped, typed, typedDict ++ untypedDict, untypedDict)
   where
   valueName (_ :< Value n _) = n
@@ -372,7 +373,7 @@ checkBindingGroupEl ty (a :< Value name els) dict = do
   vals' <- forM els $ \(pats, val) -> do
     let patTys = zip argTys pats
 
-    patTys' <- inferPats patTys 
+    patTys' <- inferPats patTys
     val' <- bindNames (patTys' ++ dict) (check retTy val)
 
     cons <- retTy `constrainedUnification` typeOf val'

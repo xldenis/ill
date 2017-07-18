@@ -41,7 +41,7 @@ typeSynonymDeclaration = withLoc $ do
 traitDeclaration :: Parser (Decl SourceSpan)
 traitDeclaration = withLoc $ do
   symbol "trait"
-  supers <- constraints <|> (pure [])
+  supers <- constraintP <|> (pure [])
   name <- lexeme capitalized
   args <- some identifier
   sep
