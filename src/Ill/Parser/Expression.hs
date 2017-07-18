@@ -31,7 +31,7 @@ simpleExpr = literalE <|> var <|> constructor
 
 body :: Parser (Expr SourceSpan) -- need backtracking?
 body = withLoc $ do
-  Body <$> some (nonBodyExpr <* sep)
+  Body <$> nonBodyExpr `sepEndBy1` sep
 
 assign :: Parser (Expr SourceSpan)
 assign = withLoc $ do

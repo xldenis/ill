@@ -152,7 +152,7 @@ infer (a :< Apply l args) = do
   args' <- mapM infer args
   retTy <- fresh
 
-  constraints <- typeOf f' `constrainedUnification` foldr tFn retTy (map typeOf args')
+  constraints <- typeOf f' `constrainedUnification` flattenConstraints (foldr tFn retTy (map typeOf args'))
   let retTy' = constrain constraints retTy
 
   return $ Ann a (Type retTy') :< Apply f' args'
@@ -174,7 +174,7 @@ infer (a :< Case cond branches) = do
     dict <- inferPat (typeOf cond') pattern
 
     expr' <- bindNames dict (infer expr)
-    typeOf expr' =?= retTy
+    typeOf expr' `constrainedUnification` retTy
 
     return $ (pattern, expr')
 
@@ -192,7 +192,7 @@ infer (a :< BinOp op l r) = do
   r' <- infer r
   tRet <- fresh
 
-  typeOf op' =?= (typeOf l' `tFn` typeOf r' `tFn` tRet)
+  typeOf op' `constrainedUnification` flattenConstraints (typeOf l' `tFn` typeOf r' `tFn` tRet)
 
   return $ Ann a (Type tRet) :< BinOp op' l' r'
 infer (a :< Lambda pats expr) = do
@@ -355,11 +355,11 @@ typeForBindingGroupEl (a :< Value name els) dict = do
     patDict <- inferPats (zip patTys pats)
     val' <- bindNames (patDict ++ dict) (infer val)
 
-    typeOf val' =?= retTy
+    typeOf val' `constrainedUnification` retTy
     return (pats, val')
 
   let fTy = foldr tFn (typeOf . snd $ last vals') patTys
-  fTy =?= fromJust (lookup name dict)
+  fTy `constrainedUnification` fromJust (lookup name dict)
 
   return $ Ann a (Type $ fromJust (lookup name dict)) :< Value name vals'
 

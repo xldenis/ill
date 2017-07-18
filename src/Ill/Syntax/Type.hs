@@ -24,7 +24,7 @@ instance Pretty (Type String) where
   pretty (TAp (TAp (TConstructor "->") a) b) = parensIf (complex a) (pretty a) <+> (pretty "->") <+> (pretty b)
   pretty (TAp f a) = pretty f <+> parensIf (complex a) (pretty a)
   pretty (TConstructor cons) = pretty cons
-  pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> pretty "->" <+> parensIf (complex to) (pretty to)
+  pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> pretty "->" <+> (pretty to)
   pretty (Constrained trts tp) = alternative (map prettyCons trts) <+> pretty tp
     where alternative = encloseSep mempty (mempty <+> pretty '|') (pretty ", ")
           prettyCons (nm, ts) = pretty nm <+> hsep (map pretty ts)
@@ -47,7 +47,7 @@ tDouble = TConstructor "Double"
 tNil = TConstructor "Nil"
 
 complex :: Type t -> Bool
-complex (Arrow _ _) = False
+complex (Arrow _ _) = True
 complex (TAp _ _) = True
 complex _ = False
 

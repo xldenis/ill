@@ -47,6 +47,7 @@ prettyTraitInfo (nm, (supers, args, mems)) =
   let topRow = pretty nm <+> (hsep $ map pretty args)
       mems'  = map (\(memNm, ty) -> pretty memNm <+> "::" <+> pretty ty) mems
   in renderIll defaultRenderArgs (nest 2 $ topRow `above` vsep mems')
+
 instance Pretty TypeAnn where
   pretty (Type ty) = pretty ty
   pretty (Kind k) = pretty k
