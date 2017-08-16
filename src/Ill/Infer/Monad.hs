@@ -1,22 +1,24 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ill.Infer.Monad where
 
-import Ill.Syntax.Type
-import Ill.Syntax.Kind
-import Ill.Syntax (Name)
-import Ill.Error
-import Control.Monad.State
-import Control.Monad.Unify
-import Control.Monad.Except
+import           Ill.Parser.Lexer     (SourceSpan(..))
+import           Ill.Syntax
+import           Ill.Error
+
+import           Control.Monad.State
+import           Control.Monad.Unify
+import           Control.Monad.Except
 
 data Environment = Environment
   { names :: [(Name, Type Name)]
   , types :: [(Name, Kind)]
   , constructors :: [(Name, (Name, Type Name, [Name]))]
-  , traits :: [(Name, ClassEntry)]
+  , traits :: [(Name, TraitEntry)]
+  , traitDictionaries :: [(Name, [TraitInstance])]
   } deriving (Show, Eq)
 
-type ClassEntry = ([Constraint Name], [Name], [(Name, Type Name)])
+type TraitInstance = ([Type Name], [Constraint Name])
+type TraitEntry = ([Constraint Name], [Name], [(Name, Type Name)])
 
 data CheckState = CheckState
   { env :: Environment
@@ -26,13 +28,22 @@ data CheckState = CheckState
 newtype Check a = Check { runCheck :: StateT CheckState (Except MultiError) a}
   deriving (Functor, Applicative, Monad, MonadError MultiError, MonadState CheckState)
 
+data TypedAnn = Ann { span :: SourceSpan, ty :: TypeAnn }
+  deriving (Show, Eq)
+
+data TypeAnn
+  = Type (Type Name)
+  | Kind Kind
+  | None
+  deriving (Show, Eq)
+
 defaultCheckEnv = CheckState (Environment
   [ ("+", tInteger `tFn` tInteger `tFn` tInteger)
   , ("-", tInteger `tFn` tInteger `tFn` tInteger)
   , ("*", tInteger `tFn` tInteger `tFn` tInteger)
   , ("/", tInteger `tFn` tInteger `tFn` tInteger)
   , (">", tInteger `tFn` tInteger `tFn` tBool)
-  ] [] [] []) 0
+  ] [] [] [] []) 0
 
 putEnv :: MonadState CheckState m => Environment -> m ()
 putEnv e = modify (\s -> s { env  = e })
@@ -75,7 +86,7 @@ lookupTypeVariable name = do
     Nothing -> throwError $ UndefinedType name
     Just a -> return a
 
-lookupTrait :: (MonadError MultiError m, MonadState CheckState m) => Name -> m ClassEntry
+lookupTrait :: (MonadError MultiError m, MonadState CheckState m) => Name -> m TraitEntry
 lookupTrait name = do
   env <- env <$> get
   case lookup name (traits env) of

@@ -1,4 +1,4 @@
--- This file has been generated from package.yaml by hpack version 0.15.0.
+-- This file has been generated from package.yaml by hpack version 0.17.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -43,8 +43,10 @@ library
       Ill.Desugar
       Ill.Error
       Ill.Infer
+      Ill.Infer.Entail
       Ill.Infer.Kind
       Ill.Infer.Monad
+      Ill.Infer.Types
       Ill.Parser
       Ill.Parser.Declaration
       Ill.Parser.Expression

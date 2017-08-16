@@ -1,0 +1,18 @@
+module TC15SuperTraits
+
+  trait Show a
+    show :: a -> String
+  end
+
+  trait Show c | B c
+    b :: c -> String
+  end
+
+  impl Show a | Show (F a)
+    fn show(F a)
+      show(a)
+    end
+  end
+
+  data F a = F a
+end

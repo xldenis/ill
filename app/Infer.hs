@@ -15,9 +15,8 @@ import Prelude hiding (putStrLn, putStr)
 import Data.Text.Lazy.IO
 import Data.Text.Lazy hiding (map)
 
-infer (Module _ ds) = let
-  bg = bindingGroups ds
-  typed = runExcept $ runStateT (runCheck $ typeCheck bg) defaultCheckEnv
+infer m = let
+  typed = runTC m
   in case typed of
     Left e ->
       case e of
@@ -29,6 +28,10 @@ infer (Module _ ds) = let
       putStrLn "\nTraits\n"
 
       void $ forM (traits . env $ checkState) $ putStrLn . prettyTraitInfo
+
+runTC (Module _ ds) = unCheck (typeCheck $ bindingGroups ds)
+
+unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
 
 printBG ((ValueBG ds):bgs) = printTypes ds >> printBG bgs
 printBG ((DataBG  ds):bgs) = printTypes ds >> printBG bgs

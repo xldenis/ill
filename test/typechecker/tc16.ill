@@ -1,0 +1,41 @@
+module TC16
+  data List a = Cons a (List a) | Nil
+
+  data B = T | F
+
+  trait Show a
+    show :: a -> String
+  end
+
+  impl Show a | Show (List a)
+    fn show(Cons x xs)
+      show(x)
+    or show(Nil)
+      ''
+    end
+  end
+
+  impl Show B
+    fn show(T)
+      'T'
+    or show(F)
+      'F'
+    end
+  end
+
+  fn x ()
+    show
+  end
+
+  fn x2 (x)
+    show(x)
+  end
+
+  fn x3 ()
+    show(Nil)
+  end
+
+  fn x4 ()
+    show(Cons(T, Nil))
+  end
+end
