@@ -15,9 +15,6 @@ import Ill.Infer.Types
 
 import Ill.Error
 
-type TraitDict = [(Name, TraitEntry)]
-type InstanceDict = [(Name, [TraitInstance])]
-
 {-
 
 -}
@@ -106,3 +103,10 @@ simplify td id = loop []
  where loop rs []                               = rs
        loop rs (p:ps) | entails' td id (rs++ps) p = loop rs ps
                       | otherwise               = loop (p:rs) ps
+
+reduce :: [Constraint Name] -> Check [Constraint Name]
+reduce constraints = do
+  env <- getEnv
+  hnfed <- toHnfs (traitDictionaries env) constraints
+
+  return $ simplify (traits env) (traitDictionaries env) hnfed

@@ -17,6 +17,7 @@ import           Ill.Desugar
 import           Ill.Infer.Kind
 import           Ill.Infer.Monad
 import           Ill.Infer.Types
+import           Ill.Infer.Entail
 
 import           Ill.Syntax
 import           Ill.Syntax.Type
@@ -36,19 +37,30 @@ typeCheck bgs = mapM go bgs
           implicit <- forM ut $ \e -> typeForBindingGroupEl e dict
 
           return $ explicit ++ implicit
-    let t = appSubs v'
 
-    t' <- forM t $ \v -> do
-      let t :< v' = v
-          t' = varIfUnknown $ (\(Type a) -> a) (ty t)
-          tAnn' = t { ty = Type t' }
+    values <- forM (appSubs v') $ \(ann :< v) -> do
+      let t = varIfUnknown $ (\(Type a) -> a) (ty ann)
+
+      t' <- flattenConstraints <$> simplify' t
+
       addValue (valueName v) t'
-      return $ tAnn' :< v'
-    return $ ValueBG t'
-    where valueName (_ :< Value n _) = n
-          appSubs (ts, sub) = map (\t -> nestedFmap (\a -> a { ty = fmapTy (\t -> flattenConstraints $ sub $? t) (ty a) }) t) ts
-          fmapTy f (Type t) = Type (f t)
-          fmapTy f t = t
+      return $ (ann { ty = Type t' }) :< v
+
+    return $ ValueBG values
+
+    where
+
+    valueName (Value n _) = n
+
+    appSubs (ts, sub) = map (nestedFmap (\a -> a { ty = fmapTy (($?) sub) (ty a) })) ts
+
+    fmapTy f (Type t) = Type (f t)
+    fmapTy f t = t
+
+    simplify' (Constrained cons t) = do
+      cons' <- reduce cons
+      return $ Constrained cons' t
+    simplify' t = return t
 
   go d@(DataBG  ds)                = do
     let dataDecls = map (\(_ :< Data nm args cons) -> (nm, args, map consPair cons)) ds
@@ -197,7 +209,7 @@ typeForBindingGroupEl (a :< Value name els) dict = do
       memberType = fromJust (lookup name dict)
   fTy `constrainedUnification` memberType
 
-  return $ Ann a (Type $ (constrain (concat cons') memberType)) :< Value name vals'
+  return $ Ann a (Type $ (constrain (concat  cons') memberType)) :< Value name vals'
 
 checkBindingGroupEl :: Type Name -> Decl SourceSpan -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
 checkBindingGroupEl ty (a :< Value name els) dict = do

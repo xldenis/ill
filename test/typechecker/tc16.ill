@@ -1,7 +1,7 @@
 module TC16
   data List a = Cons a (List a) | Nil
 
-  data B = T | F
+  data Bool = T | F
 
   trait Show a
     show :: a -> String
@@ -15,7 +15,7 @@ module TC16
     end
   end
 
-  impl Show B
+  impl Show Bool
     fn show(T)
       'T'
     or show(F)
@@ -23,7 +23,7 @@ module TC16
     end
   end
 
-  fn x ()
+  fn x1 ()
     show
   end
 
@@ -37,5 +37,21 @@ module TC16
 
   fn x4 ()
     show(Cons(T, Nil))
+  end
+
+  fn length(Cons b xs)
+    1 + length(xs)
+  or length(Nil)
+    0
+  end
+
+  fn y (x, y)
+    length(x)
+
+    if length(x) > 5 then
+      Cons(show(x), Cons(show(y), Nil))
+    else
+      Cons(show(x), Nil)
+    end
   end
 end

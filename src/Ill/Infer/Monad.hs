@@ -13,9 +13,12 @@ data Environment = Environment
   { names :: [(Name, Type Name)]
   , types :: [(Name, Kind)]
   , constructors :: [(Name, (Name, Type Name, [Name]))]
-  , traits :: [(Name, TraitEntry)]
-  , traitDictionaries :: [(Name, [TraitInstance])]
+  , traits :: TraitDict
+  , traitDictionaries :: InstanceDict
   } deriving (Show, Eq)
+
+type TraitDict = [(Name, TraitEntry)]
+type InstanceDict = [(Name, [TraitInstance])]
 
 type TraitInstance = ([Type Name], [Constraint Name])
 type TraitEntry = ([Constraint Name], [Name], [(Name, Type Name)])
@@ -48,6 +51,9 @@ defaultCheckEnv = CheckState (Environment
 putEnv :: MonadState CheckState m => Environment -> m ()
 putEnv e = modify (\s -> s { env  = e })
 
+getEnv :: MonadState CheckState m => m Environment
+getEnv = env <$> get
+
 localState :: MonadState s m => (s -> s) -> m a -> m a
 localState f action = do -- get rid of this it doesn't work
   orig <- get
@@ -67,28 +73,28 @@ liftUnify action = do
 
 lookupVariable :: (MonadError MultiError m, MonadState CheckState m) => Name -> m (Type Name)
 lookupVariable name = do
-  env <- env <$> get
+  env <- getEnv
   case lookup name (names env) of
     Nothing -> throwError $ UndefinedVariable name
     Just a -> return a
 
 lookupConstructor :: (MonadError MultiError m, MonadState CheckState m) => Name -> m (Name, Type Name, [Name])
 lookupConstructor name = do
-  env <- env <$> get
+  env <- getEnv
   case lookup name (constructors env) of
     Nothing -> throwError $ UndefinedConstructor name
     Just a -> return a
 
 lookupTypeVariable ::  (MonadError MultiError m, MonadState CheckState m) => Name -> m Kind
 lookupTypeVariable name = do
-  env <- env <$> get
+  env <- getEnv
   case lookup name (types env) of
     Nothing -> throwError $ UndefinedType name
     Just a -> return a
 
 lookupTrait :: (MonadError MultiError m, MonadState CheckState m) => Name -> m TraitEntry
 lookupTrait name = do
-  env <- env <$> get
+  env <- getEnv
   case lookup name (traits env) of
     Nothing -> throwError $ UndefinedTrait name
     Just a -> return a
