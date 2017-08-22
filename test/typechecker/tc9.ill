@@ -23,6 +23,7 @@ module TC9
 
   data Numbers = One | Two | Three
 
+  head :: L a -> Maybe a
   fn head(C a ls)
     Just(a)
   or head(Nil)

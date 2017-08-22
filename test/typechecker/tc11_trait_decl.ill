@@ -4,7 +4,15 @@ module TC11TraitDecl
     fmap :: (a -> b) -> f a -> f b
   end
 
-  data List a = Nil | Cons a
+  impl Functor (List)
+    fn fmap(f, Cons x xs)
+      Cons(f(x), fmap(f, xs))
+    or fmap(f, Nil)
+      Nil
+    end
+  end
+
+  data List a = Cons a (List a) | Nil
 
   fn id (x)
     x

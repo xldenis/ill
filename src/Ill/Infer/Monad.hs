@@ -117,7 +117,7 @@ bindTypeVariables tyVars action = do
 
 modifyEnv f = modify $ \st -> st { env = f (env st) }
 
-addTrait :: MonadState CheckState m => Name  -- class name
+addTrait :: MonadState CheckState m => Name -- class name
   -> [Constraint Name] -- super classes
   -> [Name] -- variables of class
   -> [(Name, Type Name)]  -- name and type of member sigs
@@ -129,3 +129,41 @@ addTrait name supers args members = do
   where
   qualifyType t = Constrained fullConstraints t
   fullConstraints = (name, (map TVar args)) : supers
+
+withTraitInstance :: MonadState CheckState m => Name -> [Constraint Name] -> [Type Name] -> m a -> m a
+withTraitInstance trait supers inst action = do
+  env <- env <$> get
+
+  let instDict = case trait `lookup` (traitDictionaries env) of
+                  Just instances -> (inst, supers) : instances
+                  Nothing        -> [(inst, supers)]
+
+  putEnv $ env { traitDictionaries = replace (trait, instDict) (traitDictionaries env) }
+  a <- action
+
+  modifyEnv (\env -> env { traitDictionaries = (traitDictionaries env) })
+
+  return a
+
+  where
+
+  replace (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
+  replace v (x : xs) = x : replace v xs
+  replace v [] = [v]
+
+addTraitInstance :: Name -> [Constraint Name] -> [Type Name] -> Check ()
+addTraitInstance trait supers inst = do
+  env <- env <$> get
+
+  let instDict = case trait `lookup` (traitDictionaries env) of
+                  Just instances -> (inst, supers) : instances
+                  Nothing        -> [(inst, supers)]
+
+  putEnv $ env { traitDictionaries = replace (trait, instDict) (traitDictionaries env) }
+
+  where
+
+  replace (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
+  replace v (x : xs) = x : replace v xs
+  replace v [] = [v]
+

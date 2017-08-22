@@ -19,22 +19,8 @@ import Ill.Error
 
 -}
 
-entails :: TraitDict -> InstanceDict -> Constraint Name -> Check [Constraint Name]
-entails td id constraint = go constraint
-
-  where
-
-  go cons = do
-    let superTraits  = goalsBySuperTrait td (cons)
-    let constraints' = map (goalsByInst id) superTraits
-    case sequence constraints' of
-      Nothing ->  internalError "unsatisfied constraint" *> pure mempty
-      Just sub -> concat <$> mapM go (concat sub)
-
-  constraintName (n, _) = n
-
-entails' :: TraitDict -> InstanceDict -> [Constraint Name] -> Constraint Name -> Bool
-entails' td id preds constraint = go constraint
+entails :: TraitDict -> InstanceDict -> [Constraint Name] -> Constraint Name -> Bool
+entails td id preds constraint = go constraint
 
   where
 
@@ -90,6 +76,7 @@ inHnf (n, [t]) = hnf t
   hnf (TConstructor _) = False
   hnf (TAp t _) = hnf t
   hnf (Arrow l r) = hnf l
+  hnf _ = True
 
 toHnf id p | inHnf p   = return [p]
            | otherwise = case goalsByInst id p of
@@ -101,7 +88,7 @@ toHnfs id ps = concat <$> mapM (toHnf id) ps
 simplify   :: TraitDict -> InstanceDict -> [Constraint Name] -> [Constraint Name]
 simplify td id = loop []
  where loop rs []                               = rs
-       loop rs (p:ps) | entails' td id (rs++ps) p = loop rs ps
+       loop rs (p:ps) | entails td id (rs++ps) p = loop rs ps
                       | otherwise               = loop (p:rs) ps
 
 reduce :: [Constraint Name] -> Check [Constraint Name]
@@ -110,3 +97,12 @@ reduce constraints = do
   hnfed <- toHnfs (traitDictionaries env) constraints
 
   return $ simplify (traits env) (traitDictionaries env) hnfed
+
+
+idk :: [Constraint Name] -> [Constraint Name] -> Check () -- maybe [Constraint Name] ??
+idk assumed inferred = do
+  inf' <- reduce inferred
+  env <- getEnv
+  let bad = filter (not . entails (traits env) (traitDictionaries env) assumed) inf'
+
+  when (length bad /= 0) $ internalError (show bad)

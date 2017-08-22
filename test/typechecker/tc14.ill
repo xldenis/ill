@@ -18,6 +18,14 @@ module TC14Assignment
     map :: (a -> b) -> f a -> f b
   end
 
+  impl Functor Maybe
+    fn map(f, Just x)
+      Just(f(x))
+    or map(f, Nothing)
+      Nothing
+    end
+  end
+
   fn x (x)
     a = x
     a
@@ -41,7 +49,7 @@ module TC14Assignment
   end
 
   fn bodyAccumulatesConstraints ()
-    show('Text')
+    # show('Text')
     show(True)
 
     map(x, Just(False))

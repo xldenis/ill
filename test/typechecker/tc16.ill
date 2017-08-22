@@ -39,6 +39,16 @@ module TC16
     show(Cons(T, Nil))
   end
 
+  x5 :: Show a | a -> String
+  fn x5 (a)
+    show(a)
+  end
+
+  # x6 :: Show a | a -> String
+  # fn x6 ()
+  #   show
+  # end
+
   fn length(Cons b xs)
     1 + length(xs)
   or length(Nil)

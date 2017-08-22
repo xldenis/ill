@@ -124,7 +124,7 @@ check expected v@(_ :< BinOp _ _ _)= do
 check expected (a :< Body es) = do
   tys <- mapM infer es
 
-  let (cons, retTy)   = unconstrained (typeOf $ last tys)
+  let (cons, retTy) = unconstrained (typeOf $ last tys)
 
   retTy =?= expected
 

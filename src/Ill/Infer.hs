@@ -26,6 +26,12 @@ import           Ill.Parser.Lexer     (SourceSpan(..))
 
 type RawDecl = Decl SourceSpan
 
+{-
+  1. kind checking not implemented
+  2. error messages suuuuuck
+  3. checking partially applied functions doesnt work properly
+-}
+
 typeCheck :: [BindingGroup SourceSpan] -> Check [BindingGroup TypedAnn]
 typeCheck bgs = mapM go bgs
   where
@@ -106,7 +112,7 @@ typeCheck bgs = mapM go bgs
 
     let tySubs     = zip varNms args
         sigTys     = map (fmap (constrain constraints' . replaceTypeVars tySubs)) memSigs
-        signatures = map (\(name, sigTy) -> Signature name $ constrain constraints' sigTy) sigTys
+        signatures = map (\(name, sigTy) -> Signature name $ sigTy) sigTys
         annotated  = map (\sig -> emptySpan :< sig) signatures
 
     (vals', _) <- liftUnify $ do
@@ -114,7 +120,8 @@ typeCheck bgs = mapM go bgs
 
       when (length ut > 0 || length untypedDict > 0) $ internalError "there are implicitly typed members to trait impl"
 
-      forM et $ \e -> uncurry checkBindingGroupEl e dict
+      withTraitInstance nm supers args $ do
+        forM et $ \e -> uncurry checkBindingGroupEl e dict
 
     addTraitInstance nm supers args
 
@@ -151,22 +158,6 @@ addDataConstructor name args dctor tys = do
       fields = args
   putEnv $ env { constructors = (dctor, (name, consTy, fields)) : (constructors env)}
   return ()
-
-addTraitInstance :: Name -> [Constraint Name] -> [Type Name] -> Check ()
-addTraitInstance trait supers inst = do
-  env <- env <$> get
-
-  let instDict = case trait `lookup` (traitDictionaries env) of
-                  Just instances -> (inst, supers) : instances
-                  Nothing        -> [(inst, supers)]
-
-  putEnv $ env { traitDictionaries = replace (trait, instDict) (traitDictionaries env) }
-
-  where
-
-  replace (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
-  replace v (x : xs) = x : replace v xs
-  replace v [] = [v]
 
 type TypedDict   = [(Name, Type Name)]
 type UntypedDict = [(Name, Type Name)]
@@ -218,13 +209,33 @@ checkBindingGroupEl ty (a :< Value name els) dict = do
       argTys    = if length unwrapped > 1 then init unwrapped else []
       retTy     = last unwrapped
 
-  vals' <- forM els $ \(pats, val) -> do
+  x <- forM els $ \(pats, val) -> do
     let patTys = zip argTys pats
 
     patTys' <- inferPats patTys
     val' <- bindNames (patTys' ++ dict) (check retTy val)
 
     cons <- retTy `constrainedUnification` typeOf val'
-    return (pats, val')
+
+    return (cons, (pats, val'))
+
+
+  let (cons, vals') = unzip x
+
+  minCons <- UnifyT . lift $ reduce (concat cons)
+
+  blargh constraints minCons
 
   return $ Ann a (Type $ ty) :< Value name vals'
+
+  where
+
+  blargh :: [Constraint Name] -> [Constraint Name] -> UnifyT (Type Name) Check ()
+  blargh given inferred = do
+    sub <- unifyCurrentSubstitution <$> UnifyT get
+    let subbed = map (subCons sub) inferred
+
+    UnifyT . lift $ idk given subbed
+
+
+  subCons sub (n, tys) = (n, map (sub $?) tys)
