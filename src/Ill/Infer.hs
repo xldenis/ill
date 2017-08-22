@@ -71,17 +71,17 @@ typeCheck bgs = mapM go bgs
   go d@(DataBG  ds)                = do
     let dataDecls = map (\(_ :< Data nm args cons) -> (nm, args, map consPair cons)) ds
 
-    kinds <- kindsOfAll [] (map (\(nm, param, cons) -> (nm, param, concatMap (snd) cons)) dataDecls)
+    kinds <- kindsOfAll [] (map (\(nm, param, cons) -> (nm, param, concatMap snd cons)) dataDecls)
 
-    forM_ (zip dataDecls kinds) $ \((name, args, ctors), ctorKind) -> do
+    forM_ (zip dataDecls kinds) $ \((name, args, ctors), ctorKind) -> 
       addDataType name args ctors ctorKind
 
     ds' <- forM (zip ds kinds) $ \(span :< d, k) -> do
       d' <- addAnn d
-      return $ (Ann span (Kind k)) :< d'
+      return $ Ann span (Kind k) :< d'
     return (DataBG ds')
     where
-    addAnn :: Declaration (SourceSpan) (Decl SourceSpan) -> Check (Declaration TypedAnn (Decl TypedAnn))
+    addAnn :: Declaration SourceSpan (Decl SourceSpan) -> Check (Declaration TypedAnn (Decl TypedAnn))
     addAnn (Data n vars cons) = return $ Data n vars cons
     addAnn n             = throwError $ InternalError "Non data value found in data binding group"
 
@@ -90,14 +90,14 @@ typeCheck bgs = mapM go bgs
     unfoldCons (TAp f a) = a : unfoldCons f
     unfoldCons a         = [a]
 
-  go (OtherBG (_ :< TypeSynonym _ _ _)) = throwError $ NotImplementedError "oops"
-  go (OtherBG (a :< (Import q m n al))) = return $ OtherBG $ Ann a None :< (Import q m n al)
+  go (OtherBG (_ :< TypeSynonym{})) = throwError $ NotImplementedError "oops"
+  go (OtherBG (a :< Import q m n al)) = return $ OtherBG $ Ann a None :< Import q m n al
   go (OtherBG (a :< TraitDecl supers name args members)) = do
     let memTys = map toPair members
         members' = map annSigs members
     addTrait name supers args memTys
 
-    return . OtherBG $ Ann a None :< (TraitDecl supers name args members')
+    return . OtherBG $ Ann a None :< TraitDecl supers name args members'
     where
     toPair (_ :< Signature nm ty) = (nm, ty)
     toPair _ = error "trait declaration contains non signature value"
@@ -112,20 +112,20 @@ typeCheck bgs = mapM go bgs
 
     let tySubs     = zip varNms args
         sigTys     = map (fmap (constrain constraints' . replaceTypeVars tySubs)) memSigs
-        signatures = map (\(name, sigTy) -> Signature name $ sigTy) sigTys
+        signatures = map (uncurry Signature) sigTys
         annotated  = map (\sig -> emptySpan :< sig) signatures
 
     (vals', _) <- liftUnify $ do
       (ut, et, dict, untypedDict) <- typeDictionary (annotated ++ ds)
 
-      when (length ut > 0 || length untypedDict > 0) $ internalError "there are implicitly typed members to trait impl"
+      when (not (null ut) || not (null untypedDict)) $ internalError "there are implicitly typed members to trait impl"
 
-      withTraitInstance nm supers args $ do
+      withTraitInstance nm supers args $
         forM et $ \e -> uncurry checkBindingGroupEl e dict
 
     addTraitInstance nm supers args
 
-    return . OtherBG $ Ann a None :< (TraitImpl supers nm args $ filter isValue vals')
+    return . OtherBG $ Ann a None :< TraitImpl supers nm args (filter isValue vals')
 
     where
     traitName (Constrained _ t) = traitName t
@@ -134,7 +134,7 @@ typeCheck bgs = mapM go bgs
 
     emptySpan = SourceSpan (initialPos "") (initialPos "")
 
-  go (OtherBG (_))                 = throwError $ NotImplementedError "oops"
+  go (OtherBG _)                 = throwError $ NotImplementedError "oops"
 
 addValue :: Ident -> Type Name -> Check ()
 addValue name ty = do
@@ -145,10 +145,9 @@ addValue name ty = do
 addDataType :: Name -> [Name] -> [(Name, [Type Name])] -> Kind -> Check ()
 addDataType name args dctors ctorKind = do
   env <- env <$> get
-  let value = (ctorKind)
-  let env' = env { types = (name, ctorKind) : (types env) }
-  forM_ dctors $ \(dctor, tys) ->
-    addDataConstructor name args dctor tys
+  let value = ctorKind
+  let env' = env { types = (name, ctorKind) : types env }
+  forM_ dctors $ uncurry (addDataConstructor name args)
 
 addDataConstructor :: Name -> [Name] -> Name -> [Type Name] -> Check ()
 addDataConstructor name args dctor tys = do
@@ -156,7 +155,7 @@ addDataConstructor name args dctor tys = do
   let retTy = foldl TAp (TConstructor name) (map TVar args)
       consTy = foldr tFn retTy tys
       fields = args
-  putEnv $ env { constructors = (dctor, (name, consTy, fields)) : (constructors env)}
+  putEnv $ env { constructors = (dctor, (name, consTy, fields)) : constructors env}
   return ()
 
 type TypedDict   = [(Name, Type Name)]
@@ -185,7 +184,7 @@ typeForBindingGroupEl (a :< Value name els) dict = do
       numArgs = length $ head pats
   when (any (/= numArgs) $ map length pats) . throwError $ InternalError "branches have different amounts of patterns"
 
-  patTys <- replicateM (numArgs) fresh
+  patTys <- replicateM numArgs fresh
   retTy <- fresh
 
   x <- forM els $ \(pats, val) -> do
@@ -200,7 +199,7 @@ typeForBindingGroupEl (a :< Value name els) dict = do
       memberType = fromJust (lookup name dict)
   fTy `constrainedUnification` memberType
 
-  return $ Ann a (Type $ (constrain (concat  cons') memberType)) :< Value name vals'
+  return $ Ann a (Type (constrain (concat  cons') memberType)) :< Value name vals'
 
 checkBindingGroupEl :: Type Name -> Decl SourceSpan -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
 checkBindingGroupEl ty (a :< Value name els) dict = do
@@ -226,7 +225,7 @@ checkBindingGroupEl ty (a :< Value name els) dict = do
 
   blargh constraints minCons
 
-  return $ Ann a (Type $ ty) :< Value name vals'
+  return $ Ann a (Type ty) :< Value name vals'
 
   where
 

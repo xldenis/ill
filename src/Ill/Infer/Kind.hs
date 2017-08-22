@@ -17,7 +17,7 @@ import           Ill.Syntax           (Kind (..), Name, Type (..))
 
 import           Data.Maybe
 
-instance Partial (Kind) where
+instance Partial Kind where
   unknown = KUnknown
 
   isUnknown (KUnknown u) = Just u
@@ -28,7 +28,7 @@ instance Partial (Kind) where
   unknowns (KUnknown u) = [u]
 
   ($?) sub (KFn f a)      = KFn (sub $? f) (sub $? a)
-  ($?) sub (Star)         = Star
+  ($?) sub Star         = Star
   ($?) sub k@(KUnknown u) = fromMaybe k $ H.lookup u (runSubstitution sub)
 
 instance Unifiable Check Kind where
@@ -54,13 +54,12 @@ kindsOfAll [] tys = fmap appSubs . liftUnify $ do
   let tyDict = zipWith (\(tyNm, _, _) kVar -> (tyNm, kVar)) tys consK
 
   bindTypeVariables tyDict $ do
-    dataK <- zipWithM (\tyCon (_, args, ts) -> do
+    zipWithM (\tyCon (_, args, ts) -> do
       argKs <- replicateM (length args) fresh
       let argDict = zip args argKs
       bindTypeVariables argDict $ do
         solveDataType ts argKs tyCon
       ) consK tys
-    return dataK
   where appSubs (ts, sub) = map (starIfUnknown . (sub $?)) ts
         starIfUnknown (KUnknown _) = Star
         starIfUnknown (KFn f a)    = KFn (starIfUnknown f) (starIfUnknown a)
@@ -68,7 +67,7 @@ kindsOfAll [] tys = fmap appSubs . liftUnify $ do
 
 solveDataType :: [Type Name] -> [Kind] -> Kind -> UnifyT Kind Check Kind
 solveDataType ts kargs tyCon = do
-  ks <- mapM (infer) ts -- type is a `ap` b
+  ks <- mapM infer ts -- type is a `ap` b
   tyCon =?=  foldr KFn Star kargs
 
 
@@ -77,7 +76,7 @@ solveDataType ts kargs tyCon = do
   return tyCon
 
 infer :: Type Name -> UnifyT Kind Check Kind
-infer (TVar v) = do
+infer (TVar v) =
   UnifyT . lift $ lookupTypeVariable v
 infer (TAp f a) = do
   res <- fresh
@@ -89,7 +88,7 @@ infer (TAp f a) = do
 
   return res
 
-infer (TConstructor n) = do
+infer (TConstructor n) =
   lookupTypeVariable n
 
 -- infer (Arrow f a) -- should probs desugar to ap before typechecking

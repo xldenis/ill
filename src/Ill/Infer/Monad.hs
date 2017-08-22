@@ -67,7 +67,7 @@ localState f action = do -- get rid of this it doesn't work
 liftUnify :: Partial t => UnifyT t Check a -> Check (a, Substitution t)
 liftUnify action = do
   st <- get
-  let ut = runUnify (defaultUnifyState { unifyNextVar = (nextVar st)}) action
+  let ut = runUnify (defaultUnifyState { unifyNextVar = nextVar st}) action
   (a, ust) <- ut
   modify $ \st -> st { nextVar = unifyNextVar ust }
   let uust = unifyCurrentSubstitution ust
@@ -104,7 +104,7 @@ lookupTrait name = do
 bindNames :: MonadState CheckState m => [(Name, Type Name)] -> m a -> m a
 bindNames nms action = do
   orig <- get
-  modify (\s -> s { env = (env s) { names = (names $ env s) ++ nms } })
+  modify (\s -> s { env = (env s) { names = names (env s) ++ nms } })
   a <- action
   modify (\s -> s { env = (env s) { names = names . env $ orig } })
   return a
@@ -112,7 +112,7 @@ bindNames nms action = do
 bindTypeVariables :: MonadState CheckState m => [(Name, Kind)] -> m a -> m a
 bindTypeVariables tyVars action = do
   orig <- get
-  modify (\s -> s { env = (env s) { types = (types $ env s) ++ tyVars } })
+  modify (\s -> s { env = (env s) { types = types (env s) ++ tyVars } })
   a <- action
   modify (\s -> s { env = (env s) { types = types . env $ orig } })
   return a
@@ -125,25 +125,25 @@ addTrait :: MonadState CheckState m => Name -- class name
   -> [(Name, Type Name)]  -- name and type of member sigs
   -> m ()
 addTrait name supers args members = do
-  modifyEnv $ \e -> e { traits = (name, (supers, args, members)) : (traits e) }
+  modifyEnv $ \e -> e { traits = (name, (supers, args, members)) : traits e }
   let qualifiedMembers = map (fmap qualifyType) members
-  modifyEnv $ \e -> e { names = qualifiedMembers ++ (names e) }
+  modifyEnv $ \e -> e { names = qualifiedMembers ++ names e }
   where
   qualifyType t = Constrained fullConstraints t
-  fullConstraints = (name, (map TVar args)) : supers
+  fullConstraints = (name, map TVar args) : supers
 
 withTraitInstance :: MonadState CheckState m => Name -> [Constraint Name] -> [Type Name] -> m a -> m a
 withTraitInstance trait supers inst action = do
   env <- env <$> get
 
-  let instDict = case trait `lookup` (traitDictionaries env) of
+  let instDict = case trait `lookup` traitDictionaries env of
                   Just instances -> (inst, supers) : instances
                   Nothing        -> [(inst, supers)]
 
   putEnv $ env { traitDictionaries = replace (trait, instDict) (traitDictionaries env) }
   a <- action
 
-  modifyEnv (\env -> env { traitDictionaries = (traitDictionaries env) })
+  modifyEnv (\env -> env { traitDictionaries = traitDictionaries env })
 
   return a
 
@@ -157,7 +157,7 @@ addTraitInstance :: Name -> [Constraint Name] -> [Type Name] -> Check ()
 addTraitInstance trait supers inst = do
   env <- env <$> get
 
-  let instDict = case trait `lookup` (traitDictionaries env) of
+  let instDict = case trait `lookup` traitDictionaries env of
                   Just instances -> (inst, supers) : instances
                   Nothing        -> [(inst, supers)]
 

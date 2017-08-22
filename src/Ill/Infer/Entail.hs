@@ -26,11 +26,11 @@ entails td id preds constraint = go constraint
 
   go :: Constraint Name -> Bool
   go cons = do
-    let superTraits = map (\c -> goalsBySuperTrait td c) preds
+    let superTraits = map (goalsBySuperTrait td) preds
         instances   = goalsByInst id cons
     any (cons `elem`) superTraits || case instances of
       Nothing       -> False
-      Just subcons' -> all (go) subcons'
+      Just subcons' -> all go subcons'
   constraintName (n, _) = n
 
 
@@ -41,7 +41,7 @@ goalsBySuperTrait dict trait@(n, _) = trait : (superTraits >>= \(supers, _, _) -
   superTraitsFor c@(n, _) = goalsBySuperTrait dict c
 
 goalsByInst :: InstanceDict -> Constraint Name -> Maybe [Constraint Name]
-goalsByInst dict (trait, tys) = do
+goalsByInst dict (trait, tys) =
   asum $ map tryInst' $ lookup trait dict & concat
 
   where
@@ -105,4 +105,4 @@ idk assumed inferred = do
   env <- getEnv
   let bad = filter (not . entails (traits env) (traitDictionaries env) assumed) inf'
 
-  when (length bad /= 0) $ internalError (show bad)
+  when (not (null bad)) $ internalError (show bad)
