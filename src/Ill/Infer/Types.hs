@@ -3,14 +3,14 @@
 module Ill.Infer.Types where
 import           Control.Monad.Unify
 
-import           Ill.Syntax
 import           Ill.Infer.Monad
+import           Ill.Syntax
 
-import           Ill.Error
-import           Ill.Parser.Lexer     (SourceSpan(..))
-import qualified Data.HashMap.Strict  as H
+import qualified Data.HashMap.Strict as H
 import           Data.List
 import           Data.Maybe
+import           Ill.Error
+import           Ill.Parser.Lexer    (SourceSpan (..))
 
 infer :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
 infer (a :< Apply l args) = do

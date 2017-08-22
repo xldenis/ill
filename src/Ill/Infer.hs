@@ -9,19 +9,19 @@ import           Data.List
 import           Data.Map             as M (union)
 import           Data.Maybe
 
-import           Text.Megaparsec (initialPos)
+import           Text.Megaparsec      (initialPos)
 
-import           Ill.Error
 import           Ill.Desugar
+import           Ill.Error
 
+import           Ill.Infer.Entail
 import           Ill.Infer.Kind
 import           Ill.Infer.Monad
 import           Ill.Infer.Types
-import           Ill.Infer.Entail
 
+import           Ill.Parser.Lexer     (SourceSpan (..))
 import           Ill.Syntax
 import           Ill.Syntax.Type
-import           Ill.Parser.Lexer     (SourceSpan(..))
 
 
 type RawDecl = Decl SourceSpan
@@ -61,7 +61,7 @@ typeCheck bgs = mapM go bgs
     appSubs (ts, sub) = map (nestedFmap (\a -> a { ty = fmapTy (($?) sub) (ty a) })) ts
 
     fmapTy f (Type t) = Type (f t)
-    fmapTy f t = t
+    fmapTy f t        = t
 
     simplify' (Constrained cons t) = do
       cons' <- reduce cons
@@ -88,7 +88,7 @@ typeCheck bgs = mapM go bgs
     consPair :: Type Name -> (Name, [Type Name])
     consPair   = (\(TConstructor n, b) -> (n,b)) . fromJust . uncons . reverse . unfoldCons
     unfoldCons (TAp f a) = a : unfoldCons f
-    unfoldCons a = [a]
+    unfoldCons a         = [a]
 
   go (OtherBG (_ :< TypeSynonym _ _ _)) = throwError $ NotImplementedError "oops"
   go (OtherBG (a :< (Import q m n al))) = return $ OtherBG $ Ann a None :< (Import q m n al)
@@ -129,8 +129,8 @@ typeCheck bgs = mapM go bgs
 
     where
     traitName (Constrained _ t) = traitName t
-    traitName (TAp f _) = traitName f
-    traitName (TConstructor c) = c
+    traitName (TAp f _)         = traitName f
+    traitName (TConstructor c)  = c
 
     emptySpan = SourceSpan (initialPos "") (initialPos "")
 

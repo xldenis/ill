@@ -1,33 +1,34 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Ill.Infer.Kind
 ( kindsOfAll
 ) where
-import           Ill.Error
-import           Control.Monad.Unify
-import           Control.Monad.Trans
 import           Control.Monad.Except
+import           Control.Monad.Trans
+import           Control.Monad.Unify
+import           Ill.Error
 
 import qualified Data.HashMap.Strict  as H
 
 
-import Control.Monad
-import Ill.Infer.Monad
-import Ill.Syntax (Kind(..), Type(..), Name)
+import           Control.Monad
+import           Ill.Infer.Monad
+import           Ill.Syntax           (Kind (..), Name, Type (..))
 
-import Data.Maybe
+import           Data.Maybe
 
 instance Partial (Kind) where
   unknown = KUnknown
 
   isUnknown (KUnknown u) = Just u
-  isUnknown _ = Nothing
+  isUnknown _            = Nothing
 
   unknowns (KFn f a)    = unknowns f ++ unknowns a
   unknowns Star         = []
   unknowns (KUnknown u) = [u]
 
-  ($?) sub (KFn f a)  = KFn (sub $? f) (sub $? a)
-  ($?) sub (Star)     = Star
+  ($?) sub (KFn f a)      = KFn (sub $? f) (sub $? a)
+  ($?) sub (Star)         = Star
   ($?) sub k@(KUnknown u) = fromMaybe k $ H.lookup u (runSubstitution sub)
 
 instance Unifiable Check Kind where
@@ -62,8 +63,8 @@ kindsOfAll [] tys = fmap appSubs . liftUnify $ do
     return dataK
   where appSubs (ts, sub) = map (starIfUnknown . (sub $?)) ts
         starIfUnknown (KUnknown _) = Star
-        starIfUnknown (KFn f a) = KFn (starIfUnknown f) (starIfUnknown a)
-        starIfUnknown Star = Star
+        starIfUnknown (KFn f a)    = KFn (starIfUnknown f) (starIfUnknown a)
+        starIfUnknown Star         = Star
 
 solveDataType :: [Type Name] -> [Kind] -> Kind -> UnifyT Kind Check Kind
 solveDataType ts kargs tyCon = do

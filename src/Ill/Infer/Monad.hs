@@ -1,19 +1,21 @@
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 module Ill.Infer.Monad where
 
-import           Ill.Parser.Lexer     (SourceSpan(..))
-import           Ill.Syntax
 import           Ill.Error
+import           Ill.Parser.Lexer     (SourceSpan (..))
+import           Ill.Syntax
 
+import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Unify
-import           Control.Monad.Except
 
 data Environment = Environment
-  { names :: [(Name, Type Name)]
-  , types :: [(Name, Kind)]
-  , constructors :: [(Name, (Name, Type Name, [Name]))]
-  , traits :: TraitDict
+  { names             :: [(Name, Type Name)]
+  , types             :: [(Name, Kind)]
+  , constructors      :: [(Name, (Name, Type Name, [Name]))]
+  , traits            :: TraitDict
   , traitDictionaries :: InstanceDict
   } deriving (Show, Eq)
 
@@ -24,7 +26,7 @@ type TraitInstance = ([Type Name], [Constraint Name])
 type TraitEntry = ([Constraint Name], [Name], [(Name, Type Name)])
 
 data CheckState = CheckState
-  { env :: Environment
+  { env     :: Environment
   , nextVar :: Int
   } deriving (Show, Eq)
 
@@ -76,28 +78,28 @@ lookupVariable name = do
   env <- getEnv
   case lookup name (names env) of
     Nothing -> throwError $ UndefinedVariable name
-    Just a -> return a
+    Just a  -> return a
 
 lookupConstructor :: (MonadError MultiError m, MonadState CheckState m) => Name -> m (Name, Type Name, [Name])
 lookupConstructor name = do
   env <- getEnv
   case lookup name (constructors env) of
     Nothing -> throwError $ UndefinedConstructor name
-    Just a -> return a
+    Just a  -> return a
 
 lookupTypeVariable ::  (MonadError MultiError m, MonadState CheckState m) => Name -> m Kind
 lookupTypeVariable name = do
   env <- getEnv
   case lookup name (types env) of
     Nothing -> throwError $ UndefinedType name
-    Just a -> return a
+    Just a  -> return a
 
 lookupTrait :: (MonadError MultiError m, MonadState CheckState m) => Name -> m TraitEntry
 lookupTrait name = do
   env <- getEnv
   case lookup name (traits env) of
     Nothing -> throwError $ UndefinedTrait name
-    Just a -> return a
+    Just a  -> return a
 
 bindNames :: MonadState CheckState m => [(Name, Type Name)] -> m a -> m a
 bindNames nms action = do
@@ -148,8 +150,8 @@ withTraitInstance trait supers inst action = do
   where
 
   replace (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
-  replace v (x : xs) = x : replace v xs
-  replace v [] = [v]
+  replace v (x : xs)            = x : replace v xs
+  replace v []                  = [v]
 
 addTraitInstance :: Name -> [Constraint Name] -> [Type Name] -> Check ()
 addTraitInstance trait supers inst = do
@@ -164,6 +166,6 @@ addTraitInstance trait supers inst = do
   where
 
   replace (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
-  replace v (x : xs) = x : replace v xs
-  replace v [] = [v]
+  replace v (x : xs)            = x : replace v xs
+  replace v []                  = [v]
 

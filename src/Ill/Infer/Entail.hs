@@ -1,19 +1,19 @@
 module Ill.Infer.Entail where
-import Control.Monad.Unify
-import Control.Monad.State
+import           Control.Monad.State
+import           Control.Monad.Unify
 
-import Data.Maybe
-import Data.List
-import Data.Function
-import Data.Foldable
+import           Data.Foldable
+import           Data.Function
+import           Data.List
+import           Data.Maybe
 
-import Ill.Syntax.Type
-import Ill.Syntax (Name)
+import           Ill.Syntax          (Name)
+import           Ill.Syntax.Type
 
-import Ill.Infer.Monad
-import Ill.Infer.Types
+import           Ill.Infer.Monad
+import           Ill.Infer.Types
 
-import Ill.Error
+import           Ill.Error
 
 {-
 
@@ -29,7 +29,7 @@ entails td id preds constraint = go constraint
     let superTraits = map (\c -> goalsBySuperTrait td c) preds
         instances   = goalsByInst id cons
     any (cons `elem`) superTraits || case instances of
-      Nothing -> False
+      Nothing       -> False
       Just subcons' -> all (go) subcons'
   constraintName (n, _) = n
 
@@ -72,11 +72,11 @@ match _ _ = Nothing
 inHnf :: Constraint Name -> Bool
 inHnf (n, [t]) = hnf t
   where
-  hnf (TVar t) = True
+  hnf (TVar t)         = True
   hnf (TConstructor _) = False
-  hnf (TAp t _) = hnf t
-  hnf (Arrow l r) = hnf l
-  hnf _ = True
+  hnf (TAp t _)        = hnf t
+  hnf (Arrow l r)      = hnf l
+  hnf _                = True
 
 toHnf id p | inHnf p   = return [p]
            | otherwise = case goalsByInst id p of
