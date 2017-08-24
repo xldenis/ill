@@ -48,7 +48,7 @@ filesShouldCheck dir = do
         res <- parseFromFile (illParser <* eof) f
         shouldSucceed res
         let Right (Module _ ds) = res
-        case runTC (typeCheck $ bindingGroups ds) of
+        case runTC (bindingGroups ds >>= typeCheck) of
           Right _ -> return ()
           Left err -> expectationFailure $
             "module should have typechecked but instead returned: " ++ show err

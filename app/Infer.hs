@@ -29,7 +29,7 @@ infer m = let
 
       void $ forM (traits . env $ checkState) $ putStrLn . prettyTraitInfo
 
-runTC (Module _ ds) = unCheck (typeCheck $ bindingGroups ds)
+runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
 
 unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
 

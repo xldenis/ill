@@ -1,0 +1,33 @@
+module TC18
+  data Bool = True | False
+
+  trait B a | A a
+    a :: a
+  end
+
+  trait B a
+    b :: a
+  end
+
+  trait B a | C a
+    c :: a
+  end
+
+  impl B Bool
+    fn b ()
+      False
+    end
+  end
+
+  impl A Bool
+    fn a ()
+      True
+    end
+  end
+
+  impl C Bool
+    fn c ()
+      True
+    end
+  end
+end

@@ -4,15 +4,16 @@ import           Ill.Syntax.Expression
 import           Ill.Syntax.Pattern
 
 import           Ill.Syntax
+import Ill.Error
 
 import           Control.Comonad.Cofree
 import           Control.Monad (liftM2)
-import           Data.Set                  (Set, insert, notMember, singleton)
+import           Control.Monad.Error.Class
 
+import           Data.Set                  (Set, insert, notMember, singleton)
 import           Data.Graph
 import           Data.List                 (intersect)
-
-import           Control.Monad.Error.Class
+import           Data.Maybe
 
 type Ident = String
 
@@ -26,17 +27,19 @@ bgNames (ValueBG ds) = map (\(_ :< (Value n _)) -> n) ds
 bgNames (DataBG  ds) = map (\(_ :< (Data n _ _)) -> n) ds
 bgNames (OtherBG d) = []
 
-bindingGroups :: [Decl a] -> [BindingGroup a]
-bindingGroups ds = let
-  dataDecls = filter isDataDecl ds
-  valueDecls = filter isValue ds ++ filter isSignature ds
-  dataBGs = dataBindingGroups dataDecls
-  valueBGs = valueBindingGroups valueDecls
-  instBGs = sortedInstances (filter isImpl ds)
-  otherCond  = not <$> foldr1 (liftM2 (||)) [isValue, isDataDecl, isSignature, isImpl, isDecl]
-  others = map OtherBG $ filter otherCond ds
+bindingGroups :: MonadError MultiError m => [Decl a] -> m [BindingGroup a]
+bindingGroups ds = do
+  let dataDecls = filter isDataDecl ds
+      valueDecls = filter isValue ds ++ filter isSignature ds
+      dataBGs = dataBindingGroups dataDecls
+      valueBGs = valueBindingGroups valueDecls
+      otherCond  = not <$> foldr1 (liftM2 (||)) [isValue, isDataDecl, isSignature, isImpl, isDecl]
+      others = map OtherBG $ filter otherCond ds
+      traitName (OtherBG (_  :< TraitImpl _ n _ _)) = n
 
-  in dataBGs ++
+  instBGs <- sortedInstances (filter isDecl ds) (filter isImpl ds)
+
+  return $ dataBGs ++
      map OtherBG (filter isDecl ds) ++
      instBGs ++
      others ++
@@ -47,12 +50,18 @@ sccToDecl (AcyclicSCC d)  = [d]
 sccToDecl (CyclicSCC [d]) = [d]
 sccToDecl (CyclicSCC ds)  = ds
 
-sortedInstances :: [Decl a] -> [BindingGroup a]
-sortedInstances ds = let
-  graphList = map (\d -> (d, traitName d, superTraits d)) ds
-  traitName (_  :< TraitImpl _ n _ _) = n
+sortedInstances :: MonadError MultiError m => [Decl a] -> [Decl a] -> m [BindingGroup a]
+sortedInstances decls impls = let
+  graphList = map (\d -> (d, traitName d, concat . maybeToList $ traitName d `lookup` superTraitDict)) impls
+  traitName   (_ :< TraitImpl _ n _ _) = n
   superTraits (_ :< TraitImpl c _ _ _) = map fst c
-  in map OtherBG (stronglyConnComp graphList >>= sccToDecl)
+  superTraitDict = map (\(_ :< TraitDecl c n _ _) -> (n, map fst c)) decls
+  in mapM (checkDag) (stronglyConnComp graphList)
+  where
+
+  checkDag (AcyclicSCC d)  = return $ OtherBG d
+  checkDag (CyclicSCC [d]) = return $ OtherBG d
+  checkDag _ = throwError $ InternalError "cycle in traits"
 
 -- Check for type synonym cycles in SCC
 dataBindingGroups :: [Decl a] -> [BindingGroup a]

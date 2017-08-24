@@ -29,7 +29,7 @@ type RawDecl = Decl SourceSpan
 {-
   1. kind checking not implemented
   2. error messages suuuuuck
-  3. Check super trait constraints when handling implementations
+  3. Ensure no DAG in trait decls!
 -}
 
 typeCheck :: [BindingGroup SourceSpan] -> Check [BindingGroup TypedAnn]

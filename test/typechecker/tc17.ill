@@ -51,17 +51,17 @@ module TC17
     end
   end
 
+  impl Monoid (List a)
+    fn empty ()
+      Nil
+    end
+  end
+
   impl Semigroup (List a)
     fn mappend(Nil, ys)
       ys
     or mappend(Cons x xs, ys)
       Cons(x, mappend(xs, ys))
-    end
-  end
-
-  impl Monoid (List a)
-    fn empty ()
-      Nil
     end
   end
 
@@ -72,7 +72,6 @@ module TC17
       Nil
     end
   end
-
 
   fn testEqLists ()
     eq(Cons(True, Nil), Nil)

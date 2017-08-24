@@ -80,7 +80,7 @@ toHnf :: InstanceDict -> Constraint Name -> Check [Constraint Name]
 toHnf id p | inHnf p   = return [p]
            | otherwise = case goalsByInst id p of
                           Just ps -> toHnfs id ps
-                          Nothing -> fail $ "missing impl for trait: " ++ show p
+                          Nothing -> throwError $ MissingTraitImpl [p]
 
 toHnfs :: InstanceDict -> [Constraint Name] -> Check [Constraint Name]
 toHnfs id ps = concat <$> mapM (toHnf id) ps
