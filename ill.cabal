@@ -25,7 +25,7 @@ library
   hs-source-dirs:
       src
   default-extensions: FlexibleContexts
-  ghc-options: -fwarn-incomplete-uni-patterns
+  ghc-options: -fwarn-incomplete-uni-patterns -fdiagnostics-color=always
   build-depends:
       megaparsec
     , text

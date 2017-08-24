@@ -17,6 +17,7 @@ dependencies:
 library:
   ghc-options:
   - -fwarn-incomplete-uni-patterns
+  - -fdiagnostics-color=always
   source-dirs: src
   dependencies:
   - free

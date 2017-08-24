@@ -62,7 +62,6 @@ sortedInstances decls impls = let
   checkDag (AcyclicSCC d)  = return $ OtherBG d
   checkDag (CyclicSCC [d]) = return $ OtherBG d
   checkDag _ = throwError $ InternalError "cycle in traits"
-
 -- Check for type synonym cycles in SCC
 dataBindingGroups :: [Decl a] -> [BindingGroup a]
 dataBindingGroups ds = let

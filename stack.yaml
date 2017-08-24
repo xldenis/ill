@@ -5,5 +5,5 @@ packages:
 extra-deps:
 - prettyprinter-1.1
 - prettyprinter-ansi-terminal-1.1
-resolver: lts-8.21
+resolver: nightly-2017-08-20
 
