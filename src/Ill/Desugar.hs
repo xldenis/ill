@@ -32,12 +32,13 @@ bindingGroups ds = let
   valueDecls = filter isValue ds ++ filter isSignature ds
   dataBGs = dataBindingGroups dataDecls
   valueBGs = valueBindingGroups valueDecls
+  instBGs = sortedInstances (filter isImpl ds)
   otherCond  = not <$> foldr1 (liftM2 (||)) [isValue, isDataDecl, isSignature, isImpl, isDecl]
   others = map OtherBG $ filter otherCond ds
 
   in dataBGs ++
      map OtherBG (filter isDecl ds) ++
-     map OtherBG (filter isImpl ds) ++
+     instBGs ++
      others ++
      valueBGs
 
@@ -45,6 +46,13 @@ sccToDecl :: SCC (Decl a) -> [Decl a]
 sccToDecl (AcyclicSCC d)  = [d]
 sccToDecl (CyclicSCC [d]) = [d]
 sccToDecl (CyclicSCC ds)  = ds
+
+sortedInstances :: [Decl a] -> [BindingGroup a]
+sortedInstances ds = let
+  graphList = map (\d -> (d, traitName d, superTraits d)) ds
+  traitName (_  :< TraitImpl _ n _ _) = n
+  superTraits (_ :< TraitImpl c _ _ _) = map fst c
+  in map OtherBG (stronglyConnComp graphList >>= sccToDecl)
 
 -- Check for type synonym cycles in SCC
 dataBindingGroups :: [Decl a] -> [BindingGroup a]

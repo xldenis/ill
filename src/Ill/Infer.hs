@@ -29,7 +29,7 @@ type RawDecl = Decl SourceSpan
 {-
   1. kind checking not implemented
   2. error messages suuuuuck
-  3. checking partially applied functions doesnt work properly
+  3. Check super trait constraints when handling implementations
 -}
 
 typeCheck :: [BindingGroup SourceSpan] -> Check [BindingGroup TypedAnn]
@@ -73,7 +73,7 @@ typeCheck bgs = mapM go bgs
 
     kinds <- kindsOfAll [] (map (\(nm, param, cons) -> (nm, param, concatMap snd cons)) dataDecls)
 
-    forM_ (zip dataDecls kinds) $ \((name, args, ctors), ctorKind) -> 
+    forM_ (zip dataDecls kinds) $ \((name, args, ctors), ctorKind) ->
       addDataType name args ctors ctorKind
 
     ds' <- forM (zip ds kinds) $ \(span :< d, k) -> do
@@ -106,11 +106,14 @@ typeCheck bgs = mapM go bgs
     annSigs _ = error "trait declaration contains non signature value"
 
   go (OtherBG (a :< TraitImpl supers nm args ds)) = do
+    (superTraits, varNms, memSigs) <- lookupTrait nm
+    let subs = zip varNms args
+        cons = map (\(nm, cs') -> (nm, map (replaceTypeVars subs) cs' )) superTraits
+    unsatisfiedSupers <- reduce cons
+    when (not $ null unsatisfiedSupers) . internalError $ "unsatisfied supertraits in instance: " ++ show unsatisfiedSupers
+
     let constraints' = (nm, args) : supers
-
-    (_, varNms, memSigs) <- lookupTrait nm
-
-    let tySubs     = zip varNms args
+        tySubs     = zip varNms args
         sigTys     = map (fmap (constrain constraints' . replaceTypeVars tySubs)) memSigs
         signatures = map (uncurry Signature) sigTys
         annotated  = map (\sig -> emptySpan :< sig) signatures
@@ -203,8 +206,12 @@ typeForBindingGroupEl (a :< Value name els) dict = do
 
 checkBindingGroupEl :: Type Name -> Decl SourceSpan -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
 checkBindingGroupEl ty (a :< Value name els) dict = do
+  let (pats, _) = unzip els
+      numArgs = length $ head pats
+  when (any (/= numArgs) $ map length pats) . throwError $ InternalError "branches have different amounts of patterns"
+
   let (constraints, ty') = unconstrained ty
-      unwrapped = unwrapFnType ty'
+      unwrapped = unwrapN numArgs ty'
       argTys    = if length unwrapped > 1 then init unwrapped else []
       retTy     = last unwrapped
 

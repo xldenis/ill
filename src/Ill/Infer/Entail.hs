@@ -33,7 +33,6 @@ entails td id preds constraint = go constraint
       Just subcons' -> all go subcons'
   constraintName (n, _) = n
 
-
 goalsBySuperTrait :: TraitDict -> Constraint Name -> [Constraint Name]
 goalsBySuperTrait dict trait@(n, _) = trait : (superTraits >>= \(supers, _, _) -> supers >>= superTraitsFor)
   where
@@ -59,7 +58,6 @@ goalsByInst dict (trait, tys) =
   substituteConstraint :: [(Name, Type Name)] -> Constraint Name -> Constraint Name
   substituteConstraint sub (cons, tys) = (cons, map (replaceTypeVars sub) tys)
 
-
 -- Verify that a type is strictly less general than a second one implements a rough form of <=
 
 match :: Type Name -> Type Name -> Maybe [(Name, Type Name)]
@@ -78,11 +76,13 @@ inHnf (n, [t]) = hnf t
   hnf (Arrow l r)      = hnf l
   hnf _                = True
 
+toHnf :: InstanceDict -> Constraint Name -> Check [Constraint Name]
 toHnf id p | inHnf p   = return [p]
            | otherwise = case goalsByInst id p of
                           Just ps -> toHnfs id ps
-                          Nothing -> fail "omg"
+                          Nothing -> fail $ "missing impl for trait: " ++ show p
 
+toHnfs :: InstanceDict -> [Constraint Name] -> Check [Constraint Name]
 toHnfs id ps = concat <$> mapM (toHnf id) ps
 
 simplify   :: TraitDict -> InstanceDict -> [Constraint Name] -> [Constraint Name]

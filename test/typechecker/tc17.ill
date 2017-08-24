@@ -1,0 +1,156 @@
+module TC17
+  data Maybe a = Just a | Nothing
+
+  data List  a = Cons a (List a) | Nil
+
+  data Tuple a b = T a b
+
+  data Bool = True | False
+
+  trait Eq a
+    eq  :: a -> a -> Bool
+  end
+
+  trait Show a
+    show :: a -> String
+  end
+
+  trait Functor f
+    fmap :: (a -> b) -> f a -> f b
+  end
+
+  trait Semigroup a
+    mappend :: a -> a -> a
+  end
+
+  trait Semigroup a | Monoid a
+    empty :: a
+  end
+
+  impl Eq a | Eq (List a)
+    fn eq(Cons x1 xs1, Cons x2 xs2)
+      if eq(x1, x2) then
+        eq(xs1, xs2)
+      else
+        False
+      end
+    or eq(Nil, Nil)
+      True
+    or eq(a, b)
+      False
+    end
+  end
+
+  impl Eq Bool
+    fn eq(True, True)
+      True
+    or eq(False, False)
+      True
+    or eq(a, b)
+      False
+    end
+  end
+
+  impl Semigroup (List a)
+    fn mappend(Nil, ys)
+      ys
+    or mappend(Cons x xs, ys)
+      Cons(x, mappend(xs, ys))
+    end
+  end
+
+  impl Monoid (List a)
+    fn empty ()
+      Nil
+    end
+  end
+
+  impl Functor List
+    fn fmap(f, Cons x xs)
+      Cons(f(x), fmap(f, xs))
+    or fmap(f, Nil)
+      Nil
+    end
+  end
+
+
+  fn testEqLists ()
+    eq(Cons(True, Nil), Nil)
+  end
+
+  head :: List a -> Maybe a
+  fn head(Cons x xs)
+    Just(x)
+  or head(Nil)
+    Nothing
+  end
+
+  last :: List a -> Maybe a
+  fn last(Cons x xs)
+    Just(x)
+  or last(Nil)
+    Nothing
+  end
+
+  tail :: List a -> Maybe (List a)
+  fn tail(Cons x xs)
+    Just(xs)
+  or tail(Nil)
+    Nothing
+  end
+
+  init :: List a -> Maybe (List a)
+  fn init(Cons x Nil)
+    Just(Nil)
+  or init(Cons x xs)
+    case init(xs) of
+      when Just xs1: Just(Cons(x, xs1))
+      when Nothing: Just(Cons(x, Nil))
+    end
+  or init(Nil)
+    Nothing
+  end
+
+  uncons :: List a -> Maybe (Tuple a (List a))
+  fn uncons(Cons x xs)
+    Just(T(x, xs))
+  or uncons(Nil)
+    Nothing
+  end
+
+  # null :: Foldable t => t a -> Bool
+
+  # length :: Foldable t => t a -> Int
+
+  map :: (a -> b) -> List a -> List b
+  fn map(f, Cons x xs)
+    Cons(f(x), map(f, xs))
+  or map(f, Nil)
+    Nil
+  end
+
+  reverse :: List a -> List a
+  fn reverse(list)
+    reverseW(list, Nil)
+  end
+
+  # need mutually recursive let bindings to make this simpler
+  fn reverseW(Cons x xs, rev)
+    reverseW(xs, Cons(x, rev))
+  or reverseW(Nil, rev)
+    rev
+  end
+
+  intersperse :: a -> List a -> List a
+  fn intersperse(e, Cons x xs)
+    Cons(x, Cons(e, intersperse(e, xs)))
+  or intersperse(e, Nil)
+    Nil
+  end
+
+  # transpose :: List (List a) -> List (List a)
+
+  # subsequences :: List a -> List (List a)
+
+  # permutations :: List a -> List (List a)
+end

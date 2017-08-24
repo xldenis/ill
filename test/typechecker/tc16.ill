@@ -44,10 +44,10 @@ module TC16
     show(a)
   end
 
-  # x6 :: Show a | a -> String
-  # fn x6 ()
-  #   show
-  # end
+  x6 :: Show a | a -> String
+  fn x6 ()
+    show
+  end
 
   fn length(Cons b xs)
     1 + length(xs)

@@ -117,7 +117,7 @@ check expected (a :< Constructor nm) = do
   nT =?= expected
 
   return $ Ann a (Type nT) :< Constructor nm
-check expected v@(_ :< BinOp _ _ _)= do
+check expected v@(_ :< BinOp _ _ _) = do
   rTy <- infer v
   (typeOf rTy) =?= expected
   return rTy
@@ -129,6 +129,16 @@ check expected (a :< Body es) = do
   retTy =?= expected
 
   return $ Ann a (Type . typeOf $ last tys) :< Body tys
+check expected (a :< Apply f args) = do
+  f' <- infer f
+  let (constraints, ty') = unconstrained (typeOf f')
+      unwrapped = unwrapN (length args) ty'
+      argTys    = init unwrapped
+      retTy     = last unwrapped
+
+  args' <- mapM (uncurry check) (zip argTys args)
+
+  return $ Ann a (Type retTy) :< Apply f' args'
 
 check expected ty = error (show ty)
 

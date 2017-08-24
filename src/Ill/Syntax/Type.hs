@@ -81,28 +81,41 @@ unconstrained t@(Arrow l r) = let
 unconstrained t = ([], t)
 
 constrain :: [Constraint String] -> Type String -> Type String
+constrain [] t = t
 constrain cs (Constrained cs' t) = Constrained (nub $ cs ++ cs') t
 constrain cs a = Constrained cs a
 
 constraints :: Type String -> [Constraint String]
-constraints (Constrained cons _) = cons
-constraints _ = []
+constraints = fst . unconstrained
 
 flattenConstraints :: Type String -> Type String
-flattenConstraints t = case unconstrained t of
-  ([], t) -> t
-  (ts, t) -> Constrained ts t
+flattenConstraints = uncurry constrain . unconstrained
 
 unwrapFnType :: Type String -> [Type String]
 unwrapFnType t = unfoldr' go t
   where
-  unfoldr' f b = case f b of
-    (a, Just b') -> a : unfoldr' f b'
-    (a, Nothing) -> [a]
 
   go (TAp (TAp (TConstructor "->") a) b) = (a, Just b)
   go (Arrow a b) = (a, Just b)
   go a           = (a, Nothing)
+
+unfoldr' f b = case f b of
+  (a, Just b') -> a : unfoldr' f b'
+  (a, Nothing) -> [a]
+
+unwrapN :: Int -> Type String -> [Type String]
+unwrapN n t = unfoldr' n go t
+  where
+
+  go (TAp (TAp (TConstructor "->") a) b) = (a, Just b)
+  go (Arrow a b) = (a, Just b)
+  go a           = (a, Nothing)
+
+  unfoldr' 0 f b = [b]
+  unfoldr' n f b = case f b of
+    (a, Just b') -> a : unfoldr' (n - 1) f b'
+    (a, Nothing) -> [a]
+
 
 replaceTypeVars :: [(String, Type String)] -> Type String -> Type String
 replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)
@@ -117,7 +130,3 @@ unwrapProduct t = reverse $ unfoldr' go t
   where
   go (TAp f a) = (a, Just f)
   go a         = (a, Nothing)
-
-  unfoldr' f b = case f b of
-    (a, Just b') -> a : unfoldr' f b'
-    (a, Nothing) -> [a]

@@ -111,7 +111,7 @@ contexts:
     - match: '^\s+or\s'
       scope: keyword.control.ill
       set: function
-    - match: 'end'
+    - match: '\send'
       scope: keyword.control.ill
       pop: true
 
