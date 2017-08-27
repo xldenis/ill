@@ -26,4 +26,6 @@ internalError = throwError . InternalError
 
 instance Pretty MultiError where
   pretty (InternalError s) = pretty "internal error" <+> pretty s
+  pretty (UnificationError t1 t2) = pretty "Unification error could not" <+> hang 1 doc
+    where doc = vsep [pretty "unify:" <+> pretty t1, pretty "with:" <+> pretty t2]
   pretty s = pretty $ show s

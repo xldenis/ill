@@ -57,11 +57,12 @@ infer (a :< BinOp op l r) = do
   op' <- infer op
   l' <- infer l
   r' <- infer r
-  tRet <- fresh
+  retTy <- fresh
 
-  typeOf op' `constrainedUnification` flattenConstraints (typeOf l' `tFn` typeOf r' `tFn` tRet)
+  constraints <- typeOf op' `constrainedUnification` flattenConstraints (foldr tFn retTy [typeOf l', typeOf r'])
+  let retTy' = constrain constraints retTy
 
-  return $ Ann a (Type tRet) :< BinOp op' l' r'
+  return $ Ann a (Type retTy') :< BinOp op' l' r'
 infer (a :< Lambda pats expr) = do
   patTys <- replicateM (length pats) fresh
 
@@ -71,9 +72,12 @@ infer (a :< Lambda pats expr) = do
   let retTy = foldr tFn (typeOf expr') patTys
   return $ Ann a (Type retTy) :< Lambda pats expr'
 infer (a :< Assign lnames exps) = do
-  exps' <- mapM infer exps
-  let bound = zip lnames (map typeOf exps')
+  varTys <- replicateM (length lnames) fresh
+  let bound = zip lnames varTys
   modifyEnv $ \e -> e { names = bound ++ (names e) }
+
+  exps' <- mapM infer exps
+  zipWithM ((=?=) . typeOf) exps' varTys
 
   return $ Ann a (Type tNil) :< Assign lnames exps'
 infer (a :< Var nm) = do
@@ -106,8 +110,8 @@ check expected (a :< If cond l r) = do
   return $ Ann a (Type expected) :< If cond' left' right'
 check expected (a :< Var nm) = do
   ty <- lookupVariable nm
-  ty =?= expected
-  return $ Ann a (Type ty) :< Var nm
+  cons <- ty `constrainedUnification` expected
+  return $ Ann a (Type $ constrain cons ty) :< Var nm
 check expected (a :< Constructor nm) = do
   (_, ty, args) <- lookupConstructor nm
 
@@ -118,15 +122,21 @@ check expected (a :< Constructor nm) = do
 
   return $ Ann a (Type nT) :< Constructor nm
 check expected v@(_ :< BinOp _ _ _) = do
-  rTy <- infer v
-  (typeOf rTy) =?= expected
-  return rTy
+  v' <- infer v
+  -- internalError $ typeOf v'
+  -- internalError $ show expected ++ show (typeOf v')
+  cons <- typeOf v' `constrainedUnification` expected
+
+  return $ fmap (modifyTyAnn (constrain cons)) v'
+  where
+
+  modifyTyAnn f (Ann src (Type ty)) = Ann src (Type $ f ty)
+  modifyTyAnn f t = t
+
 check expected (a :< Body es) = do
   tys <- mapM infer es
 
-  let (cons, retTy) = unconstrained (typeOf $ last tys)
-
-  retTy =?= expected
+  cons <- (typeOf $ last tys) `constrainedUnification` expected
 
   return $ Ann a (Type . typeOf $ last tys) :< Body tys
 check expected (a :< Apply f args) = do

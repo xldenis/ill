@@ -43,11 +43,22 @@ data TypeAnn
   deriving (Show, Eq)
 
 defaultCheckEnv = CheckState (Environment
-  [ ("+", tInteger `tFn` tInteger `tFn` tInteger)
-  , ("-", tInteger `tFn` tInteger `tFn` tInteger)
-  , ("*", tInteger `tFn` tInteger `tFn` tInteger)
-  , ("/", tInteger `tFn` tInteger `tFn` tInteger)
-  , (">", tInteger `tFn` tInteger `tFn` tBool)
+  [ ("plusInt",  tInteger `tFn` (tInteger `tFn` tInteger))
+  , ("minusInt", tInteger `tFn` (tInteger `tFn` tInteger))
+  , ("multInt",  tInteger `tFn` (tInteger `tFn` tInteger))
+  , ("divInt",   tInteger `tFn` (tInteger `tFn` tInteger))
+  , ("eqInt",    tInteger `tFn` (tInteger `tFn` tBool))
+  , ("leInt",    tInteger `tFn` (tInteger `tFn` tBool))
+  , ("geInt",    tInteger `tFn` (tInteger `tFn` tBool))
+  , ("leqInt",   tInteger `tFn` (tInteger `tFn` tBool))
+  , ("geqInt",   tInteger `tFn` (tInteger `tFn` tBool))
+  , ("maxInt",   tInteger `tFn` (tInteger `tFn` tInteger))
+  , ("minInt",   tInteger `tFn` (tInteger `tFn` tInteger))
+  , ("<", constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "Bool"))
+  , (">", constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "Bool"))
+  , ("+", constrain [("Semigroup", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
+  , ("-", constrain [("Group", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
+  , ("*", constrain [("MultSemigroup", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
   ] [] [] [] []) 0
 
 putEnv :: MonadState CheckState m => Environment -> m ()

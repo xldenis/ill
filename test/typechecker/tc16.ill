@@ -23,6 +23,22 @@ module TC16
     end
   end
 
+  trait Semigroup a
+    g :: a -> a
+  end
+
+  impl Semigroup a
+    fn g (x) x end
+  end
+
+  trait Ord a
+    g :: a -> a
+  end
+
+  impl Ord a
+    fn g (x) x end
+  end
+
   fn x1 ()
     show
   end

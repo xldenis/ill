@@ -30,4 +30,17 @@ module TC18
       True
     end
   end
+
+  data List a = Cons a (List a) | Nil
+
+  fn rev(list)
+    revW = fn (list, tsil) =
+      case list of
+        when Cons x xs: revW(xs, Cons(x, tsil))
+        when Nil: tsil
+      end
+    end
+
+    revW(list, Nil)
+  end
 end

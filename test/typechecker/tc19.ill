@@ -1,0 +1,34 @@
+module TC19
+  # test bug requiring int Eq for all Eq
+  data Bool = True | False
+
+  trait Eq a
+    eq  :: a -> a -> Bool
+  end
+
+  trait Eq a | Ord a
+    # compare :: a -> a -> Bool
+    min :: a -> a -> a
+  end
+
+
+  impl Eq Int
+    fn eq()
+      eqInt
+    end
+  end
+
+  impl Ord Int
+    fn min () minInt end
+  end
+
+  impl Eq Bool
+    fn eq(True, True)
+      True
+    or eq(False, False)
+      True
+    or eq(a, b)
+      False
+    end
+  end
+end

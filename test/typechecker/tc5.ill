@@ -1,6 +1,22 @@
 module TC5
   data List a = Cons a (List a) | Nil
 
+  trait Ord a
+    dummy :: a -> a
+  end
+
+  impl Ord a
+    fn dummy (x) x end
+  end
+
+  trait Group a
+    g :: a -> a
+  end
+
+  impl Group a
+    fn g (x) x end
+  end
+
   fn replicate(times, val)
     go(times - 1, val, Cons(val, Nil))
   end

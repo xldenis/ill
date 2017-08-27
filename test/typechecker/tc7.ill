@@ -1,4 +1,20 @@
 module TC7
+  trait Group a
+    g :: a -> a
+  end
+
+  impl Group a
+    fn g (x) x end
+  end
+
+  trait MultSemigroup a
+    g :: a -> a
+  end
+
+  impl MultSemigroup a
+    fn g (x) x end
+  end
+
   fn fact(0)
     1
   or fact(n)

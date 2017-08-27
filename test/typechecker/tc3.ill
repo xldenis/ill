@@ -1,6 +1,14 @@
 module TC3
   data A a = A a
 
+  trait Semigroup a
+    plus :: a -> a -> a
+  end
+
+  impl Semigroup Int
+    fn plus () plusInt end
+  end
+
   fn x (A a)
     z(a)
   end

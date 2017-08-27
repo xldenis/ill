@@ -12,7 +12,7 @@ import           Control.Monad.Error.Class
 
 import           Data.Set                  (Set, insert, notMember, singleton)
 import           Data.Graph
-import           Data.List                 (intersect)
+import           Data.List                 (intersect, groupBy, sortOn)
 import           Data.Maybe
 
 type Ident = String
@@ -52,15 +52,17 @@ sccToDecl (CyclicSCC ds)  = ds
 
 sortedInstances :: MonadError MultiError m => [Decl a] -> [Decl a] -> m [BindingGroup a]
 sortedInstances decls impls = let
-  graphList = map (\d -> (d, traitName d, concat . maybeToList $ traitName d `lookup` superTraitDict)) impls
+  groupedByTrait = map (\x -> (traitName $ head x, x)) $ groupBy (\x y -> traitName x == traitName y)  (sortOn traitName impls)
+
+  graphList = map (\(name, is) -> (is, name, concat . maybeToList $ name `lookup` superTraitDict)) groupedByTrait
   traitName   (_ :< TraitImpl _ n _ _) = n
   superTraits (_ :< TraitImpl c _ _ _) = map fst c
   superTraitDict = map (\(_ :< TraitDecl c n _ _) -> (n, map fst c)) decls
-  in mapM (checkDag) (stronglyConnComp graphList)
+  in concat <$> mapM checkDag (stronglyConnComp graphList)
   where
 
-  checkDag (AcyclicSCC d)  = return $ OtherBG d
-  checkDag (CyclicSCC [d]) = return $ OtherBG d
+  checkDag (AcyclicSCC d)  = return $ map OtherBG d
+  checkDag (CyclicSCC [d]) = return $ map OtherBG d
   checkDag _ = throwError $ InternalError "cycle in traits"
 -- Check for type synonym cycles in SCC
 dataBindingGroups :: [Decl a] -> [BindingGroup a]

@@ -1,5 +1,20 @@
 module TC13TypeAnnotation
-  
+  trait Ord a
+    dummy :: a -> a
+  end
+
+  impl Ord a
+    fn dummy (x) x end
+  end
+
+  trait Semigroup a
+    g :: a -> a
+  end
+
+  impl Semigroup a
+    fn g (x) x end
+  end
+
   f :: a -> a
   fn f (x)
     x
@@ -11,9 +26,9 @@ module TC13TypeAnnotation
 
   ifStmt :: Int -> Int
   fn ifStmt(x)
-    if x > 2 then 
+    if x > 2 then
       5
-    else 
+    else
       5
     end
   end

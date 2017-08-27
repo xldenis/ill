@@ -6,8 +6,6 @@ import Control.Monad.Unify (Unknown)
 import Data.Maybe
 import Data.List
 
--- pattern Arrow a b = (TAp (TAp (TConstructor "->") a) b)
-
 data Type t
   = TVar t
   | TAp (Type t) (Type t)
@@ -35,7 +33,6 @@ tArrow = TConstructor "->"
 
 tFn :: Type String -> Type String -> Type String
 tFn = Arrow
--- tFn a b = tArrow `TAp` a `TAp` b
 
 tString :: Type String
 tString = TConstructor "String"
