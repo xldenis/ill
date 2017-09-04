@@ -1,4 +1,7 @@
-module Ill.Parser.Lexer where
+module Ill.Parser.Lexer
+( module Ill.Parser.Lexer
+, SourceSpan(..)
+) where
 
 import qualified Text.Megaparsec.Lexer as L
 import Text.Megaparsec.Text
@@ -8,7 +11,7 @@ import Control.Comonad.Cofree
 import Control.Applicative ((<*), empty)
 import Control.Monad (void)
 
-data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Eq, Show)
+import Ill.Syntax (SourceSpan(..))
 
 reserved :: [String]
 reserved = ["if", "then", "else", "end", "fn", "import", "qualified", "hiding", "trait", "data", "type", "or", "case", "of", "when"]

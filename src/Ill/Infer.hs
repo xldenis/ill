@@ -1,4 +1,8 @@
-module Ill.Infer where
+module Ill.Infer
+( module Ill.Infer
+, runCheck
+, defaultCheckEnv
+) where
 
 import           Control.Monad.Except
 import           Control.Monad.State

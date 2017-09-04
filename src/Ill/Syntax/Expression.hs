@@ -30,8 +30,8 @@ instance Pretty (Cofree Expression a) where
     pretty' (Apply func args) = pretty func <> tupled (map pretty args)
     pretty' (BinOp op l r) = pretty l <+> pretty op <+> pretty r
     pretty' (Assign idents exprs) = cat (punctuate comma (map pretty idents)) <+> pretty '=' <+> cat (punctuate comma (map pretty exprs))
-    pretty' (Case cond branches) = pretty "case" <+> pretty cond <+> pretty "of" `above` vsep (map prettyBranch branches)
-      where prettyBranch (pat, branch) = pretty pat <+> pretty "->" <+> pretty branch
+    pretty' (Case cond branches) = pretty "case" <+> pretty cond <+> pretty "of" `above` indent 2 (vsep (map prettyBranch branches)) `above` pretty "end"
+      where prettyBranch (pat, branch) = pretty "when" <+> pretty pat <+> pretty ":" <+> pretty branch
     pretty' (If cond left right) = vsep
       [ pretty "if" <+> pretty cond <+> pretty "then"
       , indent 2 (pretty left)

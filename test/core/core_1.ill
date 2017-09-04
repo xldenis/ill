@@ -1,0 +1,9 @@
+module Core1
+  data List a = Cons a (List a) | Nil
+
+  fn head(Cons x xs)
+    1
+  or head(Nil)
+    2
+  end
+end

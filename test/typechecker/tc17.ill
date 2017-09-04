@@ -82,19 +82,25 @@ module TC17
     fn min () minInt end
   end
 
-  # impl Eq a | Eq (List a)
-  #   fn eq(Cons x1 xs1, Cons x2 xs2)
-  #     if eq(x1, x2) then
-  #       eq(xs1, xs2)
-  #     else
-  #       False
-  #     end
-  #   or eq(Nil, Nil)
-  #     True
-  #   or eq(a, b)
-  #     False
-  #   end
-  # end
+  impl Semigroup Int
+    fn plus(a, b)
+      2
+    end
+  end
+
+  impl Eq a | Eq (List a)
+    fn eq(Cons x1 xs1, Cons x2 xs2)
+      if eq(x1, x2) then
+        eq(xs1, xs2)
+      else
+        False
+      end
+    or eq(Nil, Nil)
+      True
+    or eq(a, b)
+      False
+    end
+  end
 
   impl Eq Bool
     fn eq(True, True)
@@ -106,126 +112,126 @@ module TC17
     end
   end
 
-  # impl Monoid (List a)
-  #   fn zero ()
-  #     Nil
-  #   end
-  # end
+  impl Monoid (List a)
+    fn zero ()
+      Nil
+    end
+  end
 
-  # impl Semigroup (List a)
-  #   fn plus(Nil, ys)
-  #     ys
-  #   or plus(Cons x xs, ys)
-  #     Cons(x, plus(xs, ys))
-  #   end
-  # end
+  impl Semigroup (List a)
+    fn plus(Nil, ys)
+      ys
+    or plus(Cons x xs, ys)
+      Cons(x, plus(xs, ys))
+    end
+  end
 
-  # impl Functor List
-  #   fn fmap(f, Cons x xs)
-  #     Cons(f(x), fmap(f, xs))
-  #   or fmap(f, Nil)
-  #     Nil
-  #   end
-  # end
+  impl Functor List
+    fn fmap(f, Cons x xs)
+      Cons(f(x), fmap(f, xs))
+    or fmap(f, Nil)
+      Nil
+    end
+  end
 
-  # impl Foldable List
-  #   fn foldr(f, z, Cons x xs)
-  #     f(x, foldr(f, z, xs))
-  #   or foldr(f, z, Nil)
-  #     z
-  #   end
+  impl Foldable List
+    fn foldr(f, z, Cons x xs)
+      f(x, foldr(f, z, xs))
+    or foldr(f, z, Nil)
+      z
+    end
 
-  #   fn foldl(f, z, Cons x xs)
-  #     foldl(f, f(z, x), xs)
-  #   or foldl(f, z, Nil)
-  #     z
-  #   end
-  # end
+    fn foldl(f, z, Cons x xs)
+      foldl(f, f(z, x), xs)
+    or foldl(f, z, Nil)
+      z
+    end
+  end
 
 
-  # fn testEqLists ()
-  #   eq(Cons(True, Nil), Nil)
-  # end
+  fn testEqLists ()
+    eq(Cons(True, Nil), Nil)
+  end
 
-  # head :: List a -> Maybe a
-  # fn head(Cons x xs)
-  #   Just(x)
-  # or head(Nil)
-  #   Nothing
-  # end
+  head :: List a -> Maybe a
+  fn head(Cons x xs)
+    Just(x)
+  or head(Nil)
+    Nothing
+  end
 
-  # last :: List a -> Maybe a
-  # fn last(Cons x xs)
-  #   Just(x)
-  # or last(Nil)
-  #   Nothing
-  # end
+  last :: List a -> Maybe a
+  fn last(Cons x xs)
+    Just(x)
+  or last(Nil)
+    Nothing
+  end
 
-  # tail :: List a -> Maybe (List a)
-  # fn tail(Cons x xs)
-  #   Just(xs)
-  # or tail(Nil)
-  #   Nothing
-  # end
+  tail :: List a -> Maybe (List a)
+  fn tail(Cons x xs)
+    Just(xs)
+  or tail(Nil)
+    Nothing
+  end
 
-  # init :: List a -> Maybe (List a)
-  # fn init(Cons x Nil)
-  #   Just(Nil)
-  # or init(Cons x xs)
-  #   case init(xs) of
-  #     when Just xs1: Just(Cons(x, xs1))
-  #     when Nothing: Just(Cons(x, Nil))
-  #   end
-  # or init(Nil)
-  #   Nothing
-  # end
+  init :: List a -> Maybe (List a)
+  fn init(Cons x Nil)
+    Just(Nil)
+  or init(Cons x xs)
+    case init(xs) of
+      when Just xs1: Just(Cons(x, xs1))
+      when Nothing: Just(Cons(x, Nil))
+    end
+  or init(Nil)
+    Nothing
+  end
 
-  # uncons :: List a -> Maybe (Tuple a (List a))
-  # fn uncons(Cons x xs)
-  #   Just(T(x, xs))
-  # or uncons(Nil)
-  #   Nothing
-  # end
+  uncons :: List a -> Maybe (Tuple a (List a))
+  fn uncons(Cons x xs)
+    Just(T(x, xs))
+  or uncons(Nil)
+    Nothing
+  end
 
-  # fn const(e)
-  #   fn (x) = e end
-  # end
+  fn const(e)
+    fn (x) = e end
+  end
 
-  # null :: Foldable t | t a -> Bool
-  # fn null ()
-  #   foldr(const(const(False)), True)
-  # end
+  null :: Foldable t | t a -> Bool
+  fn null ()
+    foldr(const(const(False)), True)
+  end
 
-  # length :: Foldable t | t a -> Int
-  # fn length(list)
-  #   foldl(fn (x, y) = x + 1 end, 0, list)
-  # end
+  length :: Foldable t | t a -> Int
+  fn length(list)
+    foldl(fn (x, y) = x + 1 end, 0, list)
+  end
 
-  # map :: (a -> b) -> List a -> List b
-  # fn map(f, Cons x xs)
-  #   Cons(f(x), map(f, xs))
-  # or map(f, Nil)
-  #   Nil
-  # end
+  map :: (a -> b) -> List a -> List b
+  fn map(f, Cons x xs)
+    Cons(f(x), map(f, xs))
+  or map(f, Nil)
+    Nil
+  end
 
-  # reverse :: List a -> List a
-  # fn reverse(list)
-  #   revW = fn (list, tsil) =
-  #     case list of
-  #       when Cons x xs: revW(xs, Cons(x, tsil))
-  #       when Nil: tsil
-  #     end
-  #   end
+  reverse :: List a -> List a
+  fn reverse(list)
+    revW = fn (list, tsil) =
+      case list of
+        when Cons x xs: revW(xs, Cons(x, tsil))
+        when Nil: tsil
+      end
+    end
 
-  #   revW(list, Nil)
-  # end
+    revW(list, Nil)
+  end
 
-  # intersperse :: a -> List a -> List a
-  # fn intersperse(e, Cons x xs)
-  #   Cons(x, Cons(e, intersperse(e, xs)))
-  # or intersperse(e, Nil)
-  #   Nil
-  # end
+  intersperse :: a -> List a -> List a
+  fn intersperse(e, Cons x xs)
+    Cons(x, Cons(e, intersperse(e, xs)))
+  or intersperse(e, Nil)
+    Nil
+  end
 
   # transpose :: List (List a) -> List (List a)
 

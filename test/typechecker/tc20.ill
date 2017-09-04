@@ -1,0 +1,32 @@
+module M
+  map :: (a -> b) -> List a -> List b
+  fn map(f, Cons x xs)
+    Cons(f(x), map(f, xs))
+  or map(f, Nil)
+    Nil
+  end
+
+  data List a = Cons a (List a) | Nil
+  data T a b = T a b
+
+  fn zip(Cons x xs, Cons y ys)
+    Cons(T(x, y), zip(xs, ys))
+  or zip(Nil, xs)
+    Nil
+  end
+
+  fn zip2 ()
+    fn (a, b) =
+      case a of
+        when Cons x xs: case b of
+            when Cons y ys: Cons(T(x, y), zip(xs, ys))
+            when Nil: Nil
+          end
+        when Nil: case b of
+            when ys: Nil
+          end
+      end
+    end
+  end
+end
+

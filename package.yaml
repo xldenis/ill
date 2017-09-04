@@ -27,6 +27,7 @@ library:
   - lens
   - unordered-containers
   - containers
+  - template-haskell
   default-extensions: FlexibleContexts
 executables:
   ill:

@@ -24,7 +24,9 @@ import           Control.Comonad        (extend)
 import           Control.Lens           (each, over, _2)
 import           Ill.Syntax.Pretty
 
-import Data.List (intersperse)
+import           Text.Megaparsec (SourcePos)
+
+import           Data.List (intersperse)
 
 type Prefix = String
 
@@ -47,6 +49,8 @@ data Declaration a b
   deriving (Eq, Functor, Show)
 
 type Decl a = Cofree (Declaration a) a
+
+data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Eq, Show)
 
 isValue :: Decl a -> Bool
 isValue (_ :< Value _ _) = True

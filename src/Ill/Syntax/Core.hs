@@ -28,28 +28,45 @@ type Eqn a = ([Pattern], a)
 
 {-
   1. fix binding of new vars
+  2. Add lambda abstraction around match
+  3.
 -}
 
-match :: [String] -> Type Name -> [Eqn (Expr a)] -> (Expr a)
-match vars ty = undefined
+type MatchResult a = Expr a -> Expr a
+
+declToEqns :: Decl a -> [Eqn (Expr a)]
+declToEqns (_ :< Value _ eqns) = eqns
+declToEqns _ = []
+
+match :: [String] -> Type Name -> [Eqn (Expr a)] -> (MatchResult a)
+match [] ty eqns | all (null . fst) eqns = const . snd $ head eqns
+match vars ty eqns = let
+  grouped = groupPatterns eqns
+  match_r = matchGroups grouped
+  in \fail -> foldr ($) fail match_r
   where
 
-  matchGroup ty eqns@((group, _) : _) = case group of
+  matchGroups eqns = map matchGroup eqns
+
+  matchGroup eqns@((group, _) : _) = case group of
     VarG  -> matchVarPat vars ty (map snd eqns)
     ConG _ -> matchConPat vars ty (subGroup [(c, e) | (ConG c, e) <- eqns])
     WildG -> undefined
     LitG  ->  undefined
 
-  matchVarPat :: [String] -> Type String -> [Eqn (Expr a)] -> Expr a
-  matchVarPat vars ty = match vars ty . shiftEqnPats
+  matchVarPat :: [String] -> Type String -> [Eqn (Expr a)] -> MatchResult a
+  matchVarPat (_:vars) ty = match vars ty . shiftEqnPats
 
-  matchConPat :: [String] -> Type String -> [[Eqn (Expr a)]] -> Expr a
+  matchConPat :: [String] -> Type String -> [[Eqn (Expr a)]] -> MatchResult a
   matchConPat (var : vars) ty groups = let
     branches = map (matchOneConsPat vars ty) groups
 
-    in undefined :< Case (undefined :< Var var) branches
+    in \fail -> undefined :< Case (undefined :< Var var) (map (xxx fail) branches)
+    where
 
-  matchOneConsPat :: [String] -> Type String -> [Eqn (Expr a)] -> (Pattern, Expr a)
+    xxx f (pats, mr) = (pats, mr f)
+
+  matchOneConsPat :: [String] -> Type String -> [Eqn (Expr a)] -> (Pattern, MatchResult a)
   matchOneConsPat vars ty group = let
     eqns' = map shiftCons group
     (Destructor c args1) =  head . fst $ head group
@@ -73,6 +90,7 @@ groupPatterns alts = groupBy sameGroup (map (\p -> (patGroup (firstPat p), p)) a
 
   firstPat (pats, e) = head pats
 
+  sameGroup (ConG _, _) (ConG _, _) = True
   sameGroup a b = fst a == fst b
 
 subGroup group
