@@ -26,7 +26,7 @@ import           Ill.Syntax.Pretty
 
 import           Text.Megaparsec (SourcePos)
 
-import           Data.List (intersperse)
+import           Data.List (intersperse, find)
 
 type Prefix = String
 
@@ -51,6 +51,14 @@ data Declaration a b
 type Decl a = Cofree (Declaration a) a
 
 data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Eq, Show)
+
+data Masks
+  = Hiding [Name]
+  | Only  [Name]
+  | All
+  deriving (Eq, Show)
+
+makePrisms ''Declaration
 
 isValue :: Decl a -> Bool
 isValue (_ :< Value _ _) = True
@@ -86,13 +94,10 @@ nestedFmap f v = hoistCofree (go f) $ fmap f v
 dropAnn :: Decl a -> Decl ()
 dropAnn = nestedFmap (const ())
 
-data Masks
-  = Hiding [Name]
-  | Only  [Name]
-  | All
-  deriving (Eq, Show)
+lookupFn n (Module _ ds) = find pred ds
+  where pred (_ :< Value name _) = n == name
+        pred _                   = False
 
-makePrisms ''Declaration
 
 instance Pretty (Module a) where
   pretty (Module name decls) = nest 2 (pretty "module" <+> pretty name `above`

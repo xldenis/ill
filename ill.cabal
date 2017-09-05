@@ -38,7 +38,6 @@ library
     , lens
     , unordered-containers
     , containers
-    , template-haskell
   exposed-modules:
       Control.Monad.Unify
       Ill.Desugar
@@ -56,7 +55,6 @@ library
       Ill.Parser.Module
       Ill.Parser.Pattern
       Ill.Parser.Type
-      Ill.Quote
       Ill.Syntax
       Ill.Syntax.Core
       Ill.Syntax.Expression
@@ -105,6 +103,7 @@ test-suite ill-test
     , hspec-megaparsec
     , filepath
     , comonad
+    , template-haskell
   other-modules:
       Ill.CoreSpec
       Ill.InferSpec
@@ -112,5 +111,6 @@ test-suite ill-test
       Ill.Parser.PatternSpec
       Ill.Parser.TypeSpec
       Ill.ParserSpec
+      Ill.Quote
       SpecHelper
   default-language: Haskell2010

@@ -14,6 +14,7 @@ module Ill.Syntax.Core where
 import Ill.Syntax
 
 import Data.List
+import Data.Function
 import qualified Data.Map.Strict as Map
 
 data PatGroup = VarG | ConG String | WildG | LitG
@@ -38,6 +39,16 @@ declToEqns :: Decl a -> [Eqn (Expr a)]
 declToEqns (_ :< Value _ eqns) = eqns
 declToEqns _ = []
 
+-- actually bind the binders
+simplifyPatterns :: Decl a -> Decl a
+simplifyPatterns (a :< Value n eqns) = let
+  binders = enumFromTo 0 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
+  matchResult = match binders tNil eqns
+  failure = (undefined :< Var "failedPattern")
+  exp = matchResult failure
+  eqn' = [([], exp)]
+  in a :< Value n eqn'
+
 match :: [String] -> Type Name -> [Eqn (Expr a)] -> (MatchResult a)
 match [] ty eqns | all (null . fst) eqns = const . snd $ head eqns
 match vars ty eqns = let
@@ -51,27 +62,29 @@ match vars ty eqns = let
   matchGroup eqns@((group, _) : _) = case group of
     VarG  -> matchVarPat vars ty (map snd eqns)
     ConG _ -> matchConPat vars ty (subGroup [(c, e) | (ConG c, e) <- eqns])
-    WildG -> undefined
-    LitG  ->  undefined
+    WildG -> error "wildcard patterns are not implemented"
+    LitG  ->  error "literal patterns are not implemented"
 
   matchVarPat :: [String] -> Type String -> [Eqn (Expr a)] -> MatchResult a
   matchVarPat (_:vars) ty = match vars ty . shiftEqnPats
 
+  -- handle failure
+  -- figure out way to build proper annotations
   matchConPat :: [String] -> Type String -> [[Eqn (Expr a)]] -> MatchResult a
   matchConPat (var : vars) ty groups = let
     branches = map (matchOneConsPat vars ty) groups
 
-    in \fail -> undefined :< Case (undefined :< Var var) (map (xxx fail) branches)
+    in \fail -> undefined :< Case (undefined :< Var var) (map (updateEqn fail) branches)
     where
 
-    xxx f (pats, mr) = (pats, mr f)
+    updateEqn f (pats, mr) = (pats, mr f)
 
   matchOneConsPat :: [String] -> Type String -> [Eqn (Expr a)] -> (Pattern, MatchResult a)
   matchOneConsPat vars ty group = let
     eqns' = map shiftCons group
     (Destructor c args1) =  head . fst $ head group
     arg_vars = makeVarNames args1
-    rhs = match (vars ++ arg_vars) ty eqns'
+    rhs = match (arg_vars ++ vars) ty eqns'
 
     in (Destructor c (map PVar arg_vars), rhs)
 

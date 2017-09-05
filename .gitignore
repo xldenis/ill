@@ -1,3 +1,4 @@
 .stack-work/
 *.prof
 .DS_Store
+.hspec-failures
