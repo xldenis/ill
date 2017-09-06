@@ -9,19 +9,19 @@ import Text.Megaparsec
 
 import Control.Applicative ((<|>))
 
-pattern :: Parser Pattern
+pattern :: Parser (Pat SourceSpan)
 pattern = (parens pattern) <|> wildcard <|> destructor <|> pLit <|> var
 
-destructor :: Parser Pattern
-destructor = do
+destructor :: Parser (Pat SourceSpan)
+destructor = withLoc $ do
   cons <- upperIdent
   args <- many pattern
   return $ Destructor cons args
 
-var :: Parser Pattern
-var = PVar <$> identifier
+var :: Parser (Pat SourceSpan)
+var = withLoc $ PVar <$> identifier
 
-wildcard :: Parser Pattern
-wildcard = symbol "_" *> (return Wildcard)
+wildcard :: Parser (Pat SourceSpan)
+wildcard = withLoc $ symbol "_" *> (return Wildcard)
 
-pLit = PLit <$> literal
+pLit = withLoc $ PLit <$> literal

@@ -33,7 +33,6 @@ type RawDecl = Decl SourceSpan
 {-
   1. kind checking not implemented
   2. error messages suuuuuck
-  3. Ensure no DAG in trait decls!
 -}
 
 typeCheck :: [BindingGroup SourceSpan] -> Check [BindingGroup TypedAnn]
@@ -195,11 +194,11 @@ typeForBindingGroupEl (a :< Value name els) dict = do
   retTy <- fresh
 
   x <- forM els $ \(pats, val) -> do
-    patDict <- inferPats (zip patTys pats)
+    (patDict, pats') <- inferPats (zip patTys pats)
     val' <- bindNames (patDict ++ dict) (infer val)
 
     cons <- typeOf val' `constrainedUnification` retTy
-    return ((pats, val'), cons)
+    return ((pats', val'), cons)
 
   let (vals', cons') = unzip x
   let fTy = foldr tFn (typeOf . snd $ last vals') patTys
@@ -222,12 +221,12 @@ checkBindingGroupEl ty (a :< Value name els) dict = do
   x <- forM els $ \(pats, val) -> do
     let patTys = zip argTys pats
 
-    patTys' <- inferPats patTys
-    val' <- bindNames (patTys' ++ dict) (check retTy val)
+    (patDict, pats') <- inferPats patTys
+    val' <- bindNames (patDict ++ dict) (check retTy val)
 
     cons <- retTy `constrainedUnification` typeOf val'
 
-    return (cons, (pats, val'))
+    return (cons, (pats', val'))
 
 
   let (cons, vals') = unzip x

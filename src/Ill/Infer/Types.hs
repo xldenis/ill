@@ -11,6 +11,7 @@ import           Data.List
 import           Data.Maybe
 import           Ill.Error
 import           Ill.Parser.Lexer    (SourceSpan (..))
+import Data.Bifunctor
 
 infer :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
 infer (a :< Apply l args) = do
@@ -38,12 +39,12 @@ infer (a :< Case cond branches) = do
   retTy <- fresh
 
   branches' <- forM branches $ \(pattern, expr) -> do
-    dict <- inferPat (typeOf cond') pattern
+    (dict, pattern') <- inferPat (typeOf cond') pattern
 
     expr' <- bindNames dict (infer expr)
     typeOf expr' `constrainedUnification` retTy
 
-    return $ (pattern, expr')
+    return $ (pattern', expr')
 
   return $ Ann a (Type . typeOf . snd $ last branches') :< Case cond' branches'
 infer (a :< Body es) = do
@@ -66,11 +67,11 @@ infer (a :< BinOp op l r) = do
 infer (a :< Lambda pats expr) = do
   patTys <- replicateM (length pats) fresh
 
-  patDict <- inferPats (zip patTys pats)
+  (patDict, pats') <- inferPats (zip patTys pats)
   expr' <- bindNames patDict (infer expr)
 
   let retTy = foldr tFn (typeOf expr') patTys
-  return $ Ann a (Type retTy) :< Lambda pats expr'
+  return $ Ann a (Type retTy) :< Lambda pats' expr'
 infer (a :< Assign lnames exps) = do
   varTys <- replicateM (length lnames) fresh
   let bound = zip lnames varTys
@@ -201,36 +202,43 @@ constrainedUnification t1 t2 = let
 
   in t1' =?= t2' >> return (cons1 ++ cons2)
 
-type Alt a = ([Pattern], Expr a)
+type Alt a = (Patterns a, Expr a)
 
 inferLit (RawString _) = tString
 inferLit (EscString _) = tString
 inferLit (Integer _ )  = tInteger
 inferLit (Double _)    = tDouble
 
-inferPats pats = concat <$> mapM (uncurry inferPat) pats
+inferPats :: [(Type Name, Pat SourceSpan)] -> UnifyT (Type Name) Check ([(Name, Type Name)], Patterns TypedAnn)
+inferPats pats = (first concat . unzip) <$> mapM (uncurry inferPat) pats
 
-inferPat :: Type Name -> Pattern -> UnifyT (Type Name) Check [(Name, Type Name)]
-inferPat ty (PVar n) = do
+inferPat :: Type Name -> Pat SourceSpan -> UnifyT (Type Name) Check ([(Name, Type Name)], Pat TypedAnn)
+inferPat ty (a :< PVar n) = do
   f <- fresh
   ty =?= f
-  return [(n, f)]
-inferPat ty (Destructor n pats) = do
+  return ([(n, f)], Ann a (Type f) :< PVar n)
+inferPat ty (a :< Destructor n pats) = do
   (_, t, _) <- lookupConstructor n
   freshened <- freshenFunction t
-  go pats freshened
+  (dict, subPats) <- go pats freshened
+
+  return (dict, Ann a (Type freshened) :< Destructor n subPats)
   where
-  go :: [Pattern] -> Type Name -> UnifyT (Type Name) Check [(Name, Type Name)]
-  go [] ty' = ty =?= ty' *> pure []
-  go (pat : pats) (TAp (TAp f a) b) | f == tArrow =
-    (++) <$> inferPat a pat <*> go pats b
-  go (pat : pats) (Arrow a b) =
-    (++) <$> inferPat a pat <*> go pats b
+  go :: [Pat SourceSpan] -> Type Name -> UnifyT (Type Name) Check ([(Name, Type Name)], Patterns TypedAnn)
+  go [] ty' = ty =?= ty' *> pure ([], [])
+  go (pat : pats) (TAp (TAp f a) b) | f == tArrow = do
+    (n1, p1) <- inferPat a pat
+    (n2, p2) <- go pats b
+    pure (n1 ++ n2, p1 : p2)
+  go (pat : pats) (Arrow a b) = do
+    (n1, p1) <- inferPat a pat
+    (n2, p2) <- go pats b
+    pure (n1 ++ n2, p1 : p2)
   go _ _ = throwError $ InternalError "Impossible"
-inferPat ty (PLit lit) = do
+inferPat ty (a :< PLit lit) = do
   let litTy = inferLit lit
   litTy =?= ty
-  return []
+  return ([], Ann a (Type litTy) :< PLit lit)
 
 freshenFunction :: Type Name -> UnifyT (Type Name) Check (Type Name)
 freshenFunction ty = do

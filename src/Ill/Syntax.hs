@@ -27,6 +27,7 @@ import           Ill.Syntax.Pretty
 import           Text.Megaparsec (SourcePos)
 
 import           Data.List (intersperse, find)
+import           Data.Bifunctor
 
 type Prefix = String
 
@@ -41,7 +42,7 @@ data Module a = Module Name [Decl a] deriving (Eq, Show)
 data Declaration a b
   = Data Name [Name] [Type Name]
   | TypeSynonym Name [Name] (Type Name)
-  | Value Name [(Patterns, Expr a)]
+  | Value Name [(Patterns a, Expr a)]
   | Signature Name (Type Name)
   | Import Qualified Masks String Alias
   | TraitDecl [Constraint Name] Name [Name] [b]
@@ -83,7 +84,9 @@ isDecl _ = False
 nestedFmap :: (a -> b) -> Decl a -> Decl b
 nestedFmap f v = hoistCofree (go f) $ fmap f v
   where
-  go f (Value n es) = Value n $ over (each . _2) (fmap f) es
+
+  go f (Value n es) = Value n $
+    map (bimap (fmap $ fmap f) (\x -> hoistCofree (first f) $ fmap f x)) es
   go f (Data a v b) = Data a v b
   go f (TypeSynonym a vs b) = TypeSynonym a vs b
   go f (Signature a b) = Signature a b

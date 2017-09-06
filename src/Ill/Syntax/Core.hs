@@ -11,21 +11,27 @@ module Ill.Syntax.Core where
   3. Type class application
   4. ?????
 -}
-import Ill.Syntax
+import           Ill.Syntax
 
-import Data.List
-import Data.Function
+import           Data.Function
+import           Data.List
 import qualified Data.Map.Strict as Map
+
+import           Ill.Infer.Monad (TypeAnn (..), TypedAnn (..))
+
+import Control.Comonad
+import Control.Comonad.Cofree
 
 data PatGroup = VarG | ConG String | WildG | LitG
   deriving (Show, Eq)
 
+patGroup :: Pattern a -> PatGroup
 patGroup (Destructor c _) = ConG c
-patGroup (PVar _) = VarG
-patGroup (Wildcard) = WildG
-patGroup (PLit _) = LitG
+patGroup (PVar _)         = VarG
+patGroup (Wildcard)       = WildG
+patGroup (PLit _)         = LitG
 
-type Eqn a = ([Pattern], a)
+type Eqn a = ([Pat a], Expr a)
 
 {-
   1. fix binding of new vars
@@ -35,23 +41,23 @@ type Eqn a = ([Pattern], a)
 
 type MatchResult a = Expr a -> Expr a
 
-declToEqns :: Decl a -> [Eqn (Expr a)]
+declToEqns :: Decl a -> [Eqn a]
 declToEqns (_ :< Value _ eqns) = eqns
-declToEqns _ = []
+declToEqns _                   = []
 
 -- actually bind the binders
 simplifyPatterns :: Decl a -> Decl a
 simplifyPatterns (a :< Value n eqns) = let
   binders = enumFromTo 0 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
-  matchResult = match binders tNil eqns
+  matchResult = match binders eqns
   failure = (undefined :< Var "failedPattern")
   exp = matchResult failure
   eqn' = [([], exp)]
   in a :< Value n eqn'
 
-match :: [String] -> Type Name -> [Eqn (Expr a)] -> (MatchResult a)
-match [] ty eqns | all (null . fst) eqns = const . snd $ head eqns
-match vars ty eqns = let
+match :: [String] -> [Eqn a] -> (MatchResult a)
+match [] eqns | all (null . fst) eqns = const . snd $ head eqns
+match vars eqns = let
   grouped = groupPatterns eqns
   match_r = matchGroups grouped
   in \fail -> foldr ($) fail match_r
@@ -60,51 +66,55 @@ match vars ty eqns = let
   matchGroups eqns = map matchGroup eqns
 
   matchGroup eqns@((group, _) : _) = case group of
-    VarG  -> matchVarPat vars ty (map snd eqns)
-    ConG _ -> matchConPat vars ty (subGroup [(c, e) | (ConG c, e) <- eqns])
-    WildG -> error "wildcard patterns are not implemented"
-    LitG  ->  error "literal patterns are not implemented"
+    VarG   -> matchVarPat vars (map snd eqns)
+    ConG _ -> matchConPat vars (subGroup [(c, e) | (ConG c, e) <- eqns])
+    WildG  -> error "wildcard patterns are not implemented"
+    LitG   -> error "literal patterns are not implemented"
 
-  matchVarPat :: [String] -> Type String -> [Eqn (Expr a)] -> MatchResult a
-  matchVarPat (_:vars) ty = match vars ty . shiftEqnPats
+  matchVarPat :: [String] -> [Eqn a] -> MatchResult a
+  matchVarPat (_:vars) = match vars . shiftEqnPats
 
   -- handle failure
   -- figure out way to build proper annotations
-  matchConPat :: [String] -> Type String -> [[Eqn (Expr a)]] -> MatchResult a
-  matchConPat (var : vars) ty groups = let
-    branches = map (matchOneConsPat vars ty) groups
+  -- get the types of patterns
+  matchConPat :: [String] -> [[Eqn a]] -> MatchResult a
+  matchConPat (var : vars) groups = let
+    branches = map (matchOneConsPat vars) groups
 
     in \fail -> undefined :< Case (undefined :< Var var) (map (updateEqn fail) branches)
     where
 
+
+    mkTypedAnn ty = Ann undefined (Type ty)
     updateEqn f (pats, mr) = (pats, mr f)
 
-  matchOneConsPat :: [String] -> Type String -> [Eqn (Expr a)] -> (Pattern, MatchResult a)
-  matchOneConsPat vars ty group = let
+  matchOneConsPat :: [String] -> [Eqn a] -> (Pat a, MatchResult a)
+  matchOneConsPat vars group = let
     eqns' = map shiftCons group
-    (Destructor c args1) =  head . fst $ head group
+    (a :< Destructor c args1) =  head . fst $ head group
     arg_vars = makeVarNames args1
-    rhs = match (arg_vars ++ vars) ty eqns'
+    arg_tys  = map extract args1
+    rhs = match (arg_vars ++ vars) eqns'
 
-    in (Destructor c (map PVar arg_vars), rhs)
+    in (a :< Destructor c (zipWith (\t v -> t :< PVar v) arg_tys arg_vars), rhs)
 
-  shiftCons ((Destructor _ ps : xs), rhs) = (ps ++ xs, rhs)
+  shiftCons ((_ :< Destructor _ ps) : xs, rhs) = (ps ++ xs, rhs)
 
   shiftEqnPats = map (\(pats, eq) -> (tail pats, eq))
 
 
-makeVarNames :: [Pattern] -> [String]
-makeVarNames (PVar n : ps) = n : makeVarNames ps
-makeVarNames [] = []
+makeVarNames :: [Pat a] -> [String]
+makeVarNames ((_ :< PVar n) : ps) = n : makeVarNames ps
+makeVarNames []            = []
 
 groupPatterns :: [Eqn a] -> [[(PatGroup, Eqn a)]]
-groupPatterns alts = groupBy sameGroup (map (\p -> (patGroup (firstPat p), p)) alts)
+groupPatterns alts = groupBy sameGroup (map (\p -> (patGroup $ unwrap (firstPat p), p)) alts)
   where
 
   firstPat (pats, e) = head pats
 
   sameGroup (ConG _, _) (ConG _, _) = True
-  sameGroup a b = fst a == fst b
+  sameGroup a b                     = fst a == fst b
 
 subGroup group
     = map reverse $ Map.elems $ foldl accumulate Map.empty group

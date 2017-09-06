@@ -48,11 +48,11 @@ spec = do
         end
       |]
 
-      let result = match ["u", "v", "w"] tNil (declToEqns . fromJust $ lookupFn "mappairs" mod) (undefined :< Var "z")
+      let result = match ["u", "v", "w"] (declToEqns . fromJust $ lookupFn "mappairs" mod) (undefined :< Var "z")
           expected = [expr|
             case v of
               when C x xs: case w of
-                when C y ys: C(u(x, y), mappairs(u, xs, ys))
+                when C y ys: C(f(x, y), mappairs(f, xs, ys))
                 when Nil: Nil
               end
               when Nil: Nil
@@ -78,7 +78,7 @@ spec = do
       case runTC mod of
         Right (typed, _) -> let
           ValueBG [x] = last typed
-          matcher = match ["u"] tNil (declToEqns x)
+          matcher = match ["u"] (declToEqns x)
           result  = matcher (undefined :< Var "zzzx")
           expected = [expr|
             case u of

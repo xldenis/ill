@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, DeriveAnyClass #-}
 module Ill.Syntax.Expression where
 import           Control.Comonad.Cofree
 import           Ill.Syntax.Pretty
@@ -7,24 +7,26 @@ import           Ill.Syntax.Pretty
 import           Ill.Syntax.Literal
 import           Ill.Syntax.Pattern
 
-data Expression a
+import Data.Bifunctor
+
+data Expression p a
   = Apply a [a]
   | BinOp a a a
   | Assign [String] [a]
-  | Case a [(Pattern, a)]
+  | Case a [(Pat p, a)]
   | If a a a
-  | Lambda [Pattern] a
+  | Lambda [Pat p] a
   | Var String
   | Constructor String
   | Literal Literal
   | Body [a]
   -- | Hash [(a, a)]
   | Array [a]
-  deriving (Eq, Functor, Show)
+  deriving (Eq, Functor, Show, Bifunctor)
 
-type Expr a = Cofree Expression a
+type Expr a = Cofree (Expression a) a
 
-instance Pretty (Cofree Expression a) where
+instance Pretty (Expr a) where
   prettyList es = vsep $ (map pretty es)
   pretty (_ :< f) = pretty' f where
     pretty' (Apply func args) = pretty func <> tupled (map pretty args)
