@@ -98,10 +98,6 @@ infer (a :< Literal l) = do
   let ty = inferLit l
   return $ Ann a (Type ty) :< Literal l
 
-typeOf :: Cofree a TypedAnn -> (Type Name)
-typeOf (ann :< _) = fromType $ ty ann
-  where fromType (Type t) = t
-
 check :: Type Name -> Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
 check expected (a :< If cond l r) = do
   cond' <- check tBool cond

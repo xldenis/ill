@@ -27,6 +27,7 @@ library:
   - lens
   - unordered-containers
   - containers
+  - bifunctors
   default-extensions: FlexibleContexts
 executables:
   ill:

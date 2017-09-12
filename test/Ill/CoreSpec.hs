@@ -48,14 +48,22 @@ spec = do
         end
       |]
 
-      let result = match ["u", "v", "w"] (declToEqns . fromJust $ lookupFn "mappairs" mod) (undefined :< Var "z")
-          expected = [expr|
-            case v of
-              when C x xs: case w of
-                when C y ys: C(f(x, y), mappairs(f, xs, ys))
-                when Nil: Nil
+      let Right (typed, _) = runTC mod
+          ValueBG [x] = last typed
+          result = simplifyPatterns x
+          expected = [decl|
+            fn mappairs()
+              fn (x1, x2, x3) =
+                f = x1
+                case x2 of
+                  when C x xs: case x3 of
+                    when C y ys: C(f(x, y), mappairs(f, xs, ys))
+                    when Nil: Nil
+                  end
+                  when Nil: ys = x3
+                    Nil
+                end
               end
-              when Nil: Nil
             end
           |]
 
@@ -87,5 +95,5 @@ spec = do
             end
           |]
 
-          in (fmap (const ()) result) `shouldBe` (fmap (const ()) expected)
+          in dropAnn result `shouldBe` dropAnn expected
 

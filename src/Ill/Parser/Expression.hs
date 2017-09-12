@@ -61,7 +61,7 @@ caseE = withLoc $ do
     symbol "when"
     pat  <- pattern
     symbol ":"
-    expr <- expression
+    expr <- body
     scn
     return (pat, expr)
   symbol "end"

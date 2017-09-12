@@ -35,17 +35,18 @@ deriving instance Data SourceSpan
 deriving instance Data a => Data (S.Module a)
 deriving instance (Data a) => Data (Decl a)
 deriving instance (Data a, Data b) => Data (Declaration a b)
-deriving instance (Data a) => Data (Expression a)
+deriving instance (Data a, Data b) => Data (Expression a b)
 deriving instance (Data a) => Data (Expr a)
 deriving instance Data a => Data (S.Type a)
-deriving instance Data Pattern
+deriving instance Data a => Data (S.Pat a)
+deriving instance Data a => Data (S.Pattern a)
 deriving instance Data Masks
 deriving instance Data Literal
 
 
 modQ :: QuasiQuoter
 modQ = QuasiQuoter
-  { quoteExp = \str -> case runParser (sc *> illParser) "" (pack str) of
+  { quoteExp = \str -> case runParser (scn *> illParser) "" (pack str) of
       Left err -> error $ parseErrorPretty err
       Right m  -> liftData m
   , quotePat = undefined
@@ -65,7 +66,7 @@ expr = QuasiQuoter
 
 decl :: QuasiQuoter
 decl = QuasiQuoter
-  { quoteExp = \str -> case runParser (sc *> declaration) "" (pack str) of
+  { quoteExp = \str -> case runParser (scn *> declaration) "" (pack str) of
       Left err -> error $ parseErrorPretty err
       Right m  -> liftData m
   , quotePat = undefined
@@ -75,7 +76,7 @@ decl = QuasiQuoter
 
 ty :: QuasiQuoter
 ty = QuasiQuoter
-  { quoteExp = \str -> case runParser (sc *> fullType) "" (pack str) of
+  { quoteExp = \str -> case runParser (scn *> fullType) "" (pack str) of
       Left err -> error $ parseErrorPretty err
       Right m  -> liftData m
   , quotePat = undefined

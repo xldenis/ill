@@ -1,17 +1,20 @@
-{-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE InstanceSigs          #-}
 
 module Ill.Syntax
 ( module X
 , module Ill.Syntax
 , Cofree(..)
 ) where
+
 import           Control.Comonad.Cofree
+import           Control.Comonad
 import           Control.Lens.TH
 
 import           Ill.Syntax.Expression as X
@@ -51,8 +54,6 @@ data Declaration a b
 
 type Decl a = Cofree (Declaration a) a
 
-data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Eq, Show)
-
 data Masks
   = Hiding [Name]
   | Only  [Name]
@@ -60,6 +61,32 @@ data Masks
   deriving (Eq, Show)
 
 makePrisms ''Declaration
+
+instance Bifunctor Declaration where
+  bimap :: forall a b c d. (a -> b) -> (c -> d) -> Declaration a c -> Declaration b d
+  bimap l r (Data n nms tys) = Data n nms tys
+  bimap l r (TypeSynonym n nms ty) = TypeSynonym n nms ty
+  bimap l r (Value n brs) = Value n $ map helper brs
+    where helper (pats, expr) = (fmap (fmap l) pats, nestedFmap l expr)
+  bimap l r (Signature nm ty) = Signature nm ty
+  bimap l r (Import q m s a)  = Import q m s a
+  bimap l r (TraitDecl cs n nms bs) = TraitDecl cs n nms (map r bs)
+  bimap l r (TraitImpl cs n tys bs) = TraitImpl cs n tys (map r bs)
+
+data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Eq, Show)
+
+data TypedAnn = Ann { span :: SourceSpan, ty :: TypeAnn }
+  deriving (Show, Eq)
+
+data TypeAnn
+  = Type (Type Name)
+  | Kind Kind
+  | None
+  deriving (Show, Eq)
+
+typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
+typeOf = fromType . ty . extract
+  where fromType (Type t) = t
 
 isValue :: Decl a -> Bool
 isValue (_ :< Value _ _) = True
@@ -81,20 +108,10 @@ isDecl :: Decl a -> Bool
 isDecl (_ :< TraitDecl _ _ _ _) = True
 isDecl _ = False
 
-nestedFmap :: (a -> b) -> Decl a -> Decl b
-nestedFmap f v = hoistCofree (go f) $ fmap f v
-  where
+nestedFmap :: (Bifunctor f, Functor (f a)) => (a -> b) -> (Cofree (f a) a) -> (Cofree (f b) b)
+nestedFmap f v = hoistCofree (first f) $ fmap f v
 
-  go f (Value n es) = Value n $
-    map (bimap (fmap $ fmap f) (\x -> hoistCofree (first f) $ fmap f x)) es
-  go f (Data a v b) = Data a v b
-  go f (TypeSynonym a vs b) = TypeSynonym a vs b
-  go f (Signature a b) = Signature a b
-  go f (Import q m s a) =  Import q m s a
-  go f (TraitDecl a b c d) = TraitDecl a b c d
-  go f (TraitImpl a b c d) = TraitImpl a b c d
-
-dropAnn :: Decl a -> Decl ()
+dropAnn :: (Bifunctor f, Functor (f a)) => Cofree (f a) a -> Cofree (f ()) ()
 dropAnn = nestedFmap (const ())
 
 lookupFn n (Module _ ds) = find pred ds

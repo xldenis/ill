@@ -38,6 +38,7 @@ library
     , lens
     , unordered-containers
     , containers
+    , bifunctors
   exposed-modules:
       Control.Monad.Unify
       Ill.Desugar

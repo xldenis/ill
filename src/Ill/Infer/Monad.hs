@@ -33,15 +33,6 @@ data CheckState = CheckState
 newtype Check a = Check { runCheck :: StateT CheckState (Except MultiError) a}
   deriving (Functor, Applicative, Monad, MonadError MultiError, MonadState CheckState)
 
-data TypedAnn = Ann { span :: SourceSpan, ty :: TypeAnn }
-  deriving (Show, Eq)
-
-data TypeAnn
-  = Type (Type Name)
-  | Kind Kind
-  | None
-  deriving (Show, Eq)
-
 defaultCheckEnv = CheckState (Environment
   [ ("plusInt",  tInteger `tFn` (tInteger `tFn` tInteger))
   , ("minusInt", tInteger `tFn` (tInteger `tFn` tInteger))

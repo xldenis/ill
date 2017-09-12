@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE FlexibleInstances, DeriveAnyClass #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Ill.Syntax.Expression where
 import           Control.Comonad.Cofree
 import           Ill.Syntax.Pretty
@@ -22,9 +22,22 @@ data Expression p a
   | Body [a]
   -- | Hash [(a, a)]
   | Array [a]
-  deriving (Eq, Functor, Show, Bifunctor)
+  deriving (Eq, Functor, Show)
 
 type Expr a = Cofree (Expression a) a
+
+instance Bifunctor Expression where
+  bimap l r (Apply a as) = Apply (r a) (map r as)
+  bimap l r (BinOp o a b) = BinOp (r o) (r a) (r b)
+  bimap l r (Assign s as) = Assign s (map r as)
+  bimap l r (Case a brs) = Case (r a) $ map (bimap (fmap l) r) brs
+  bimap l r (If c a b) = If (r c) (r a) (r b)
+  bimap l r (Lambda ps b) = Lambda (map (fmap l) ps) (r b)
+  bimap l r (Var s) = Var s
+  bimap l r (Constructor s) = Constructor s
+  bimap l r (Literal a) = Literal a
+  bimap l r (Body bs) = Body (map r bs)
+  bimap l r (Array as) = Array (map r as)
 
 instance Pretty (Expr a) where
   prettyList es = vsep $ (map pretty es)

@@ -17,8 +17,6 @@ import           Data.Function
 import           Data.List
 import qualified Data.Map.Strict as Map
 
-import           Ill.Infer.Monad (TypeAnn (..), TypedAnn (..))
-
 import Control.Comonad
 import Control.Comonad.Cofree
 
@@ -33,6 +31,9 @@ patGroup (PLit _)         = LitG
 
 type Eqn a = ([Pat a], Expr a)
 
+eqnsPats = fst . head
+eqnsExpr = snd . head
+
 {-
   1. fix binding of new vars
   2. Add lambda abstraction around match
@@ -41,21 +42,28 @@ type Eqn a = ([Pat a], Expr a)
 
 type MatchResult a = Expr a -> Expr a
 
-declToEqns :: Decl a -> [Eqn a]
+declToEqns :: Decl TypedAnn -> [Eqn TypedAnn]
 declToEqns (_ :< Value _ eqns) = eqns
 declToEqns _                   = []
 
 -- actually bind the binders
-simplifyPatterns :: Decl a -> Decl a
-simplifyPatterns (a :< Value n eqns) = let
-  binders = enumFromTo 0 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
+simplifyPatterns :: Decl TypedAnn -> Decl TypedAnn
+simplifyPatterns v@(a :< Value n eqns) = let
+  binders = enumFromTo 1 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
+  binderTy = init . unwrapFnType $ typeOf v
+  retTy = typeOf . snd $ head eqns
   matchResult = match binders eqns
   failure = (undefined :< Var "failedPattern")
   exp = matchResult failure
-  eqn' = [([], exp)]
+  eqn' = [([], mkAbs (zipWith (\p t -> mkTypedAnn t :< PVar p) binders binderTy) retTy exp)]
   in a :< Value n eqn'
+  where
 
-match :: [String] -> [Eqn a] -> (MatchResult a)
+  mkAbs binders retTy val = mkTypedAnn retTy :< Lambda binders val
+
+mkTypedAnn ty = Ann undefined (Type ty)
+
+match :: [String] -> [Eqn TypedAnn] -> (MatchResult TypedAnn)
 match [] eqns | all (null . fst) eqns = const . snd $ head eqns
 match vars eqns = let
   grouped = groupPatterns eqns
@@ -71,24 +79,34 @@ match vars eqns = let
     WildG  -> error "wildcard patterns are not implemented"
     LitG   -> error "literal patterns are not implemented"
 
-  matchVarPat :: [String] -> [Eqn a] -> MatchResult a
-  matchVarPat (_:vars) = match vars . shiftEqnPats
+  matchVarPat :: [String] -> [Eqn TypedAnn] -> MatchResult TypedAnn
+  matchVarPat (v : vars) eqns = \fail -> let
+    a :< PVar pat = head $ eqnsPats eqns
+    matchResult = match vars (shiftEqnPats eqns) fail
+    in case matchResult of
+      _ :< Body xs -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : xs else xs
+      y            -> mkBody $ if pat /= v then mkAssign pat (a :< Var v) : [y] else [y]
+
+  mkAssign :: String -> Expr TypedAnn -> Expr TypedAnn
+  mkAssign n e = (extract e) :< Assign [n] [e]
+
+  mkBody :: [Expr TypedAnn] -> Expr TypedAnn
+  mkBody xs = (extract $ last xs) :< Body xs
 
   -- handle failure
   -- figure out way to build proper annotations
-  -- get the types of patterns
-  matchConPat :: [String] -> [[Eqn a]] -> MatchResult a
+  matchConPat :: [String] -> [[Eqn TypedAnn]] -> MatchResult TypedAnn
   matchConPat (var : vars) groups = let
     branches = map (matchOneConsPat vars) groups
+    retTy = typeOf . snd . head $ head groups
+    scrutTy = typeOf . head . fst . head $ head groups
 
-    in \fail -> undefined :< Case (undefined :< Var var) (map (updateEqn fail) branches)
+    in \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (updateEqn fail) branches)
     where
 
-
-    mkTypedAnn ty = Ann undefined (Type ty)
     updateEqn f (pats, mr) = (pats, mr f)
 
-  matchOneConsPat :: [String] -> [Eqn a] -> (Pat a, MatchResult a)
+  matchOneConsPat :: [String] -> [Eqn TypedAnn] -> (Pat TypedAnn, MatchResult TypedAnn)
   matchOneConsPat vars group = let
     eqns' = map shiftCons group
     (a :< Destructor c args1) =  head . fst $ head group
@@ -101,7 +119,6 @@ match vars eqns = let
   shiftCons ((_ :< Destructor _ ps) : xs, rhs) = (ps ++ xs, rhs)
 
   shiftEqnPats = map (\(pats, eq) -> (tail pats, eq))
-
 
 makeVarNames :: [Pat a] -> [String]
 makeVarNames ((_ :< PVar n) : ps) = n : makeVarNames ps
