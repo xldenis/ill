@@ -54,7 +54,7 @@ instance Pretty (Expr a) where
       , indent 2 (pretty right)
       , pretty "end"
       ]
-    pretty' (Lambda args body) = pretty "fn" <+> tupled (map pretty args) `above` pretty body `above` pretty "end"
+    pretty' (Lambda args body) = pretty "fn" <+> tupled (map pretty args) <+> pretty "=" `above` indent 2 (pretty body) `above` pretty "end"
     pretty' (Var v) = pretty v
     pretty' (Constructor c) = pretty c
     pretty' (Literal l) = pretty l

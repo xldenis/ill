@@ -67,7 +67,6 @@ spec = do
             end
           |]
 
-
       renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
 
     it "" $ do
