@@ -1,0 +1,16 @@
+module Core2
+  trait Show a
+    show :: a -> String
+  end
+
+  impl Show a | Show (List a)
+    fn show(Cons el ls)
+      # show(el)
+      show(ls)
+    or show(Nil)
+      ''
+    end
+  end
+
+  data List a = Cons a (List a) | Nil
+end

@@ -15,7 +15,7 @@ import Control.Monad.IO.Class
 import Ill.Syntax
 -- import Ill.Infer.Monad
 import Ill.Infer
-import Ill.Syntax.Core
+import Ill.Desugar.Cases
 
 import Control.Monad.State (runStateT)
 import Control.Monad.Except (runExcept)

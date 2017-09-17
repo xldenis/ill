@@ -5,6 +5,7 @@ module Main where
 import Infer
 import Ill.Parser
 import Ill.Syntax.Pretty
+import DesugarDebug
 
 import Text.Megaparsec
 
@@ -20,13 +21,16 @@ data Config
   = Build String
   | Format String
   | Infer String
+  | Desugar String String
   deriving (Generic, Show)
 
 instance ParseRecord Config
 
+
 file (Build f) = f
 file (Format f) = f
 file (Infer f) = f
+file (Desugar _ f) = f
 
 parseFromFile p file = runParser p file <$> T.readFile file
 
@@ -42,5 +46,4 @@ handleCommands :: Config -> Module SourceSpan -> IO ()
 handleCommands (Build f)  ast = putStrLn "build"
 handleCommands (Format f) ast = T.putStrLn $ renderIll defaultRenderArgs (pretty ast)
 handleCommands (Infer f)  ast = infer ast
-
-
+handleCommands (Desugar stage f) ast = desugar stage ast

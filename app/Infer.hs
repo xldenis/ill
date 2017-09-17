@@ -56,9 +56,3 @@ instance Pretty TypeAnn where
   pretty (Kind k) = pretty k
   pretty (None)  = mempty
 
-instance Pretty Kind where
-  pretty (Star) = text "*"
-  pretty (KFn f a) = pretty f <+> text "->" <+> parensIf (complex a) (pretty a)
-    where complex (KFn _ _) = True
-          complex a         = False
-

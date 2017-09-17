@@ -22,6 +22,7 @@ import Ill.Desugar
 spec :: Spec
 spec = do
   filesShouldCheck "test/typechecker"
+  filesShouldNotCheck "test/typechecker/failure"
   describe "unifyTypes" $ do
     it "" $ do
       let tc = runTC $ do
@@ -37,6 +38,21 @@ spec = do
 
 runTC :: Check a -> Either MultiError (a, CheckState)
 runTC t = runExcept $ runStateT (runCheck t) defaultCheckEnv
+
+filesShouldNotCheck :: FilePath -> Spec
+filesShouldNotCheck dir = do
+  fs <- runIO $ getFilesInDir dir
+
+  describe ("fails to typecheck files in " ++ dir) $ do
+    forM_ fs $ \f -> do
+      it ((takeFileName f) ++ " errors.") $ do
+        res <- parseFromFile (illParser <* eof) f
+        shouldSucceed res
+        let Right (Module _ ds) = res
+        case runTC (bindingGroups ds >>= typeCheck) of
+          Left _ -> return ()
+          Right _ -> expectationFailure $
+            "module should have errored but instead typechecked."
 
 filesShouldCheck :: FilePath -> Spec
 filesShouldCheck dir = do
