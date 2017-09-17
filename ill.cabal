@@ -1,4 +1,4 @@
--- This file has been generated from package.yaml by hpack version 0.17.0.
+-- This file has been generated from package.yaml by hpack version 0.17.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -42,6 +42,8 @@ library
   exposed-modules:
       Control.Monad.Unify
       Ill.Desugar
+      Ill.Desugar.Cases
+      Ill.Desugar.Trait
       Ill.Error
       Ill.Infer
       Ill.Infer.Entail

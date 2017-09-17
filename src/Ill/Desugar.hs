@@ -27,6 +27,13 @@ bgNames (ValueBG ds) = map (\(_ :< (Value n _)) -> n) ds
 bgNames (DataBG  ds) = map (\(_ :< (Data n _ _)) -> n) ds
 bgNames (OtherBG d) = []
 
+fromBindingGroups :: [BindingGroup a] -> [Decl a]
+fromBindingGroups bgs = fromBG =<< bgs
+  where
+  fromBG (ValueBG ds) = ds
+  fromBG (DataBG  ds) = ds
+  fromBG (OtherBG d) = pure d
+
 bindingGroups :: MonadError MultiError m => [Decl a] -> m [BindingGroup a]
 bindingGroups ds = do
   let dataDecls = filter isDataDecl ds

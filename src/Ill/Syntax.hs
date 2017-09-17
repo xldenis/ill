@@ -6,6 +6,7 @@
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE PatternSynonyms       #-}
 
 module Ill.Syntax
 ( module X
@@ -23,7 +24,6 @@ import           Ill.Syntax.Pattern as X
 import           Ill.Syntax.Type as X
 import           Ill.Syntax.Kind as X
 
-import           Control.Comonad        (extend)
 import           Control.Lens           (each, over, _2)
 import           Ill.Syntax.Pretty
 
@@ -75,8 +75,11 @@ instance Bifunctor Declaration where
 
 data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Eq, Show)
 
-data TypedAnn = Ann { span :: SourceSpan, ty :: TypeAnn }
+data TypedAnn = TyAnn { span :: Maybe SourceSpan, ty :: TypeAnn }
   deriving (Show, Eq)
+
+pattern Ann x y = TyAnn (Just x) (Type y)
+pattern SynAnn y = TyAnn Nothing (Type y)
 
 data TypeAnn
   = Type (Type Name)
@@ -108,8 +111,11 @@ isDecl :: Decl a -> Bool
 isDecl (_ :< TraitDecl _ _ _ _) = True
 isDecl _ = False
 
-nestedFmap :: (Bifunctor f, Functor (f a)) => (a -> b) -> (Cofree (f a) a) -> (Cofree (f b) b)
+nestedFmap :: (Bifunctor f, Functor (f a)) => (a -> b) -> Cofree (f a) a -> (Cofree (f b) b)
 nestedFmap f v = hoistCofree (first f) $ fmap f v
+
+fmapTy f (Type t) = Type (f t)
+fmapTy f t        = t
 
 dropAnn :: (Bifunctor f, Functor (f a)) => Cofree (f a) a -> Cofree (f ()) ()
 dropAnn = nestedFmap (const ())
@@ -117,7 +123,6 @@ dropAnn = nestedFmap (const ())
 lookupFn n (Module _ ds) = find pred ds
   where pred (_ :< Value name _) = n == name
         pred _                   = False
-
 
 instance Pretty (Module a) where
   pretty (Module name decls) = nest 2 (pretty "module" <+> pretty name `above`

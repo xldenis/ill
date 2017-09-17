@@ -81,7 +81,7 @@ typeCheck bgs = mapM go bgs
 
     ds' <- forM (zip ds kinds) $ \(span :< d, k) -> do
       d' <- addAnn d
-      return $ Ann span (Kind k) :< d'
+      return $ TyAnn (pure span) (Kind k) :< d'
     return (DataBG ds')
     where
     addAnn :: Declaration SourceSpan (Decl SourceSpan) -> Check (Declaration TypedAnn (Decl TypedAnn))
@@ -94,18 +94,18 @@ typeCheck bgs = mapM go bgs
     unfoldCons a         = [a]
 
   go (OtherBG (_ :< TypeSynonym{})) = throwError $ NotImplementedError "oops"
-  go (OtherBG (a :< Import q m n al)) = return $ OtherBG $ Ann a None :< Import q m n al
+  go (OtherBG (a :< Import q m n al)) = return $ OtherBG $ TyAnn (pure a) None :< Import q m n al
   go (OtherBG (a :< TraitDecl supers name args members)) = do
     let memTys = map toPair members
         members' = map annSigs members
     addTrait name supers args memTys
 
-    return . OtherBG $ Ann a None :< TraitDecl supers name args members'
+    return . OtherBG $ TyAnn (pure a) None :< TraitDecl supers name args members'
     where
     toPair (_ :< Signature nm ty) = (nm, ty)
     toPair _ = error "trait declaration contains non signature value"
 
-    annSigs (a :< Signature nm ty) = Ann a (Type ty) :< Signature nm ty
+    annSigs (a :< Signature nm ty) = Ann a ty :< Signature nm ty
     annSigs _ = error "trait declaration contains non signature value"
 
   go (OtherBG (a :< TraitImpl supers nm args ds)) = do
@@ -131,7 +131,7 @@ typeCheck bgs = mapM go bgs
 
     addTraitInstance nm supers args
 
-    return . OtherBG $ Ann a None :< TraitImpl supers nm args (filter isValue vals')
+    return . OtherBG $ TyAnn (pure a) None :< TraitImpl supers nm args (filter isValue vals')
 
     where
     traitName (Constrained _ t) = traitName t
@@ -167,7 +167,7 @@ addDataConstructor name args dctor tys = do
 type TypedDict   = [(Name, Type Name)]
 type UntypedDict = [(Name, Type Name)]
 
-typeDictionary :: [Decl SourceSpan] -> UnifyT (Type Name) Check ([Decl SourceSpan], [(Type Name, Decl SourceSpan)], TypedDict, UntypedDict)
+typeDictionary :: [Decl SourceSpan] -> UnifyT (Type Name) Check ([Decl SourceSpan], [(Type Name, RawDecl)], TypedDict, UntypedDict)
 typeDictionary vals = do
   let values = sortOn valueName $ filter isValue vals
       sigs =  sortOn signatureName $ filter isSignature vals
@@ -184,7 +184,7 @@ typeDictionary vals = do
   signatureName (_ :< Signature n _) = n
   signatureType (_ :< Signature _ t) = t
 
-typeForBindingGroupEl :: Decl SourceSpan -> UntypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
+typeForBindingGroupEl :: RawDecl -> UntypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
 typeForBindingGroupEl (a :< Value name els) dict = do
   let (pats, _) = unzip els
       numArgs = length $ head pats
@@ -205,9 +205,9 @@ typeForBindingGroupEl (a :< Value name els) dict = do
       memberType = fromJust (lookup name dict)
   fTy `constrainedUnification` memberType
 
-  return $ Ann a (Type (constrain (concat  cons') memberType)) :< Value name vals'
+  return $ Ann a (constrain (concat  cons') memberType) :< Value name vals'
 
-checkBindingGroupEl :: Type Name -> Decl SourceSpan -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
+checkBindingGroupEl :: Type Name -> RawDecl -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
 checkBindingGroupEl ty (a :< Value name els) dict = do
   let (pats, _) = unzip els
       numArgs = length $ head pats
@@ -235,7 +235,7 @@ checkBindingGroupEl ty (a :< Value name els) dict = do
 
   blargh constraints minCons
 
-  return $ Ann a (Type ty) :< Value name vals'
+  return $ Ann a ty :< Value name vals'
 
   where
 

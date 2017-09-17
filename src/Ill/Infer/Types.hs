@@ -23,7 +23,7 @@ infer (a :< Apply l args) = do
   constraints <- typeOf f' `constrainedUnification` flattenConstraints (foldr tFn retTy (map typeOf args'))
   let retTy' = constrain constraints retTy
 
-  return $ Ann a (Type retTy') :< Apply f' args'
+  return $ Ann a retTy :< Apply f' args'
 infer (a :< If cond left right) = do
   cond' <- check tBool cond
   left' <- infer left
@@ -33,7 +33,7 @@ infer (a :< If cond left right) = do
   let (cons, _) = unconstrained $ typeOf cond'
       retTy     = constrain (cons ++ constraints) $ typeOf left'
 
-  return $ Ann a (Type $ retTy) :< If cond' left' right'
+  return $ Ann a retTy :< If cond' left' right'
 infer (a :< Case cond branches) = do
   cond' <- infer cond
   retTy <- fresh
@@ -46,14 +46,14 @@ infer (a :< Case cond branches) = do
 
     return $ (pattern', expr')
 
-  return $ Ann a (Type . typeOf . snd $ last branches') :< Case cond' branches'
+  return $ Ann a (typeOf . snd $ last branches') :< Case cond' branches'
 infer (a :< Body es) = do
   tys <- bindNames [] $ mapM infer es
 
   let bodyCons = tys >>= constraints . typeOf
       retTy    = constrain bodyCons (typeOf $ last tys)
 
-  return $ Ann a (Type retTy) :< Body tys
+  return $ Ann a retTy :< Body tys
 infer (a :< BinOp op l r) = do
   op' <- infer op
   l' <- infer l
@@ -63,7 +63,7 @@ infer (a :< BinOp op l r) = do
   constraints <- typeOf op' `constrainedUnification` flattenConstraints (foldr tFn retTy [typeOf l', typeOf r'])
   let retTy' = constrain constraints retTy
 
-  return $ Ann a (Type retTy') :< BinOp op' l' r'
+  return $ Ann a retTy :< BinOp op' l' r'
 infer (a :< Lambda pats expr) = do
   patTys <- replicateM (length pats) fresh
 
@@ -71,7 +71,7 @@ infer (a :< Lambda pats expr) = do
   expr' <- bindNames patDict (infer expr)
 
   let retTy = foldr tFn (typeOf expr') patTys
-  return $ Ann a (Type retTy) :< Lambda pats' expr'
+  return $ Ann a retTy :< Lambda pats' expr'
 infer (a :< Assign lnames exps) = do
   varTys <- replicateM (length lnames) fresh
   let bound = zip lnames varTys
@@ -80,12 +80,12 @@ infer (a :< Assign lnames exps) = do
   exps' <- mapM infer exps
   zipWithM ((=?=) . typeOf) exps' varTys
 
-  return $ Ann a (Type tNil) :< Assign lnames exps'
+  return $ Ann a tNil :< Assign lnames exps'
 infer (a :< Var nm) = do
   ty <-  lookupVariable nm
   ty' <- freshenFunction ty
 
-  return $ Ann a (Type ty') :< Var nm
+  return $ Ann a ty' :< Var nm
 infer (a :< Constructor nm) = do
   (_, ty, args) <- lookupConstructor nm
 
@@ -93,10 +93,10 @@ infer (a :< Constructor nm) = do
 
   let nT = replaceTypeVars subs ty
 
-  return $ Ann a (Type nT) :< Constructor nm
+  return $ Ann a nT :< Constructor nm
 infer (a :< Literal l) = do
   let ty = inferLit l
-  return $ Ann a (Type ty) :< Literal l
+  return $ Ann a ty :< Literal l
 
 check :: Type Name -> Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
 check expected (a :< If cond l r) = do
@@ -104,11 +104,11 @@ check expected (a :< If cond l r) = do
   left' <- check expected l
   right' <- check expected r
 
-  return $ Ann a (Type expected) :< If cond' left' right'
+  return $ Ann a expected :< If cond' left' right'
 check expected (a :< Var nm) = do
   ty <- lookupVariable nm
   cons <- ty `constrainedUnification` expected
-  return $ Ann a (Type $ constrain cons ty) :< Var nm
+  return $ Ann a (constrain cons ty) :< Var nm
 check expected (a :< Constructor nm) = do
   (_, ty, args) <- lookupConstructor nm
 
@@ -117,7 +117,7 @@ check expected (a :< Constructor nm) = do
   let nT = replaceTypeVars subs ty
   nT =?= expected
 
-  return $ Ann a (Type nT) :< Constructor nm
+  return $ Ann a nT :< Constructor nm
 check expected v@(_ :< BinOp _ _ _) = do
   v' <- infer v
   -- internalError $ typeOf v'
@@ -127,7 +127,7 @@ check expected v@(_ :< BinOp _ _ _) = do
   return $ fmap (modifyTyAnn (constrain cons)) v'
   where
 
-  modifyTyAnn f (Ann src (Type ty)) = Ann src (Type $ f ty)
+  modifyTyAnn f (TyAnn src (Type ty)) = TyAnn src (Type $ f ty)
   modifyTyAnn f t = t
 
 check expected (a :< Body es) = do
@@ -135,7 +135,7 @@ check expected (a :< Body es) = do
 
   cons <- (typeOf $ last tys) `constrainedUnification` expected
 
-  return $ Ann a (Type . typeOf $ last tys) :< Body tys
+  return $ Ann a (typeOf $ last tys) :< Body tys
 check expected (a :< Apply f args) = do
   f' <- infer f
   let (constraints, ty') = unconstrained (typeOf f')
@@ -145,7 +145,7 @@ check expected (a :< Apply f args) = do
 
   args' <- mapM (uncurry check) (zip argTys args)
 
-  return $ Ann a (Type retTy) :< Apply f' args'
+  return $ Ann a retTy :< Apply f' args'
 
 check expected ty = error (show ty)
 
@@ -212,13 +212,13 @@ inferPat :: Type Name -> Pat SourceSpan -> UnifyT (Type Name) Check ([(Name, Typ
 inferPat ty (a :< PVar n) = do
   f <- fresh
   ty =?= f
-  return ([(n, f)], Ann a (Type f) :< PVar n)
+  return ([(n, f)], Ann a f :< PVar n)
 inferPat ty (a :< Destructor n pats) = do
   (_, t, _) <- lookupConstructor n
   freshened <- freshenFunction t
   (dict, subPats) <- go pats freshened
 
-  return (dict, Ann a (Type freshened) :< Destructor n subPats)
+  return (dict, Ann a freshened :< Destructor n subPats)
   where
   go :: [Pat SourceSpan] -> Type Name -> UnifyT (Type Name) Check ([(Name, Type Name)], Patterns TypedAnn)
   go [] ty' = ty =?= ty' *> pure ([], [])
@@ -234,7 +234,7 @@ inferPat ty (a :< Destructor n pats) = do
 inferPat ty (a :< PLit lit) = do
   let litTy = inferLit lit
   litTy =?= ty
-  return ([], Ann a (Type litTy) :< PLit lit)
+  return ([], Ann a litTy :< PLit lit)
 
 freshenFunction :: Type Name -> UnifyT (Type Name) Check (Type Name)
 freshenFunction ty = do

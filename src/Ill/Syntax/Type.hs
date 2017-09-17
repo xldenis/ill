@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances, PatternSynonyms  #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances, PatternSynonyms, DeriveFunctor, DeriveFoldable #-}
 module Ill.Syntax.Type where
 
 import Ill.Syntax.Pretty
@@ -13,7 +13,7 @@ data Type t
   | Arrow (Type t) (Type t)
   | Constrained [Constraint t] (Type t)
   | TUnknown Unknown
-  deriving (Eq, Show)
+  deriving (Eq, Show, Functor, Foldable)
 
 type Constraint t = (t, [Type t])
 
