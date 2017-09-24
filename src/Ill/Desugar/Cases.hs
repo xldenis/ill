@@ -85,8 +85,8 @@ match vars eqns = let
     a :< PVar pat = head $ eqnsPats eqns
     matchResult = match vars (shiftEqnPats eqns) fail
     in case matchResult of
-      _ :< Body xs -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : xs else xs
-      y            -> mkBody $ if pat /= v then mkAssign pat (a :< Var v) : [y] else [y]
+      _ :< Body xs -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : xs  else xs
+      y            -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : [y] else [y]
 
   mkAssign :: String -> Expr TypedAnn -> Expr TypedAnn
   mkAssign n e = (extract e) :< Assign [n] [e]

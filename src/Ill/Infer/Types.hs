@@ -23,7 +23,7 @@ infer (a :< Apply l args) = do
   constraints <- typeOf f' `constrainedUnification` flattenConstraints (foldr tFn retTy (map typeOf args'))
   let retTy' = constrain constraints retTy
 
-  return $ Ann a retTy :< Apply f' args'
+  return $ Ann a retTy' :< Apply f' args'
 infer (a :< If cond left right) = do
   cond' <- check tBool cond
   left' <- infer left

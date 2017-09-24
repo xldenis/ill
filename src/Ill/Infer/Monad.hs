@@ -20,10 +20,10 @@ data Environment = Environment
   } deriving (Show, Eq)
 
 type TraitDict = [(Name, TraitEntry)]
-type InstanceDict = [(Name, [TraitInstance])]
-
-type TraitInstance = ([Type Name], [Constraint Name])
 type TraitEntry = ([Constraint Name], [Name], [(Name, Type Name)])
+
+type InstanceDict = [(Name, [TraitInstance])]
+type TraitInstance = ([Type Name], [Constraint Name])
 
 data CheckState = CheckState
   { env     :: Environment
@@ -149,11 +149,10 @@ withTraitInstance trait supers inst action = do
 
   return a
 
-  where
-
-  replace (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
-  replace v (x : xs)            = x : replace v xs
-  replace v []                  = [v]
+replace :: (Name, [TraitInstance]) -> InstanceDict -> InstanceDict
+replace (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
+replace v (x : xs)            = x : replace v xs
+replace v []                  = [v]
 
 addTraitInstance :: Name -> [Constraint Name] -> [Type Name] -> Check ()
 addTraitInstance trait supers inst = do

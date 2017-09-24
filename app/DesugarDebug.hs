@@ -19,22 +19,25 @@ import Data.Text.Lazy.IO
 import Data.Text.Lazy hiding (map)
 import Ill.Syntax.Pretty
 
+import Data.Bifunctor (first, bimap)
+
 desugar :: String -> Module SourceSpan -> IO ()
 desugar stage ast = case runTC ast of
   Left err -> putStrLn $ prettyType err
-  Right typed -> do
+  Right (typed, env) -> do
     let pipeline = stageToPipeline stage
-        desugared = pipeline typed
+        desugared = pipeline env typed
 
+    print (traitDictionaries env)
     putStrLn $ renderIll defaultRenderArgs (pretty $ Module "t" desugared)
 
-runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . fromBindingGroups . fst
+runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 
 unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
 
-stageToPipeline :: String -> ([Decl TypedAnn] -> [Decl TypedAnn])
-stageToPipeline "traits" = desugarTraits
-stageToPipeline "cases"  = desugarTraits >=> pure . simplifyPatterns
-stageToPipeline _ = id
+stageToPipeline :: String -> (Environment -> [Decl TypedAnn] -> [Decl TypedAnn])
+stageToPipeline "traits" e = desugarTraits e
+stageToPipeline "cases"  e = desugarTraits e >=> pure . simplifyPatterns
+stageToPipeline _ _ = id
 
 prettyType a = renderIll defaultRenderArgs (pretty $ a)

@@ -12,5 +12,19 @@ module Core2
     end
   end
 
+  impl Show Int
+    fn show(a)
+      '1'
+    end
+  end
+
   data List a = Cons a (List a) | Nil
+  data Bool = True | False
+
+  fn x(a, b)
+    x(case b of
+      when True: show(1)
+      when False: show(2)
+    end, b)
+  end
 end

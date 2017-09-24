@@ -61,7 +61,7 @@ typeCheck bgs = mapM go bgs
 
     valueName (Value n _) = n
 
-    appSubs (ts, sub) = map (nestedFmap (\a -> a { ty = fmapTy (($?) sub) (ty a) })) ts
+    appSubs (ts, sub) = map (nestedFmap (\a -> a { ty = fmapTy (\v -> varIfUnknown $ sub $? v) (ty a) })) ts
 
     fmapTy f (Type t) = Type (f t)
     fmapTy f t        = t

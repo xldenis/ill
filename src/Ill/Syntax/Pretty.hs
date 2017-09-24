@@ -41,5 +41,8 @@ a </> b = fillSep [a, b]
 above :: Doc a -> Doc a -> Doc a
 above a b = vsep [a, b]
 
+vsep' :: [Doc ann] -> Doc ann
+vsep' = concatWith (\x y -> x <> hardline <> y)
+
 text :: Text -> Doc a
 text = pretty

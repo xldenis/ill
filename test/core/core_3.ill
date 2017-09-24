@@ -1,0 +1,36 @@
+module DesugarConstrainedInstance
+  trait Show a
+    show :: a -> String
+  end
+
+  impl Show a | Show (List a)
+    fn show(Cons el ls)
+      show(ls)
+    or show(Nil)
+      ''
+    end
+  end
+
+  impl Show Bool
+    fn show(True)
+      'true'
+    or show(False)
+      'false'
+    end
+  end
+
+  data List a = Cons a (List a) | Nil
+  data Bool = True | False
+
+  # fn test_desugar_polymorphic_list_dict()
+  #   show(Nil)
+  # end
+
+  fn test_desugar_polymorhpic_arg_dicts(a)
+    show(Cons(a, Nil))
+  end
+
+  fn test_desugar_monomorphic_list_dict()
+    show(Cons(True, Nil))
+  end
+end

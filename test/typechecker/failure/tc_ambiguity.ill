@@ -1,0 +1,17 @@
+module Ambiguity
+  trait Show a
+    show :: a -> String
+  end
+
+  data List a = Cons a | Nil
+
+  impl Show (List a)
+    fn show (x)
+      ''
+    end
+  end
+
+  fn ambiguous_show ()
+    show(Nil) # issue is we dont know which `a` Nil is
+  end
+end
