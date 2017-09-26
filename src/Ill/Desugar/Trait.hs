@@ -78,19 +78,20 @@ data B b = MkB (A b) String
 The rest of the desugaring proceeds as usual
 -}
 
+
 import           Control.Lens      hiding ((:<))
+import           Control.Monad.Reader
+
 import           Data.Bifunctor
 import           Data.Foldable     (find, foldl', toList)
 import           Data.List         (intercalate)
-import           Data.Semigroup
-import           Ill.Desugar.Cases
-import           Ill.Syntax
-
 import           Data.Maybe
+import           Data.Semigroup
+
+import           Ill.Desugar.Cases
 import           Ill.Infer.Entail  as E
 import           Ill.Infer.Monad
-todo = error "todo"
-
+import           Ill.Syntax
 
 {-
   1. Ensure Record is built in correct order
@@ -103,7 +104,7 @@ desugarTraits env ds = fromDecl =<< ds
   where
   fromDecl (_ :< TraitDecl supers nm args members) = dataFromDecl supers nm args members
   fromDecl (_ :< TraitImpl supers nm tys  members) = pure $ valFromInst supers nm tys members
-  fromDecl (a :< Value name eqns) = pure $ addDictsToVals env a name eqns
+  fromDecl (a :< Value name eqns) = runReaderT (addDictsToVals a name eqns) env
   fromDecl x = pure x
 
 valFromInst :: [Constraint Name] -> Name -> [Type Name] -> [Decl TypedAnn] -> Decl TypedAnn
@@ -139,19 +140,24 @@ dataFromDecl superTraits name vars members = let
   where
   sigNm (_ :< Signature nm _) = nm
 
-addDictsToVals :: Environment -> TypedAnn -> Name -> [(Patterns TypedAnn, Expr TypedAnn)] -> Decl TypedAnn
-addDictsToVals env ann nm eqns = let
-  cons = constraints ((\(Type t) -> t ) $ ty ann)
-  dict = zipWith (\cons ix -> (cons, "dict" ++ show ix)) cons [1..length cons]
-  instDicts = traitDictionaries env >>= instanceDictToConstraint >>= \i -> pure (i, instanceName i)
-  localInstances = map (\(nm, tys) -> case nm `lookup` traitDictionaries env of
-    Just instances -> (nm, instances ++ [(tys, [])])
-    Nothing        -> error "how did you manage this?"
-    ) cons
-  id = foldr replace (traitDictionaries env) localInstances
-  env' = env { traitDictionaries = id }
-  pats = map (\(cons, nm) -> SynAnn (uncurry mkDictType cons) :< PVar nm) dict
-  in ann :< Value nm (addPatsToEqns pats $ addDictsToEqns env' (instDicts ++ dict) eqns)
+addDictsToVals :: MonadReader Environment m => TypedAnn -> Name -> [Eqn TypedAnn] -> m (Decl TypedAnn)
+addDictsToVals ann nm eqns = do
+  instanceDicts <- reader traitDictionaries
+
+  let cons = constraints ((\(Type t) -> t ) $ ty ann)
+      instDictNames = instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, instanceName i)
+      localNameDict = zipWith (\cons ix -> (cons, "dict" ++ show ix)) cons [1..length cons]
+      localInstances = map (\(nm, tys) -> case nm `lookup` instanceDicts of
+        Just instances -> (nm, instances ++ [(tys, [])])
+        Nothing        -> error "how did you manage this?"
+        ) cons
+      id = foldr replace instanceDicts localInstances
+      env' = \env -> env { traitDictionaries = id }
+      dictPats = map (\(cons, nm) -> SynAnn (uncurry mkDictType cons) :< PVar nm) localNameDict
+      nameDict = instDictNames ++ localNameDict
+  local env' $ do
+    eqns' <- addDictsToEqns nameDict eqns
+    return $ ann :< Value nm (addPatsToEqns dictPats $ eqns')
   where
   instanceDictToConstraint :: (Name, [TraitInstance]) -> [Constraint Name]
   instanceDictToConstraint (nm, instances) = map (\i -> (nm, fst i)) instances
@@ -160,23 +166,25 @@ addDictsToVals env ann nm eqns = let
 
 type NameDict = [(Constraint Name, Name)]
 
-addDictsToEqns :: Environment -> NameDict -> [(Patterns TypedAnn, Expr TypedAnn)] -> [(Patterns TypedAnn, Expr TypedAnn)]
-addDictsToEqns env dict eqns = eqns & each . _2 %~ transform (replaceTraitMethods env dict)
+addDictsToEqns :: MonadReader Environment m => NameDict -> [Eqn TypedAnn] -> m [Eqn TypedAnn]
+addDictsToEqns dict eqns = forMOf (each . _2) eqns (transformM (replaceTraitMethods dict))
 
-replaceTraitMethods :: Environment -> NameDict -> Expr TypedAnn -> Expr TypedAnn
-replaceTraitMethods env dicts v@(a :< Var nm) = case nm `lookup` traitMethods of
-  Just x  -> mkDictLookup x
-  Nothing -> v
+replaceTraitMethods :: MonadReader Environment m => NameDict -> Expr TypedAnn -> m (Expr TypedAnn)
+replaceTraitMethods dicts v@(a :< Var nm) = case nm `lookup` traitMethods of
+  Just x  -> do
+    instanceDict <- reader traitDictionaries
+    return $ mkDictLookup instanceDict x
+  Nothing -> pure v
 
   where
   traitMethods = [("show", tNil)]
-  mkDictLookup ty = a :< Apply (SynAnn ty :< Var nm) (map mkDictVal (constraints $ typeOf v))
-  mkDictVal ty = case findInst ty (traitDictionaries env) dicts of
-    Just (dict, [])   -> SynAnn tNil :< Var dict
-    Just (dict, cons) -> SynAnn tNil :< Apply (SynAnn tNil :< Var dict) (map mkDictVal cons)
-    Nothing -> error $ "couldnt find a dict for " ++ show ty ++ show (traitDictionaries env)
-      ++ show (findInst ty (traitDictionaries env) dicts)
-replaceTraitMethods _ _ x = x
+  mkDictLookup id ty = a :< Apply (SynAnn ty :< Var nm) (map (mkDictVal id) (constraints $ typeOf v))
+  mkDictVal id ty = case findInst ty id dicts of
+      Just (dict, [])   -> SynAnn tNil :< Var dict
+      Just (dict, cons) -> SynAnn tNil :< Apply (SynAnn tNil :< Var dict) (map (mkDictVal id) cons)
+      Nothing -> error $ "couldnt find a dict for " ++ show ty ++ show id
+        ++ show (findInst ty id dicts)
+replaceTraitMethods _ x = pure x
 
 findInst :: Constraint Name -> InstanceDict -> NameDict -> Maybe (Name, [Constraint Name])
 findInst c@(nm, tys) id namedict = do
