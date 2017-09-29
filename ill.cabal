@@ -40,6 +40,7 @@ library
     , containers
     , bifunctors
   exposed-modules:
+      Control.Monad.Fresh
       Control.Monad.Unify
       Ill.Desugar
       Ill.Desugar.Cases

@@ -29,6 +29,7 @@ import Data.Monoid
 import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Error.Class
+import Control.Monad.Fresh
 
 import Data.HashMap.Strict as M
 
@@ -137,21 +138,18 @@ occursCheck u t =
     Nothing -> when (u `elem` unknowns t) $ UnifyT . lift . throwError $ occursCheckFailed t
     _ -> return ()
 
--- |
--- Generate a fresh untyped unification variable
---
-fresh' :: (Monad m) => UnifyT t m Unknown
-fresh' = do
-  st <- UnifyT get
-  UnifyT $ modify $ \s -> s { unifyNextVar = succ (unifyNextVar s) }
-  return $ unifyNextVar st
+instance Monad m => MonadFresh (UnifyT t m) where
+  freshName = do
+    st <- UnifyT get
+    UnifyT $ modify $ \s -> s { unifyNextVar = succ (unifyNextVar s) }
+    return $ unifyNextVar st
 
 -- |
 -- Generate a fresh unification variable at a specific type
 --
 fresh :: (Monad m, Partial t) => UnifyT t m t
 fresh = do
-  u <- fresh'
+  u <- freshName
   return $ unknown u
 
 
