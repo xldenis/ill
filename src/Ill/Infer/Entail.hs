@@ -10,7 +10,7 @@ import           Data.Maybe
 import           Ill.Syntax          (Name)
 import           Ill.Syntax.Type
 
-import           Ill.Infer.Monad
+import           Ill.Infer.Monad as M
 import           Ill.Infer.Types
 
 import           Ill.Error
@@ -34,9 +34,9 @@ entails td id preds constraint = go constraint
   constraintName (n, _) = n
 
 goalsBySuperTrait :: TraitDict -> Constraint Name -> [Constraint Name]
-goalsBySuperTrait dict trait@(n, _) = trait : (superTraits >>= \(supers, _, _) -> supers >>= superTraitsFor)
+goalsBySuperTrait dict trait@(n, _) = trait : (superTraitDecl >>= superTraits >>= superTraitsFor)
   where
-  superTraits = lookup n dict & maybeToList
+  superTraitDecl = lookup n dict & maybeToList
   superTraitsFor c@(n, _) = goalsBySuperTrait dict c
 
 goalsByInst :: InstanceDict -> Constraint Name -> Maybe [Constraint Name]

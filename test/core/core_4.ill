@@ -1,0 +1,45 @@
+module DesugarArbitraryTraits
+  trait Trait a
+    method1 :: a -> String
+    method2 :: a -> Int
+  end
+
+  impl Trait a | Trait (List a)
+    fn method1(Cons el ls)
+      method1(ls)
+    or method1(Nil)
+      ''
+    end
+
+    fn method2(x)
+      1
+    end
+  end
+
+  impl Trait Bool
+    fn method1(True)
+      'true'
+    or method1(False)
+      'false'
+    end
+
+    fn method2(x)
+      2
+    end
+  end
+
+  data List a = Cons a (List a) | Nil
+  data Bool = True | False
+
+  # fn test_desugar_polymorphic_list_dict()
+  #   method1(Nil)
+  # end
+
+  fn test_desugar_polymorhpic_arg_dicts(a)
+    method1(Cons(a, Nil))
+  end
+
+  fn test_desugar_monomorphic_list_dict()
+    method1(Cons(True, Nil))
+  end
+end

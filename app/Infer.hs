@@ -46,7 +46,7 @@ printTypes [] = return ()
 
 prettyType a = renderIll defaultRenderArgs (pretty $ a)
 
-prettyTraitInfo (nm, (supers, args, mems)) =
+prettyTraitInfo (nm, TraitEntry supers args mems) =
   let topRow = pretty nm <+> (hsep $ map pretty args)
       mems'  = map (\(memNm, ty) -> pretty memNm <+> "::" <+> pretty ty) mems
   in renderIll defaultRenderArgs (nest 2 $ topRow `above` vsep mems')

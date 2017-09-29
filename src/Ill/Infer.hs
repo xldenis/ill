@@ -109,15 +109,15 @@ typeCheck bgs = mapM go bgs
     annSigs _ = error "trait declaration contains non signature value"
 
   go (OtherBG (a :< TraitImpl supers nm args ds)) = do
-    (superTraits, varNms, memSigs) <- lookupTrait nm
-    let subs = zip varNms args
-        cons = map (\(nm, cs') -> (nm, map (replaceTypeVars subs) cs' )) superTraits
+    trait <- lookupTrait nm
+    let subs = zip (traitVars trait) args
+        cons = map (\(nm, cs') -> (nm, map (replaceTypeVars subs) cs' )) (superTraits trait)
     unsatisfiedSupers <- reduce cons
     when (not $ null unsatisfiedSupers) . internalError $ "unsatisfied supertraits in instance: " ++ show unsatisfiedSupers
 
     let constraints' = (nm, args) : supers
-        tySubs     = zip varNms args
-        sigTys     = map (fmap (constrain constraints' . replaceTypeVars tySubs)) memSigs
+        tySubs     = zip (traitVars trait) args
+        sigTys     = map (fmap (constrain constraints' . replaceTypeVars tySubs)) (methodSigs trait)
         signatures = map (uncurry Signature) sigTys
         annotated  = map (\sig -> emptySpan :< sig) signatures
 

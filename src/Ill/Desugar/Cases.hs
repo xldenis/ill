@@ -37,7 +37,7 @@ eqnsExpr = snd . head
 {-
   1. fix binding of new vars
   2. Add lambda abstraction around match
-  3.
+  3. actually fail non-total matches
 -}
 
 type MatchResult a = Expr a -> Expr a
@@ -77,8 +77,10 @@ match vars eqns = let
   matchGroup eqns@((group, _) : _) = case group of
     VarG   -> matchVarPat vars (map snd eqns)
     ConG _ -> matchConPat vars (subGroup [(c, e) | (ConG c, e) <- eqns])
-    WildG  -> error "wildcard patterns are not implemented"
+    WildG  -> matchWildcardPat vars (map snd eqns)
     LitG   -> error "literal patterns are not implemented"
+
+  matchWildcardPat (_ : vars) eqns = \fail -> match vars (shiftEqnPats eqns) fail
 
   matchVarPat :: [String] -> [Eqn TypedAnn] -> MatchResult TypedAnn
   matchVarPat (v : vars) eqns = \fail -> let
@@ -113,16 +115,18 @@ match vars eqns = let
     (a :< Destructor c args1) =  head . fst $ head group
     arg_vars = makeVarNames args1
     arg_tys  = map extract args1
-    rhs = match (arg_vars ++ vars) eqns'
-
-    in (a :< Destructor c (zipWith (\t v -> t :< PVar v) arg_tys arg_vars), rhs)
+    rhs = match ((map (maybe "" id) arg_vars) ++ vars) eqns'
+    maybeNameToPat ty (Just nm) = ty :< PVar nm
+    maybeNameToPat ty Nothing   = ty :< Wildcard
+    in (a :< Destructor c (zipWith (maybeNameToPat) arg_tys arg_vars), rhs)
 
   shiftCons ((_ :< Destructor _ ps) : xs, rhs) = (ps ++ xs, rhs)
 
   shiftEqnPats = map (\(pats, eq) -> (tail pats, eq))
 
-makeVarNames :: [Pat a] -> [String]
-makeVarNames ((_ :< PVar n) : ps) = n : makeVarNames ps
+makeVarNames :: Show a => [Pat a] -> [Maybe String]
+makeVarNames ((_ :< PVar n) : ps) = Just n : makeVarNames ps
+makeVarNames (_ : ps) = Nothing : makeVarNames ps
 makeVarNames []            = []
 
 groupPatterns :: [Eqn a] -> [[(PatGroup, Eqn a)]]

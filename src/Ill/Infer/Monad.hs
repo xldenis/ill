@@ -20,7 +20,12 @@ data Environment = Environment
   } deriving (Show, Eq)
 
 type TraitDict = [(Name, TraitEntry)]
-type TraitEntry = ([Constraint Name], [Name], [(Name, Type Name)])
+-- type TraitEntry = ([Constraint Name], [Name], [(Name, Type Name)])
+data TraitEntry = TraitEntry
+  { superTraits :: [Constraint Name]
+  , traitVars :: [Name]
+  , methodSigs :: [(Name, Type Name)]
+  } deriving (Show, Eq)
 
 type InstanceDict = [(Name, [TraitInstance])]
 type TraitInstance = ([Type Name], [Constraint Name])
@@ -127,7 +132,7 @@ addTrait :: MonadState CheckState m => Name -- class name
   -> [(Name, Type Name)]  -- name and type of member sigs
   -> m ()
 addTrait name supers args members = do
-  modifyEnv $ \e -> e { traits = (name, (supers, args, members)) : traits e }
+  modifyEnv $ \e -> e { traits = (name, TraitEntry supers args members) : traits e }
   let qualifiedMembers = map (fmap qualifyType) members
   modifyEnv $ \e -> e { names = qualifiedMembers ++ names e }
   where

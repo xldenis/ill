@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Ill.Desugar.Trait where
 
 {-
@@ -170,14 +171,15 @@ addDictsToEqns :: MonadReader Environment m => NameDict -> [Eqn TypedAnn] -> m [
 addDictsToEqns dict eqns = forMOf (each . _2) eqns (transformM (replaceTraitMethods dict))
 
 replaceTraitMethods :: MonadReader Environment m => NameDict -> Expr TypedAnn -> m (Expr TypedAnn)
-replaceTraitMethods dicts v@(a :< Var nm) = case nm `lookup` traitMethods of
-  Just x  -> do
-    instanceDict <- reader traitDictionaries
-    return $ mkDictLookup instanceDict x
-  Nothing -> pure v
+replaceTraitMethods dicts v@(a :< Var nm) = do
+  allTraitMethods <- reader traits >>= pure . join . map (methodSigs . snd)
+  case nm `lookup` allTraitMethods of
+    Just x  -> do
+      instanceDict <- reader traitDictionaries
+      return $ mkDictLookup instanceDict x
+    Nothing -> pure v
 
   where
-  traitMethods = [("show", tNil)]
   mkDictLookup id ty = a :< Apply (SynAnn ty :< Var nm) (map (mkDictVal id) (constraints $ typeOf v))
   mkDictVal id ty = case findInst ty id dicts of
       Just (dict, [])   -> SynAnn tNil :< Var dict
@@ -218,7 +220,6 @@ Given MkShow (A a) b c
 fn ShowA (MkShow a _ _)
 fn b (MkShow _ b _)
 -}
-
 
 valueFromInst :: [Constraint Name] -> Name -> [Type Name] -> [Decl TypedAnn] -> Decl TypedAnn
 valueFromInst = error "todo"
