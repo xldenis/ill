@@ -115,13 +115,16 @@ valFromInst supers nm tys decls = let
   instNm   = instanceName (nm, tys)
   memTys   = map typeOf members
   tyConTy  = foldl tFn (mkDictType nm tys) memTys
-  applied  = dictTy :< Apply tyCon (map (\(_ :< Value _ [([], e)]) -> e) members)
+  applied  = dictTy :< Apply tyCon (map fromValue members)
   dictTy   = mkAnn $ mkDictType nm tys
   valTy    = mkAnn $ foldr tFn (mkDictType nm tys) superDicts
   superDicts = map (uncurry mkDictType) supers
   dictArgs = zipWith (\sup ix -> SynAnn sup :< PVar ("dict" ++ show ix) ) superDicts [1..length supers]
   in valTy :< Value instNm [(dictArgs, applied)]
   where
+
+  fromValue (_ :< Value _ [([], e)]) = e
+  fromValue _ = error "impossible non-value during trait decl desugaring"
 
 instanceName (nm, tys) = nm <> intercalate "_" (toList =<< tys)
 mkDictType nm args = foldl TAp (TConstructor nm) args
@@ -145,7 +148,7 @@ addDictsToVals :: MonadReader Environment m => TypedAnn -> Name -> [Eqn TypedAnn
 addDictsToVals ann nm eqns = do
   instanceDicts <- reader traitDictionaries
 
-  let cons = constraints ((\(Type t) -> t ) $ ty ann)
+  let cons = constraints (fromType $ ty ann)
       instDictNames = instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, instanceName i)
       localNameDict = zipWith (\cons ix -> (cons, "dict" ++ show ix)) cons [1..length cons]
       localInstances = map (\(nm, tys) -> case nm `lookup` instanceDicts of

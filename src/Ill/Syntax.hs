@@ -87,6 +87,11 @@ data TypeAnn
   | None
   deriving (Show, Eq)
 
+-- Spooky partial function. Use only when invariant holds
+fromType :: TypeAnn -> Type Name
+fromType (Type t) = t
+fromType _ = error "impossible expression has non-type annotation"
+
 typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
 typeOf = fromType . ty . extract
   where fromType (Type t) = t

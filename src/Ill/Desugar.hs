@@ -23,8 +23,15 @@ data BindingGroup a
   | OtherBG  (Decl a)
   deriving (Show, Eq)
 
-bgNames (ValueBG ds) = map (\(_ :< (Value n _)) -> n) ds
-bgNames (DataBG  ds) = map (\(_ :< (Data n _ _)) -> n) ds
+bgNames (ValueBG ds) = map valueName ds
+  where
+  valueName (_ :< Value n _) = n
+  valueName _ = error "ValueBG has non Value element"
+bgNames (DataBG  ds) = map dataName ds
+  where
+  dataName (_ :< Data n _ _) = n
+  dataName _ = error "DataBG has non Data element"
+
 bgNames (OtherBG d) = []
 
 fromBindingGroups :: [BindingGroup a] -> [Decl a]
@@ -64,10 +71,11 @@ sortedInstances decls impls = let
   graphList = map (\(name, is) -> (is, name, concat . maybeToList $ name `lookup` superTraitDict)) groupedByTrait
   traitName   (_ :< TraitImpl _ n _ _) = n
   superTraits (_ :< TraitImpl c _ _ _) = map fst c
-  superTraitDict = map (\(_ :< TraitDecl c n _ _) -> (n, map fst c)) decls
+  superTraitDict = map traitDictToTuple decls
   in concat <$> mapM checkDag (stronglyConnComp graphList)
   where
-
+  traitDictToTuple (_ :< TraitDecl c n _ _) = (n, map fst c)
+  traitDictToTuple _ = error "non trait decl was found when sorting traits"
   checkDag (AcyclicSCC d)  = return $ map OtherBG d
   checkDag (CyclicSCC [d]) = return $ map OtherBG d
   checkDag _ = throwError $ InternalError "cycle in traits"

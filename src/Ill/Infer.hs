@@ -48,7 +48,7 @@ typeCheck bgs = mapM go bgs
           return $ explicit ++ implicit
 
     values <- forM (appSubs v') $ \(ann :< v) -> do
-      let t = varIfUnknown $ (\(Type a) -> a) (ty ann)
+      let t = varIfUnknown $ fromType (ty ann)
 
       t' <- flattenConstraints <$> simplify' t
 
@@ -72,7 +72,7 @@ typeCheck bgs = mapM go bgs
     simplify' t = return t
 
   go d@(DataBG  ds)                = do
-    let dataDecls = map (\(_ :< Data nm args cons) -> (nm, args, map consPair cons)) ds
+    let dataDecls = map fromDataDecl ds
 
     kinds <- kindsOfAll [] (map (\(nm, param, cons) -> (nm, param, concatMap snd cons)) dataDecls)
 
@@ -80,16 +80,23 @@ typeCheck bgs = mapM go bgs
       addDataType name args ctors ctorKind
 
     ds' <- forM (zip ds kinds) $ \(span :< d, k) -> do
-      d' <- addAnn d
-      return $ TyAnn (pure span) (Kind k) :< d'
+      return $ TyAnn (pure span) (Kind k) :< coerceAnn d
     return (DataBG ds')
     where
-    addAnn :: Declaration SourceSpan (Decl SourceSpan) -> Check (Declaration TypedAnn (Decl TypedAnn))
-    addAnn (Data n vars cons) = return $ Data n vars cons
-    addAnn n             = throwError $ InternalError "Non data value found in data binding group"
+
+    fromDataDecl (_ :< Data nm args cons) = (nm, args, map consPair cons)
+    fromDataDecl _ = error "impossible non-data value found in data binding group"
+
+    coerceAnn :: Declaration SourceSpan (Decl SourceSpan) -> Declaration TypedAnn (Decl TypedAnn)
+    coerceAnn (Data n vars cons) = Data n vars cons
+    coerceAnn _ = error "impossible non-data value found in data binding group"
 
     consPair :: Type Name -> (Name, [Type Name])
-    consPair   = (\(TConstructor n, b) -> (n,b)) . fromJust . uncons . reverse . unfoldCons
+    consPair   = fromCons . fromJust . uncons . reverse . unfoldCons
+
+    fromCons (TConstructor n, b) = (n,b)
+    fromCons _ = error "non constructor value found"
+
     unfoldCons (TAp f a) = a : unfoldCons f
     unfoldCons a         = [a]
 

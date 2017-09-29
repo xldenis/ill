@@ -46,6 +46,8 @@ declToEqns :: Decl TypedAnn -> [Eqn TypedAnn]
 declToEqns (_ :< Value _ eqns) = eqns
 declToEqns _                   = []
 
+desugarPatterns = simplifyPatterns
+
 -- actually bind the binders
 simplifyPatterns :: Decl TypedAnn -> Decl TypedAnn
 simplifyPatterns v@(a :< Value n eqns) = let
@@ -84,11 +86,15 @@ match vars eqns = let
 
   matchVarPat :: [String] -> [Eqn TypedAnn] -> MatchResult TypedAnn
   matchVarPat (v : vars) eqns = \fail -> let
-    a :< PVar pat = head $ eqnsPats eqns
+    (a, pat) = fromPVar . head $ eqnsPats eqns
     matchResult = match vars (shiftEqnPats eqns) fail
     in case matchResult of
       _ :< Body xs -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : xs  else xs
       y            -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : [y] else [y]
+
+    where
+    fromPVar (a :< PVar pat) = (a, pat)
+    fromPVar _ = error "impossible non-var pattern in when matching variable patterns"
 
   mkAssign :: String -> Expr TypedAnn -> Expr TypedAnn
   mkAssign n e = (extract e) :< Assign [n] [e]
@@ -112,13 +118,16 @@ match vars eqns = let
   matchOneConsPat :: [String] -> [Eqn TypedAnn] -> (Pat TypedAnn, MatchResult TypedAnn)
   matchOneConsPat vars group = let
     eqns' = map shiftCons group
-    (a :< Destructor c args1) =  head . fst $ head group
+    (a, c, args1) = fromPDest . head . fst $ head group
     arg_vars = makeVarNames args1
     arg_tys  = map extract args1
     rhs = match ((map (maybe "" id) arg_vars) ++ vars) eqns'
     maybeNameToPat ty (Just nm) = ty :< PVar nm
     maybeNameToPat ty Nothing   = ty :< Wildcard
     in (a :< Destructor c (zipWith (maybeNameToPat) arg_tys arg_vars), rhs)
+    where
+    fromPDest (a :< Destructor c args1) = (a, c, args1)
+    fromPDest _ = error "impossible non-destructor pattern in when matching destructor patterns"
 
   shiftCons ((_ :< Destructor _ ps) : xs, rhs) = (ps ++ xs, rhs)
 
