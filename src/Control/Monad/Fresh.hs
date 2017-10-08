@@ -19,3 +19,9 @@ instance MonadFresh m => MonadFresh (StateT s m) where
 
 instance MonadFresh m => MonadFresh (ReaderT s m) where
   freshName = lift freshName
+
+instance Monad m => MonadFresh (FreshT m) where
+  freshName = do
+    next <- get
+    modify (+ 1)
+    return next
