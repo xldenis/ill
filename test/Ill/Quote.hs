@@ -10,7 +10,7 @@ module Ill.Quote where
 import           Language.Haskell.TH.Quote
 import           Language.Haskell.TH.Syntax
 
-import           Ill.Desugar
+import           Ill.BindingGroup
 import           Ill.Infer
 import           Ill.Parser
 import           Ill.Parser.Declaration

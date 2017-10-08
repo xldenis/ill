@@ -10,7 +10,7 @@ import Control.Monad.State (runStateT)
 import Control.Monad.Except (runExcept)
 import Control.Monad
 
-import Ill.Desugar
+import Ill.BindingGroup
 import Ill.Desugar.Trait
 import Ill.Desugar.Cases
 

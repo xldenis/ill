@@ -39,7 +39,7 @@ module DesugarArbitraryTraits
     method1(Cons(a, Nil))
   end
 
-  fn test_desugar_monomorphic_list_dict()
-    method1(Cons(True, Nil))
-  end
+  # fn test_desugar_monomorphic_list_dict()
+  #   method1(Cons(True, Nil))
+  # end
 end

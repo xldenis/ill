@@ -21,14 +21,13 @@ import Control.Monad.State (runStateT)
 import Control.Monad.Except (runExcept)
 
 import Ill.Syntax.Pretty
-import Ill.Desugar
+import Ill.BindingGroup
 import Data.Text.Lazy.IO as T
 import Data.Maybe
 
 runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
 
 -- unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
-
 
 spec :: Spec
 spec = do
@@ -85,7 +84,7 @@ spec = do
       case runTC mod of
         Right (typed, _) -> let
           ValueBG [x] = last typed
-          matcher = match ["u"] (declToEqns x)
+          matcher = runFresh $ match ["u"] (declToEqns x)
           result  = matcher (undefined :< Var "zzzx")
           expected = [expr|
             case u of

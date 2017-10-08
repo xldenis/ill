@@ -4,7 +4,7 @@ module Infer where
 import Ill.Syntax
 import Ill.Infer
 import Ill.Infer.Monad
-import Ill.Desugar
+import Ill.BindingGroup
 import Ill.Error
 import Ill.Syntax.Pretty
 

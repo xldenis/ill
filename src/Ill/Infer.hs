@@ -15,7 +15,7 @@ import           Data.Maybe
 
 import           Text.Megaparsec      (initialPos)
 
-import           Ill.Desugar
+import           Ill.BindingGroup
 import           Ill.Error
 
 import           Ill.Infer.Entail

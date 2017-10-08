@@ -148,7 +148,8 @@ addDictsToVals :: MonadReader Environment m => TypedAnn -> Name -> [Eqn TypedAnn
 addDictsToVals ann nm eqns = do
   instanceDicts <- reader traitDictionaries
 
-  let cons = constraints (fromType $ ty ann)
+  let (cons, fTy) = unconstrained (fromTyAnn ann)
+      fty' = foldr1 tFn $ (map (uncurry mkDictType) cons) ++ unwrapFnType fTy
       instDictNames = instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, instanceName i)
       localNameDict = zipWith (\cons ix -> (cons, "dict" ++ show ix)) cons [1..length cons]
       localInstances = map (\(nm, tys) -> case nm `lookup` instanceDicts of
@@ -161,7 +162,7 @@ addDictsToVals ann nm eqns = do
       nameDict = instDictNames ++ localNameDict
   local env' $ do
     eqns' <- addDictsToEqns nameDict eqns
-    return $ ann :< Value nm (addPatsToEqns dictPats $ eqns')
+    return $ ann { ty = Type fty' } :< Value nm (addPatsToEqns dictPats $ eqns')
   where
   instanceDictToConstraint :: (Name, [TraitInstance]) -> [Constraint Name]
   instanceDictToConstraint (nm, instances) = map (\i -> (nm, fst i)) instances

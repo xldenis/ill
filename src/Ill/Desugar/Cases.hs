@@ -11,14 +11,20 @@ module Ill.Desugar.Cases where
   3. Type class application
   4. ?????
 -}
+import Control.Lens (each, _1, (%~))
+import Control.Lens.Plated
 import           Ill.Syntax
-
+import           Control.Monad.Fresh
 import           Data.Function
 import           Data.List
 import qualified Data.Map.Strict as Map
 
 import Control.Comonad
 import Control.Comonad.Cofree
+import Control.Monad.Identity
+import Control.Monad.State
+
+import Data.Maybe (catMaybes)
 
 data PatGroup = VarG | ConG String | WildG | LitG
   deriving (Show, Eq)
@@ -48,47 +54,79 @@ declToEqns _                   = []
 
 desugarPatterns = simplifyPatterns
 
+type MF  a = FreshT Identity a
+
+runFresh = runIdentity . flip evalStateT 0 . unFreshT
+
 -- actually bind the binders
 simplifyPatterns :: Decl TypedAnn -> Decl TypedAnn
-simplifyPatterns v@(a :< Value n eqns) = let
-  binders = enumFromTo 1 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
-  binderTy = init . unwrapFnType $ typeOf v
-  retTy = typeOf . snd $ head eqns
-  matchResult = match binders eqns
-  failure = (undefined :< Var "failedPattern")
-  exp = matchResult failure
-  eqn' = [([], mkAbs (zipWith (\p t -> mkTypedAnn t :< PVar p) binders binderTy) retTy exp)]
-  in a :< Value n eqn'
+simplifyPatterns v@(a :< Value n eqns) = runIdentity . flip evalStateT 0 . unFreshT $ do
+  let
+    binders = enumFromTo 1 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
+    binderTy = init . unwrapFnType $ typeOf v
+    retTy = typeOf . snd $ head eqns
+    failure = (undefined :< Var "failedPattern")
+  matchResult <- match binders eqns
+  let exp = matchResult failure
+  exp' <- transformM simplifyCaseExpr exp
+  let eqn' = [([], mkAbs (zipWith (\p t -> mkTypedAnn t :< PVar p) binders binderTy) retTy exp')]
+
+  return $ a :< Value n eqn'
   where
 
   mkAbs binders retTy val = mkTypedAnn retTy :< Lambda binders val
 simplifyPatterns v = v
 
+simplifyCaseExpr :: MonadFresh m => Expr TypedAnn -> m (Expr TypedAnn)
+simplifyCaseExpr e@(a :< Case s alts) = do
+  let
+  -- binder = head . unwrapFnType (typeOf e)
+    eqns = alts & each . _1 %~ pure
+    failure = (undefined :< Var "failedPattern")
+
+  (adjustments, binder) <- binderName s
+  matchResult <- match [binder] eqns
+  return $ mkBody $ catMaybes [adjustments, Just $ matchResult failure]
+  where
+  binderName (_ :< Var nm) = pure (Nothing, nm)
+  binderName e = do
+    name <- prefixedName "dsCase"
+    return (Just $ SynAnn tNil :< Assign [name] [e], name)
+
+simplifyCaseExpr v = pure v
+
 mkTypedAnn ty = SynAnn ty
 
-match :: [String] -> [Eqn TypedAnn] -> (MatchResult TypedAnn)
-match [] eqns | all (null . fst) eqns = const . snd $ head eqns
-match vars eqns = let
-  grouped = groupPatterns eqns
-  match_r = matchGroups grouped
-  in \fail -> foldr ($) fail match_r
+mkBody :: [Expr TypedAnn] -> Expr TypedAnn
+mkBody xs = (extract $ last xs) :< Body xs
+
+match :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (MatchResult TypedAnn)
+match [] eqns | all (null . fst) eqns = pure $ const . snd $ head eqns
+match vars eqns = do
+  let grouped = groupPatterns eqns
+  match_r <- matchGroups grouped
+  return $ \fail -> foldr ($) fail match_r
   where
 
-  matchGroups eqns = map matchGroup eqns
+  matchGroups :: MonadFresh m => [[(PatGroup, Eqn TypedAnn)]] -> m [MatchResult TypedAnn]
+  matchGroups eqns = mapM matchGroup eqns
 
+  matchGroup :: MonadFresh m => [(PatGroup, Eqn TypedAnn)] -> m (MatchResult TypedAnn)
   matchGroup eqns@((group, _) : _) = case group of
     VarG   -> matchVarPat vars (map snd eqns)
     ConG _ -> matchConPat vars (subGroup [(c, e) | (ConG c, e) <- eqns])
     WildG  -> matchWildcardPat vars (map snd eqns)
     LitG   -> error "literal patterns are not implemented"
 
-  matchWildcardPat (_ : vars) eqns = \fail -> match vars (shiftEqnPats eqns) fail
+  matchWildcardPat (_ : vars) eqns = match vars (shiftEqnPats eqns)
 
-  matchVarPat :: [String] -> [Eqn TypedAnn] -> MatchResult TypedAnn
-  matchVarPat (v : vars) eqns = \fail -> let
-    (a, pat) = fromPVar . head $ eqnsPats eqns
-    matchResult = match vars (shiftEqnPats eqns) fail
-    in case matchResult of
+  matchVarPat :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (MatchResult TypedAnn)
+  matchVarPat (v : vars) eqns = do
+    let (a, pat) = fromPVar . head $ eqnsPats eqns
+
+    matchResult <- match vars (shiftEqnPats eqns)
+
+    return $ \fail -> case matchResult fail of
       _ :< Body xs -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : xs  else xs
       y            -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : [y] else [y]
 
@@ -99,32 +137,30 @@ match vars eqns = let
   mkAssign :: String -> Expr TypedAnn -> Expr TypedAnn
   mkAssign n e = (extract e) :< Assign [n] [e]
 
-  mkBody :: [Expr TypedAnn] -> Expr TypedAnn
-  mkBody xs = (extract $ last xs) :< Body xs
+  matchConPat :: MonadFresh m => [String] -> [[Eqn TypedAnn]] -> m (MatchResult TypedAnn)
+  matchConPat (var : vars) groups = do
+    let
+      retTy = typeOf . snd . head $ head groups
+      scrutTy = typeOf . head . fst . head $ head groups
+    branches <- mapM (matchOneConsPat vars) groups
 
-  -- handle failure
-  -- figure out way to build proper annotations
-  matchConPat :: [String] -> [[Eqn TypedAnn]] -> MatchResult TypedAnn
-  matchConPat (var : vars) groups = let
-    branches = map (matchOneConsPat vars) groups
-    retTy = typeOf . snd . head $ head groups
-    scrutTy = typeOf . head . fst . head $ head groups
-
-    in \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (updateEqn fail) branches)
+    return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (updateEqn fail) branches)
     where
 
     updateEqn f (pats, mr) = (pats, mr f)
 
-  matchOneConsPat :: [String] -> [Eqn TypedAnn] -> (Pat TypedAnn, MatchResult TypedAnn)
-  matchOneConsPat vars group = let
-    eqns' = map shiftCons group
-    (a, c, args1) = fromPDest . head . fst $ head group
-    arg_vars = makeVarNames args1
-    arg_tys  = map extract args1
-    rhs = match ((map (maybe "" id) arg_vars) ++ vars) eqns'
-    maybeNameToPat ty (Just nm) = ty :< PVar nm
-    maybeNameToPat ty Nothing   = ty :< Wildcard
-    in (a :< Destructor c (zipWith (maybeNameToPat) arg_tys arg_vars), rhs)
+  matchOneConsPat :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (Pat TypedAnn, MatchResult TypedAnn)
+  matchOneConsPat vars group = do
+    let
+      eqns' = map shiftCons group
+      (a, c, args1) = fromPDest . head . fst $ head group
+      arg_tys  = map extract args1
+      toVarPat (ty :< Wildcard) _   = ty :< Wildcard
+      toVarPat (ty :< _) nm  = ty :< PVar nm
+    arg_vars <- makeVarNames args1
+    rhs <- match (arg_vars ++ vars) eqns'
+
+    return $ (a :< Destructor c (zipWith toVarPat args1 arg_vars), rhs)
     where
     fromPDest (a :< Destructor c args1) = (a, c, args1)
     fromPDest _ = error "impossible non-destructor pattern in when matching destructor patterns"
@@ -133,10 +169,13 @@ match vars eqns = let
 
   shiftEqnPats = map (\(pats, eq) -> (tail pats, eq))
 
-makeVarNames :: Show a => [Pat a] -> [Maybe String]
-makeVarNames ((_ :< PVar n) : ps) = Just n : makeVarNames ps
-makeVarNames (_ : ps) = Nothing : makeVarNames ps
-makeVarNames []            = []
+makeVarNames :: (Show a, MonadFresh m) => [Pat a] -> m [String]
+makeVarNames ((_ :< PVar n) : ps) = (:) <$> pure ( n) <*> makeVarNames ps
+makeVarNames (_ : ps) = (:) <$> prefixedName "omg" <*> makeVarNames ps -- generate names
+makeVarNames []            = pure []
+
+prefixedName :: MonadFresh m => String -> m String
+prefixedName pre = (pre ++) . show <$> freshName
 
 groupPatterns :: [Eqn a] -> [[(PatGroup, Eqn a)]]
 groupPatterns alts = groupBy sameGroup (map (\p -> (patGroup $ unwrap (firstPat p), p)) alts)
@@ -154,14 +193,3 @@ subGroup group
       = case Map.lookup pg pg_map of
           Just eqns -> Map.insert pg (eqn:eqns) pg_map
           Nothing   -> Map.insert pg [eqn]      pg_map
-
-    -- pg_map :: Map a [EquationInfo]
--- data Core b
---   = Lambda b (Expr b)
---   | App (Core b) (Arg b)
---   -- | Case
---   | Var Id
---   -- | Let
---   | Type Type
---   | Lit Literal
---   deriving (Show)

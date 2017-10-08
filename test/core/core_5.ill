@@ -1,0 +1,22 @@
+module FlattenCaseMatches
+
+  data List a = Cons a (List a) | Nil
+  data Bool = True | False
+
+  fn flatten_nested_constructor_matches ()
+    x = Cons(True, Cons(False, Nil))
+
+    case x of
+      when Cons True Nil: False
+      when Cons False (Cons True Nil): True
+      when y: False
+    end
+  end
+
+  fn omg (x)
+    case x of
+      when Cons True Nil: False
+      when Nil : True
+    end
+  end
+end

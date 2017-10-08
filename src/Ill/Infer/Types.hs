@@ -230,7 +230,7 @@ inferPat ty (a :< Destructor n pats) = do
     (n1, p1) <- inferPat a pat
     (n2, p2) <- go pats b
     pure (n1 ++ n2, p1 : p2)
-  go _ _ = throwError $ InternalError "Impossible"
+  go p t = throwError $ InternalError $ (show t) ++ show p
 inferPat ty (a :< PLit lit) = do
   let litTy = inferLit lit
   litTy =?= ty

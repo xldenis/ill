@@ -17,7 +17,7 @@ import Ill.Infer
 import Ill.Infer.Monad
 import Ill.Syntax
 import Ill.Parser (illParser)
-import Ill.Desugar
+import Ill.BindingGroup
 
 spec :: Spec
 spec = do
