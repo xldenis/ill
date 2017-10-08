@@ -92,6 +92,9 @@ fromType :: TypeAnn -> Type Name
 fromType (Type t) = t
 fromType _ = error "impossible expression has non-type annotation"
 
+fromTyAnn :: TypedAnn -> Type Name
+fromTyAnn = fromType . ty
+
 typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
 typeOf = fromType . ty . extract
   where fromType (Type t) = t

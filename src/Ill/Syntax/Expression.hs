@@ -54,20 +54,20 @@ instance Pretty (Expr a) where
     pretty' (Apply func args) = pretty func <> tupled (map pretty args)
     pretty' (BinOp op l r) = pretty l <+> pretty op <+> pretty r
     pretty' (Assign idents exprs) = cat (punctuate comma (map pretty idents)) <+> pretty '=' <+> cat (punctuate comma (map pretty exprs))
-    pretty' (Case cond branches) = align $ vsep'
+    pretty' (Case cond branches) = nest 2 (vsep'
       [ pretty "case" <+> pretty cond <+> pretty "of"
-      , indent 2 (vsep (map prettyBranch branches))
-      , pretty "end"
-      ]
+      , (vsep (map prettyBranch branches))
+      ]) <> hardline <> pretty "end"
+
       where prettyBranch (pat, branch) = pretty "when" <+> pretty pat <+> pretty ":" <+> pretty branch
     pretty' (If cond left right) = vsep
       [ pretty "if" <+> pretty cond <+> pretty "then"
-      , indent 2 (pretty left)
+      , nest 2 (pretty left)
       , pretty "else"
-      , indent 2 (pretty right)
+      , nest 2 (pretty right)
       , pretty "end"
       ]
-    pretty' (Lambda args body) = pretty "fn" <+> tupled (map pretty args) <+> pretty "=" `above` indent 2 (pretty body) `above` pretty "end"
+    pretty' (Lambda args body) = nest 2 (pretty "fn" <+> tupled (map pretty args) <+> pretty "=" `above` (pretty body) ) `above` pretty "end"
     pretty' (Var v) = pretty v
     pretty' (Constructor c) = pretty c
     pretty' (Literal l) = pretty l

@@ -18,8 +18,9 @@ type Pat a = Cofree Pattern a
 type Patterns a = [Pat a]
 
 instance Pretty (Cofree Pattern a) where
-  pretty (_ :< Destructor cons args) = pretty cons <+> hsep (map (\a -> parensIf (complex a) (pretty a)) args)
-    where complex (_ :< Destructor _ _) = True
+  pretty (_ :< Destructor cons args) = pretty cons <-> hsep (map (\a -> parensIf (complex a) (pretty a)) args)
+    where complex (_ :< Destructor _ []) = False
+          complex (_ :< Destructor _ _)  = True
           complex _ = False
   pretty (_ :< Wildcard) = pretty "_"
   pretty (_ :< PVar x) = pretty x
