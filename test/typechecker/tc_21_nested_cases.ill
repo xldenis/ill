@@ -1,0 +1,14 @@
+module NestedConstructorCases
+  data List a = Cons a (List a) | Nil
+  data Bool = True | False
+
+  fn omg(list)
+    case list of
+      when Cons True x: case x of
+        when Cons False Nil: 1
+        when Nil: 2
+      end
+      when Nil: 3
+    end
+  end
+end

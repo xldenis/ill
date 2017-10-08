@@ -15,8 +15,10 @@ pattern = (parens pattern) <|> wildcard <|> destructor <|> pLit <|> var
 destructor :: Parser (Pat SourceSpan)
 destructor = withLoc $ do
   cons <- upperIdent
-  args <- many pattern
+  args <- many $ simpleDestructor <|> pLit <|> var <|> wildcard <|> parens pattern
   return $ Destructor cons args
+  where
+  simpleDestructor = withLoc $ Destructor <$> upperIdent <*> pure []
 
 var :: Parser (Pat SourceSpan)
 var = withLoc $ PVar <$> identifier
