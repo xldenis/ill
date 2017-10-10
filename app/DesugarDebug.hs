@@ -13,6 +13,7 @@ import Control.Monad
 import Ill.BindingGroup
 import Ill.Desugar.Trait
 import Ill.Desugar.Cases
+import Ill.Desugar
 
 import Prelude hiding (putStrLn, putStr)
 import Data.Text.Lazy.IO
@@ -28,8 +29,12 @@ desugar stage ast = case runTC ast of
     let pipeline = stageToPipeline stage
         desugared = pipeline env typed
 
-    print (traitDictionaries env)
-    putStrLn $ renderIll defaultRenderArgs (pretty $ Module "t" desugared)
+    print (map pretty $ traitDictionaries env)
+    putStrLn $ renderIll' (pretty $ Module "t" desugared)
+    putStrLn $ pack "\n\nCORE OUTPUT\n\n"
+    putStrLn $ renderIll cliRenderArgs (vcat $ map pretty $ declToCore desugared)
+  where
+  cliRenderArgs = defaultRenderArgs { width = 50}
 
 runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 
