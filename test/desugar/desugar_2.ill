@@ -1,0 +1,9 @@
+module CaseDesugaringDropsArgs
+  data List a = Cons a (List a) | Nil
+
+  fn show(Cons el ls)
+    show(ls)
+  or show(Nil)
+    ''
+  end
+end

@@ -22,10 +22,6 @@ module DesugarConstrainedInstance
   data List a = Cons a (List a) | Nil
   data Bool = True | False
 
-  # fn test_desugar_polymorphic_list_dict()
-  #   show(Nil)
-  # end
-
   fn test_desugar_polymorhpic_arg_dicts(a)
     show(Cons(a, Nil))
   end

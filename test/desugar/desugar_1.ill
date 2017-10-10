@@ -1,0 +1,10 @@
+module ConstrainedMethodDesugaring
+  trait Trait a
+    method :: a -> Int
+  end
+
+  test_constrained_method :: Trait a | a -> Int
+  fn test_constrained_method ()
+    method
+  end
+end
