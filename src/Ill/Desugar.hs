@@ -1,6 +1,8 @@
 module Ill.Desugar where
 
 import Ill.Syntax hiding (Expression(..), ty)
+import Ill.Syntax.Core
+
 import qualified Ill.Syntax as S
 
 type Id = Name
@@ -15,44 +17,33 @@ type Id = Name
   to variables with the name of the contrsuctor.
 -}
 
-data Core n
-  = Lambda n (Core n)
-  | App (Core n) (Arg n)
-  | Case (Core n) [Alt n]
-  | Var Id
-  | Let (Bind n) (Core n)
-  | Type (Type Name)
-  | Lit Literal
-  deriving (Show)
-
-data Var
-  = TyVar { name :: Id, kind :: Kind }
-  | Id { name :: Id, ty :: Type Name }
-  deriving (Show)
-
-data Alt b
-  = ConAlt [b] (Core b)
-  | TrivialAlt (Core b)
-  deriving Show
-
-type Arg n = Core n
-type CoreExp = Core Var
-
-data Bind n
-  = NonRec n (Core n)
-  deriving (Show)
   -- | Rec
+
+declToCore :: [Decl TypedAnn] -> [Bind Var]
+declToCore ((a :< Value nm [([], exp)]) : ds) = (NonRec binder (toCore exp)) : declToCore ds
+  where
+  binder = Id { name = nm, ty = fromTyAnn a, usage = Used }
+declToCore (_ : ds) = declToCore ds
+declToCore [] = []
 
 toCore :: Expr TypedAnn -> CoreExp
 toCore (_ :< S.Var n) = Var n
+toCore (_ :< S.Constructor n) = Var n
 toCore (_ :< S.Case scrut alts) = Case (toCore scrut) (toAlts alts)
 toCore (_ :< S.Assign names exprs) = error "assignments must be desugared in blocks"
 toCore (_ :< S.Apply lam args) = foldl App (toCore lam) (map toCore args)
+toCore (_ :< S.BinOp op left right) = foldl App (desugarOperator op) [toCore left, toCore right]
+  where
+  desugarOperator (_ :< S.Var nm) = Var ("operator" ++ nm)
+toCore (_ :< S.If cond left right) = Case (toCore cond)
+  [ ConAlt "True" [] (toCore left)
+  , ConAlt "False" [] (toCore right)
+  ]
 toCore (_ :< S.Lambda bind exp) = let
   vars = map toVar bind
   in foldr Lambda (toCore exp) vars
   where
-  toVar (a :< S.PVar nm) = Id { name = nm, ty = fromTyAnn a }
+  toVar (a :< S.PVar nm) = Id { name = nm, ty = fromTyAnn a, usage = Used }
   isVarPat (_ :< S.PVar _) = True
   isVarPat _ = False
 toCore (_ :< S.Body exps) = toCore' exps
@@ -61,14 +52,19 @@ toCore (_ :< S.Body exps) = toCore' exps
   toCore' ((_ :< S.Assign _ _ ): []) = error "omg" -- i think? i dont like this :(
   toCore' ((_ :< S.Assign names exprs) : others) = let
     binders = map toBinder $ zip names exprs
-    toBinder (nm, expr) = NonRec (Id nm $ typeOf expr) (toCore expr)
+    toBinder (nm, expr) = NonRec (Id nm (typeOf expr) Used) (toCore expr)
     in foldr Let (toCore' others) binders
   toCore' [e] = toCore e
   toCore' (e:others) = toCore e `mkSeq` (toCore' others)
     where
     mkSeq a b = (App (App (Var "seq") a) b)
+toCore (_ :< S.Literal lit ) = Lit lit
 
 toAlts = map toAlt
 
 toAlt (a :< Wildcard, e) = TrivialAlt $ toCore e
--- toAlt (_ :< Destructor ps, exp) = ConAlt toCore exp
+toAlt (_ :< Destructor n ps, exp) = ConAlt n (map toVar ps) $ toCore exp
+  where
+  toVar (a :< Wildcard) = Id "" (fromTyAnn a) NotUsed
+  toVar (a :< PVar nm)  = Id nm (fromTyAnn a) Used
+  toVar a = error (show a)

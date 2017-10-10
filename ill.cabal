@@ -61,9 +61,11 @@ library
       Ill.Parser.Pattern
       Ill.Parser.Type
       Ill.Syntax
+      Ill.Syntax.Core
       Ill.Syntax.Expression
       Ill.Syntax.Kind
       Ill.Syntax.Literal
+      Ill.Syntax.Name
       Ill.Syntax.Pattern
       Ill.Syntax.Pretty
       Ill.Syntax.Type

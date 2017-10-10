@@ -23,6 +23,7 @@ import           Ill.Syntax.Literal as X
 import           Ill.Syntax.Pattern as X
 import           Ill.Syntax.Type as X
 import           Ill.Syntax.Kind as X
+import           Ill.Syntax.Name as X
 
 import           Control.Lens           (each, over, _2)
 import           Ill.Syntax.Pretty
@@ -35,8 +36,6 @@ import           Data.Bifunctor
 type Prefix = String
 
 type Qualified = Bool
-
-type Name = String
 
 type Alias = Maybe String
 
