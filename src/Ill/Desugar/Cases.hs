@@ -58,24 +58,21 @@ type MF  a = FreshT Identity a
 
 runFresh = runIdentity . flip evalStateT 0 . unFreshT
 
--- actually bind the binders
 simplifyPatterns :: Decl TypedAnn -> Decl TypedAnn
-simplifyPatterns v@(a :< Value n eqns) = runIdentity . flip evalStateT 0 . unFreshT $ do
+simplifyPatterns v@(a :< Value n eqns) = runFresh $ do
   let
     binders = enumFromTo 1 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
-    binderTy = init . unwrapFnType $ typeOf v
+    binderTy = init . unwrapFnType . snd . unconstrained $ typeOf v
     retTy = typeOf . snd $ head eqns
     failure = (undefined :< Var "failedPattern")
   matchResult <- match binders eqns
-  let exp = matchResult failure
-  exp' <- transformM simplifyCaseExpr exp
+  exp' <- transformM simplifyCaseExpr (matchResult failure)
+
   let eqn' = [([], mkAbs (zipWith (\p t -> mkTypedAnn t :< PVar p) binders binderTy) retTy exp')]
-
   return $ a :< Value n eqn'
-  where
-
-  mkAbs binders retTy val = mkTypedAnn retTy :< Lambda binders val
 simplifyPatterns v = v
+
+mkAbs binders retTy val = mkTypedAnn retTy :< Lambda binders val
 
 simplifyCaseExpr :: MonadFresh m => Expr TypedAnn -> m (Expr TypedAnn)
 simplifyCaseExpr e@(a :< Case s alts) = do
@@ -83,10 +80,12 @@ simplifyCaseExpr e@(a :< Case s alts) = do
   -- binder = head . unwrapFnType (typeOf e)
     eqns = alts & each . _1 %~ pure
     failure = (undefined :< Var "failedPattern")
-
+    caseTy = typeOf e
+    scrutTy = typeOf s
   (adjustments, binder) <- binderName s
   matchResult <- match [binder] eqns
-  return $ mkBody $ catMaybes [adjustments, Just $ matchResult failure]
+  return  $ mkBody $ catMaybes [adjustments, Just $ matchResult failure]
+
   where
   binderName (_ :< Var nm) = pure (Nothing, nm)
   binderName e = do
@@ -152,11 +151,11 @@ match vars eqns = do
   matchOneConsPat :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (Pat TypedAnn, MatchResult TypedAnn)
   matchOneConsPat vars group = do
     let
-      eqns' = map shiftCons group
+      eqns'         = map shiftCons group
       (a, c, args1) = fromPDest . head . fst $ head group
-      arg_tys  = map extract args1
-      toVarPat (ty :< Wildcard) _   = ty :< Wildcard
-      toVarPat (ty :< _) nm  = ty :< PVar nm
+      arg_tys       = map extract args1
+      toVarPat (ty :< Wildcard) _ = ty :< Wildcard
+      toVarPat (ty :< _) nm       = ty :< PVar nm
     arg_vars <- makeVarNames args1
     rhs <- match (arg_vars ++ vars) eqns'
 

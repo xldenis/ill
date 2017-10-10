@@ -147,17 +147,17 @@ withTraitInstance trait supers inst action = do
                   Just instances -> (inst, supers) : instances
                   Nothing        -> [(inst, supers)]
 
-  putEnv $ env { traitDictionaries = replace (trait, instDict) (traitDictionaries env) }
+  putEnv $ env { traitDictionaries = addInstanceToDict (trait, instDict) (traitDictionaries env) }
   a <- action
 
   modifyEnv (\env -> env { traitDictionaries = traitDictionaries env })
 
   return a
 
-replace :: (Name, [TraitInstance]) -> InstanceDict -> InstanceDict
-replace (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
-replace v (x : xs)            = x : replace v xs
-replace v []                  = [v]
+addInstanceToDict :: (Name, [TraitInstance]) -> InstanceDict -> InstanceDict
+addInstanceToDict (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
+addInstanceToDict v (x : xs)            = x : addInstanceToDict v xs
+addInstanceToDict v []                  = [v]
 
 addTraitInstance :: Name -> [Constraint Name] -> [Type Name] -> Check ()
 addTraitInstance trait supers inst = do
@@ -167,11 +167,4 @@ addTraitInstance trait supers inst = do
                   Just instances -> (inst, supers) : instances
                   Nothing        -> [(inst, supers)]
 
-  putEnv $ env { traitDictionaries = replace (trait, instDict) (traitDictionaries env) }
-
-  where
-
-  replace (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
-  replace v (x : xs)            = x : replace v xs
-  replace v []                  = [v]
-
+  putEnv $ env { traitDictionaries = addInstanceToDict (trait, instDict) (traitDictionaries env) }

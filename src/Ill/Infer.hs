@@ -48,7 +48,7 @@ typeCheck bgs = mapM go bgs
           return $ explicit ++ implicit
 
     values <- forM (appSubs v') $ \(ann :< v) -> do
-      let t = varIfUnknown $ fromType (ty ann)
+      let t = fromTyAnn ann
 
       t' <- flattenConstraints <$> simplify' t
 
@@ -62,9 +62,6 @@ typeCheck bgs = mapM go bgs
     valueName (Value n _) = n
 
     appSubs (ts, sub) = map (nestedFmap (\a -> a { ty = fmapTy (\v -> varIfUnknown $ sub $? v) (ty a) })) ts
-
-    fmapTy f (Type t) = Type (f t)
-    fmapTy f t        = t
 
     simplify' (Constrained cons t) = do
       cons' <- reduce cons
@@ -128,7 +125,7 @@ typeCheck bgs = mapM go bgs
         signatures = map (uncurry Signature) sigTys
         annotated  = map (\sig -> emptySpan :< sig) signatures
 
-    (vals', _) <- liftUnify $ do
+    vals' <- liftUnify $ do
       (ut, et, dict, untypedDict) <- typeDictionary (annotated ++ ds)
 
       when (not (null ut) || not (null untypedDict)) $ internalError "there are implicitly typed members to trait impl"
@@ -136,14 +133,28 @@ typeCheck bgs = mapM go bgs
       withTraitInstance nm supers args $
         forM et $ \e -> uncurry checkBindingGroupEl e dict
 
+    values <- forM (appSubs vals') $ \(ann :< v) -> do
+      let t = varIfUnknown $ fromType (ty ann)
+
+      t' <- flattenConstraints <$> simplify' t
+
+      return $ (ann { ty = Type t' }) :< v
+
     addTraitInstance nm supers args
 
-    return . OtherBG $ TyAnn (pure a) None :< TraitImpl supers nm args (filter isValue vals')
+    return . OtherBG $ TyAnn (pure a) None :< TraitImpl supers nm args (filter isValue values)
 
     where
     traitName (Constrained _ t) = traitName t
     traitName (TAp f _)         = traitName f
     traitName (TConstructor c)  = c
+
+    appSubs (ts, sub) = map (nestedFmap (\a -> a { ty = fmapTy (\v -> varIfUnknown $ sub $? v) (ty a) })) ts
+
+    simplify' (Constrained cons t) = do
+      cons' <- reduce cons
+      return $ Constrained cons' t
+    simplify' t = return t
 
     emptySpan = SourceSpan (initialPos "") (initialPos "")
 

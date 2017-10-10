@@ -82,6 +82,7 @@ The rest of the desugaring proceeds as usual
 
 import           Control.Lens      hiding ((:<))
 import           Control.Monad.Reader
+import           Control.Comonad
 
 import           Data.Bifunctor
 import           Data.Foldable     (find, foldl', toList)
@@ -93,41 +94,47 @@ import           Ill.Desugar.Cases
 import           Ill.Infer.Entail  as E
 import           Ill.Infer.Monad
 import           Ill.Syntax
-
+import           Ill.Syntax.Pretty (pretty)
 {-
   1. Ensure Record is built in correct order
   2. Handle super classes and superclass accessors
-  3. InstanceNaming
+  3. Fix dictionary passing in dictionary definitions
 -}
 
 desugarTraits :: Environment -> [Decl TypedAnn] -> [Decl TypedAnn]
 desugarTraits env ds = fromDecl =<< ds
   where
   fromDecl (_ :< TraitDecl supers nm args members) = dataFromDecl supers nm args members
-  fromDecl (_ :< TraitImpl supers nm tys  members) = pure $ valFromInst supers nm tys members
+  fromDecl (_ :< TraitImpl supers nm tys  members) = runReaderT (valFromInst supers nm tys members) env
   fromDecl (a :< Value name eqns) = runReaderT (addDictsToVals a name eqns) env
   fromDecl x = pure x
 
-valFromInst :: [Constraint Name] -> Name -> [Type Name] -> [Decl TypedAnn] -> Decl TypedAnn
-valFromInst supers nm tys decls = let
-  members  = map simplifyPatterns decls
-  tyCon    = SynAnn tyConTy :< Constructor ("Mk" <> nm)
-  instNm   = instanceName (nm, tys)
-  memTys   = map typeOf members
-  tyConTy  = foldl tFn (mkDictType nm tys) memTys
-  applied  = dictTy :< Apply tyCon (map fromValue members)
-  dictTy   = mkAnn $ mkDictType nm tys
-  valTy    = mkAnn $ foldr tFn (mkDictType nm tys) superDicts
-  superDicts = map (uncurry mkDictType) supers
-  dictArgs = zipWith (\sup ix -> SynAnn sup :< PVar ("dict" ++ show ix) ) superDicts [1..length supers]
-  in valTy :< Value instNm [(dictArgs, applied)]
+valFromInst :: MonadReader Environment m => [Constraint Name] -> Name -> [Type Name] -> [Decl TypedAnn] -> m (Decl TypedAnn)
+valFromInst supers nm tys decls = do
+  let
+    tyCon    = SynAnn tyConTy :< Constructor ("Mk" <> nm)
+    tyConTy  = foldl tFn (mkDictType nm tys) (map typeOf decls)
+    instName = instanceName (nm, tys)
+    dictTy   = mkAnn $ mkDictType nm tys
+    applied  = dictTy :< Apply tyCon (map (fromValue . simplifyPatterns) decls)
+    valAnn    = mkAnn $ constrain supers (mkDictType nm tys)
+    superDicts = map (uncurry mkDictType) supers
+
+  addDictsToVals valAnn instName [([], applied)]
   where
+
+  valueName (_ :< Value nm _) = nm
+
+  valueEqns (_ :< Value _ eqns) = eqns
 
   fromValue (_ :< Value _ [([], e)]) = e
   fromValue _ = error "impossible non-value during trait decl desugaring"
 
 instanceName (nm, tys) = nm <> intercalate "_" (toList =<< tys)
 mkDictType nm args = foldl TAp (TConstructor nm) args
+
+constraintsToFn ty = let (cons, fTy) = unconstrained ty
+  in foldr1 tFn $ (map (uncurry mkDictType) cons) ++ unwrapFnType fTy
 
 dataFromDecl :: [Constraint Name] -> Name -> [Name] -> [Decl TypedAnn] -> [Decl TypedAnn]
 dataFromDecl superTraits name vars members = let
@@ -148,19 +155,20 @@ addDictsToVals :: MonadReader Environment m => TypedAnn -> Name -> [Eqn TypedAnn
 addDictsToVals ann nm eqns = do
   instanceDicts <- reader traitDictionaries
 
-  let (cons, fTy) = unconstrained (fromTyAnn ann)
-      fty' = foldr1 tFn $ (map (uncurry mkDictType) cons) ++ unwrapFnType fTy
-      instDictNames = instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, instanceName i)
-      localNameDict = zipWith (\cons ix -> (cons, "dict" ++ show ix)) cons [1..length cons]
-      localInstances = map (\(nm, tys) -> case nm `lookup` instanceDicts of
-        Just instances -> (nm, instances ++ [(tys, [])])
-        Nothing        -> error "how did you manage this?"
-        ) cons
-      id = foldr replace instanceDicts localInstances
-      env' = \env -> env { traitDictionaries = id }
-      dictPats = map (\(cons, nm) -> SynAnn (uncurry mkDictType cons) :< PVar nm) localNameDict
-      nameDict = instDictNames ++ localNameDict
-  local env' $ do
+  let
+    (memberConstraints, memberTy) = unconstrained (fromTyAnn ann)
+    fty' = constraintsToFn (fromTyAnn ann)
+    instDictNames = instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, instanceName i)
+    localNameDict = zipWith (\cons ix -> (cons, "dict" ++ show ix)) memberConstraints [1..]
+    localInstances = map (\(nm, tys) -> case nm `lookup` instanceDicts of
+      Just instances -> (nm, instances ++ [(tys, [])])
+      Nothing        -> error "how did you manage this?"
+      ) memberConstraints
+    instanceDict = foldr addInstanceToDict instanceDicts localInstances
+    dictPats = map (\(cons, nm) -> SynAnn (uncurry mkDictType cons) :< PVar nm) localNameDict
+    nameDict = instDictNames ++ localNameDict
+
+  local (\env -> env { traitDictionaries = instanceDict }) $ do
     eqns' <- addDictsToEqns nameDict eqns
     return $ ann { ty = Type fty' } :< Value nm (addPatsToEqns dictPats $ eqns')
   where
@@ -188,7 +196,9 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
   mkDictVal id ty = case findInst ty id dicts of
       Just (dict, [])   -> SynAnn tNil :< Var dict
       Just (dict, cons) -> SynAnn tNil :< Apply (SynAnn tNil :< Var dict) (map (mkDictVal id) cons)
-      Nothing -> error $ "couldnt find a dict for " ++ show ty ++ show id
+      Nothing -> error $ "couldnt find a dict for "
+        ++ show (pretty ty)
+        ++ show (pretty id)
         ++ show (findInst ty id dicts)
 replaceTraitMethods _ x = pure x
 
