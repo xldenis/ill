@@ -53,6 +53,7 @@ library
       Ill.Infer.Kind
       Ill.Infer.Monad
       Ill.Infer.Types
+      Ill.Interpret
       Ill.Parser
       Ill.Parser.Declaration
       Ill.Parser.Expression
@@ -115,6 +116,7 @@ test-suite ill-test
   other-modules:
       Ill.CoreSpec
       Ill.InferSpec
+      Ill.InterpSpec
       Ill.Parser.ExpressionSpec
       Ill.Parser.PatternSpec
       Ill.Parser.TypeSpec

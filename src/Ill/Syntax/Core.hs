@@ -16,7 +16,7 @@ data Core n
   | Let (Bind n) (Core n)
   | Type (Type Name)
   | Lit Literal
-  deriving (Show)
+  deriving (Show, Eq)
 
 instance Pretty b => Pretty (Core b) where
   pretty (Lambda binder exp) = nest 2 $ pretty "\\" <> pretty binder <+> pretty "->" <> softline <> pretty exp
@@ -49,22 +49,22 @@ instance Pretty Var where
 data Var
   = TyVar { name :: Id, kind :: Kind }
   | Id { name :: Id, ty :: Type Name, usage :: Usage }
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Usage
   = NotUsed
   | Used
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Alt b
   = ConAlt Id [b] (Core b)
   | TrivialAlt (Core b)
-  deriving Show
+  deriving (Show, Eq)
 
 type Arg n = Core n
 type CoreExp = Core Var
 
 data Bind n
   = NonRec n (Core n)
-  deriving (Show)
+  deriving (Show, Eq)
 
