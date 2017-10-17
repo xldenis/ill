@@ -1,9 +1,16 @@
-module Ill.Desugar where
+module Ill.Desugar
+( module Ill.Desugar
+, module X
+) where
 
 import Ill.Syntax hiding (Expression(..), ty)
 import Ill.Syntax.Core
 
 import qualified Ill.Syntax as S
+
+import Ill.Desugar.Trait as X
+import Ill.Desugar.Cases as X
+import Ill.Desugar.BinOp as X
 
 type Id = Name
 
@@ -32,9 +39,8 @@ toCore (_ :< S.Constructor n) = Var n
 toCore (_ :< S.Case scrut alts) = Case (toCore scrut) (toAlts alts)
 toCore (_ :< S.Assign names exprs) = error "assignments must be desugared in blocks"
 toCore (_ :< S.Apply lam args) = foldl App (toCore lam) (map toCore args)
-toCore (_ :< S.BinOp op left right) = foldl App (desugarOperator op) [toCore left, toCore right]
-  where
-  desugarOperator (_ :< S.Var nm) = Var ("operator" ++ nm)
+toCore (_ :< S.BinOp op left right) = error "binops should have been desugared to assigns"
+
 toCore (_ :< S.If cond left right) = Case (toCore cond)
   [ ConAlt "True" [] (toCore left)
   , ConAlt "False" [] (toCore right)

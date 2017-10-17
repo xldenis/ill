@@ -41,8 +41,8 @@ runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap 
 unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
 
 stageToPipeline :: String -> (Environment -> [Decl TypedAnn] -> [Decl TypedAnn])
-stageToPipeline "traits" e = desugarTraits e
-stageToPipeline "cases"  e = desugarTraits e >=> pure . simplifyPatterns
+stageToPipeline "traits" e = desugarBinOps . desugarTraits e
+stageToPipeline "cases"  e = (desugarTraits e . desugarBinOps) >=> pure . simplifyPatterns
 stageToPipeline _ _ = id
 
 prettyType a = renderIll defaultRenderArgs (pretty $ a)

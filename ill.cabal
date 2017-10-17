@@ -44,6 +44,7 @@ library
       Control.Monad.Unify
       Ill.BindingGroup
       Ill.Desugar
+      Ill.Desugar.BinOp
       Ill.Desugar.Cases
       Ill.Desugar.Trait
       Ill.Error
