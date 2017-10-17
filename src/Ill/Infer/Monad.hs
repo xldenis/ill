@@ -14,13 +14,20 @@ import           Control.Monad.Unify
 data Environment = Environment
   { names             :: [(Name, Type Name)]
   , types             :: [(Name, Kind)]
-  , constructors      :: [(Name, (Name, Type Name, [Name]))]
+  , constructors      :: [(Name, ConstructorEntry)]
   , traits            :: TraitDict
   , traitDictionaries :: InstanceDict
   } deriving (Show, Eq)
 
 type TraitDict = [(Name, TraitEntry)]
--- type TraitEntry = ([Constraint Name], [Name], [(Name, Type Name)])
+
+data ConstructorEntry = ConstructorEntry
+  { consName :: Name
+  , consType :: Type Name
+  , consTyVars :: [Name]
+  , consArity :: Int
+  } deriving (Show, Eq)
+
 data TraitEntry = TraitEntry
   { superTraits :: [Constraint Name]
   , traitVars :: [Name]
@@ -87,7 +94,7 @@ lookupVariable name = do
     Nothing -> throwError $ UndefinedVariable name
     Just a  -> return a
 
-lookupConstructor :: (MonadError MultiError m, MonadState CheckState m) => Name -> m (Name, Type Name, [Name])
+lookupConstructor :: (MonadError MultiError m, MonadState CheckState m) => Name -> m ConstructorEntry
 lookupConstructor name = do
   env <- getEnv
   case lookup name (constructors env) of

@@ -174,12 +174,13 @@ addDataType name args dctors ctorKind = do
   forM_ dctors $ uncurry (addDataConstructor name args)
 
 addDataConstructor :: Name -> [Name] -> Name -> [Type Name] -> Check ()
-addDataConstructor name args dctor tys = do
+addDataConstructor tyCons args dataCons tys = do
   env <- env <$> get
-  let retTy = foldl TAp (TConstructor name) (map TVar args)
-      consTy = foldr tFn retTy tys
+  let retTy = foldl TAp (TConstructor tyCons) (map TVar args)
+      dataConsTy = foldr tFn retTy tys
       fields = args
-  putEnv $ env { constructors = (dctor, (name, consTy, fields)) : constructors env}
+      consEntry = ConstructorEntry tyCons dataConsTy fields (length tys)
+  putEnv $ env { constructors = (dataCons, consEntry) : constructors env}
   return ()
 
 type TypedDict   = [(Name, Type Name)]

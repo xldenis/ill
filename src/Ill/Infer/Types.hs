@@ -87,7 +87,7 @@ infer (a :< Var nm) = do
 
   return $ Ann a ty' :< Var nm
 infer (a :< Constructor nm) = do
-  (_, ty, args) <- lookupConstructor nm
+  ConstructorEntry { consType = ty, consTyVars = args } <- lookupConstructor nm
 
   subs <- mapM (\a -> (,) <$> pure a <*> fresh) args
 
@@ -110,7 +110,7 @@ check expected (a :< Var nm) = do
   cons <- ty `constrainedUnification` expected
   return $ Ann a (constrain cons ty) :< Var nm
 check expected (a :< Constructor nm) = do
-  (_, ty, args) <- lookupConstructor nm
+  ConstructorEntry { consType = ty, consTyVars = args } <- lookupConstructor nm
 
   subs <- mapM (\a -> (,) <$> pure a <*> fresh) args
 
@@ -214,7 +214,7 @@ inferPat ty (a :< PVar n) = do
   ty =?= f
   return ([(n, f)], Ann a f :< PVar n)
 inferPat ty (a :< Destructor n pats) = do
-  (_, t, _) <- lookupConstructor n
+  ConstructorEntry { consType = t } <- lookupConstructor n
   freshened <- freshenFunction t
   (dict, subPats) <- go pats freshened
 
