@@ -17,6 +17,7 @@ desugarDecl a = a
 operatorDesugarTable =
   [ ("+", "plus")
   , ("-", "minus")
+  , (">", "gt")
   ]
 
 desugarExpr (binAnn :< BinOp (v :< Var nm) a b) = case nm `lookup` operatorDesugarTable of

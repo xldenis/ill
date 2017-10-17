@@ -23,10 +23,23 @@ type IVal = (Id, [CoreExp]) -- an evalutated constructor value
 
 primops =
   [ ("plusInt", (2, plus))
+  , ("gtInt",   (2, gt))
   ]
   where
-  plus [Lit (Integer n), Lit (Integer m)] = Lit . Integer $ n + m
-  plus [a, b] = error $ show a ++ show b
+  plus = liftToCore (\a b -> Lit . Integer $ a + b)
+  gt = liftToCore $ \a b -> case a > b of
+      True -> Var "True"
+      False -> Var "False"
+
+  liftToCore f [Lit (Integer n), Lit (Integer m)] = f n m
+  liftToCore f [a, b] = error $ show a ++ show b
+
+{-
+  Partially functioning interpreter
+
+  Requires either a lambda lifting pass or support for closures (or subsitution)
+-}
+
 interpret :: MonadInterpret m => CoreExp -> m CoreExp -- ???
 interpret l@(Lambda bind exp) = pure l
 interpret a@(App _ _) = do -- travel down spine until function is found
@@ -38,8 +51,15 @@ interpret a@(App _ _) = do -- travel down spine until function is found
 
   go r [] = pure r
   go (Lambda b exp) (arg : args) = do
-    reduced <- withBoundName (NonRec b arg) $ interpret exp
-    go reduced args
+    withBoundName (NonRec b arg) $ do
+      e' <- interpret exp
+      go e' args
+  go (Var "seq") args = do
+    when (length args < 2) $ throwError "seq can't be partially applied"
+    let ([a, b], remainder) = splitAt 2 args
+    interpret a
+    res <- interpret b
+    go res remainder
   go (Var var) args = do
     cons <- gets constructors
     case var `lookup` cons of
@@ -48,6 +68,7 @@ interpret a@(App _ _) = do -- travel down spine until function is found
         Just (arity, f) | length args >= arity -> do
           let (consArgs, remainder) = splitAt arity args
           interpretedArgs <- mapM interpret consArgs
+
           go (f interpretedArgs) remainder
       Just (arity) | length args >= arity -> do
         nameIx <- gets (length . allocated)
@@ -57,7 +78,7 @@ interpret a@(App _ _) = do -- travel down spine until function is found
         modify $ \ctxt -> ctxt { allocated = newValue  : allocated ctxt }
 
         go (Var $ "allocated" ++ show nameIx) remainder
-  go _ xs = throwError "somehow leftover args?"
+  go _ xs = throwError $ "somehow leftover args? " ++ show xs ++ show (a)
 
   unwindAppSpine (App f a) exps = unwindAppSpine f (a : exps)
   unwindAppSpine a exps         = (a, exps)

@@ -1,0 +1,118 @@
+module ComplexRun
+  trait Eq a
+    eq  :: a -> a -> Bool
+  end
+
+  trait Show a
+    show :: a -> String
+  end
+
+  trait Functor f
+    fmap :: (a -> b) -> f a -> f b
+  end
+
+  trait Semigroup a
+    plus :: a -> a -> a
+  end
+
+  trait Eq a | Ord a
+    # compare :: a -> a -> Bool
+
+    lt :: a -> a -> Bool
+    gt :: a -> a -> Bool
+
+    leq :: a -> a -> Bool
+    geq :: a -> a -> Bool
+
+    max :: a -> a -> a
+    min :: a -> a -> a
+  end
+
+  data Maybe a = Just a | Nothing
+
+  data List  a = Cons a (List a) | Nil
+
+  data Tuple a b = T a b
+
+  data Bool = True | False
+
+  impl Eq Int
+    fn eq()
+      eqInt # primitive function
+    end
+  end
+
+  impl Ord Int
+    fn lt () ltInt end
+    fn gt () gtInt end
+    fn leq () leqInt end
+    fn geq () geqInt end
+    fn max () maxInt end
+    fn min () minInt end
+  end
+
+  impl Semigroup Int
+    fn plus(a, b)
+      plusInt(a, b) # primitive function
+    end
+  end
+
+  impl Semigroup (Maybe a)
+    fn plus(Just a, b)
+      Just(a)
+    or plus(Nothing, b)
+      b
+    end
+  end
+
+  impl Eq Bool
+    fn eq(True, True)
+      True
+    or eq(False, False)
+      True
+    or eq(a, b)
+      False
+    end
+  end
+
+  impl Functor List
+    fn fmap(f, Cons x xs)
+      Cons(f(x), fmap(f, xs))
+    or fmap(f, Nil)
+      Nil
+    end
+  end
+
+  impl Show a | Show (List a)
+    fn show(Cons el ls)
+      show(el)
+      show(ls)
+    or show(Nil)
+      ''
+    end
+  end
+
+  impl Show Int
+    fn show(a)
+      '1'
+    end
+  end
+
+  fn build_list(int)
+    case int > 0 of
+      when False: Nil
+      when True: Cons(int, build_list(int - 1))
+    end
+  end
+
+  fn main ()
+    summed_maybe = Just(5) + Nothing
+
+    list = case summed_maybe of
+      when Just x: Cons(5, Nil)
+      when Nothing: Cons(5, Nil)
+    end
+
+    show(list)
+  end
+end
