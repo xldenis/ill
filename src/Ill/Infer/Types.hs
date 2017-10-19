@@ -11,15 +11,14 @@ import           Data.List
 import           Data.Maybe
 import           Ill.Error
 import           Ill.Parser.Lexer    (SourceSpan (..))
-import Data.Bifunctor
+import           Data.Bifunctor
 
 infer :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
-infer (a :< Apply l args) = do
+infer omg@(a :< Apply l args) = do
   f' <- infer l
 
   args' <- mapM infer args
   retTy <- fresh
-
   constraints <- typeOf f' `constrainedUnification` flattenConstraints (foldr tFn retTy (map typeOf args'))
   let retTy' = constrain constraints retTy
 
@@ -160,6 +159,7 @@ instance Partial (Type a) where
   unknowns (Arrow l r)       = unknowns l ++ unknowns r
   unknowns (Constrained ts t) = concatMap unknowns' ts ++ unknowns t
     where unknowns' (nm, ts) = concatMap unknowns ts
+  unknowns (TUnknown u)      = [u]
   unknowns _                 = []
 
   ($?) sub (TAp l r)         = TAp (sub $? l) (sub $? r)
