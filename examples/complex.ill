@@ -111,27 +111,23 @@ module ComplexRun
   end
 
   impl Show a | Show (List a)
-    fn show(Cons el Nil)
-      show(el)
-    or show(Cons el ls)
-      show(el) + ',' + show(ls)
-    or show(Nil)
-      ''
+    fn show(list)
+      y = fn (f) =
+        x = f(x)
+        x
+      end
+
+      go = fn (next, x) =
+        case x of
+          when Cons el ls: case ls of
+            when Nil: show(el)
+            when ls: (show(el) + ',') + next(ls)
+          end
+        end
+      end
+
+      '[' + y(go, list) + ']'
     end
-
-    # doesnt work until y-combinator typechecking bug is fixed
-    # fn show(list)
-    #   go = fn (x) =
-    #     case x of
-    #       when Cons el ls: case ls of
-    #         when Nil: show(el)
-    #         when ls: (show(el) + ',') + go(ls)
-    #       end
-    #     end
-    #   end
-
-    #   '[' + go(list) + ']'
-    # end
   end
 
   impl Show Int
@@ -166,7 +162,6 @@ module ComplexRun
       when Just x: build_list(x)
       when Nothing: Nil
     end
-
     show(fmap(fn (x) = x + 10 end, list) + list)
   end
 end

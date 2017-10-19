@@ -11,11 +11,12 @@ import           Ill.Syntax.Literal
 import           Ill.Syntax.Name
 import           Ill.Syntax.Type
 import           Ill.Syntax.Pretty (pretty)
+
 type MonadInterpret m = (MonadState Context m, MonadError String m)
 
 data Context = Context
   { boundNames   :: [(Id, CoreExp)]
-  , constructors :: [(Id, (Int))] -- cons name, arity, type
+  , constructors :: [(Id, Int)] -- cons name, arity
   , allocated    :: [(Id, IVal)]
   } deriving (Show)
 
@@ -69,7 +70,8 @@ interpret a@(App _ _) = do -- travel down spine until function is found
     cons <- gets constructors
     case var `lookup` cons of
       Nothing -> case var `lookup` primops of
-        Nothing -> throwError $ "could not find the name: " ++ var
+        Nothing -> do
+          throwError $ "could not find the name: " ++ var ++ (show $ pretty a)
         Just (arity, f) | length args >= arity -> do
           let (consArgs, remainder) = splitAt arity args
           interpretedArgs <- mapM interpret consArgs
@@ -113,20 +115,18 @@ interpret v@(Var id) = do
   case id `lookup` names of
     Just x  -> interpret x
     Nothing -> pure v
-interpret (Let bind exp) = interpret $ substitute (bindToSubst bind) exp
+interpret a@(Let bind exp) = do
+  bindings <- gets boundNames
+  let newName = "boundName" ++ show (length bindings)
+      NonRec n val = bind
+      val' = substitute (name n, Var newName) val
+  modify $ \ctxt -> ctxt { boundNames = (newName, val') : (boundNames ctxt) }
+
+  interpret $ substitute (name n, val') exp
+
   where bindToSubst (NonRec n exp) = (name n, exp)
 interpret t@(Type ty) = pure t
 interpret l@(Lit lit) = pure l
 
 substBoundName :: MonadInterpret m => Bind Var -> CoreExp -> m CoreExp
 substBoundName (NonRec n arg) exp = interpret $ substitute (name n, arg) exp
-
-withBoundName :: MonadInterpret m => Bind Var -> (m CoreExp) -> m CoreExp
-withBoundName (NonRec n exp) f = do
-  exp' <- interpret exp
-  names <- gets boundNames
-  when (usage n == Used) $ modify $ \ctxt -> ctxt { boundNames =  (name n, exp') : boundNames ctxt }
-  res <- f
-  modify $ \ctxt -> ctxt { boundNames = names }
-  pure res
-

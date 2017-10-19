@@ -14,7 +14,7 @@ import           Ill.Parser.Lexer    (SourceSpan (..))
 import           Data.Bifunctor
 
 infer :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
-infer omg@(a :< Apply l args) = do
+infer (a :< Apply l args) = do
   f' <- infer l
 
   args' <- mapM infer args

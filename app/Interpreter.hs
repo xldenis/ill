@@ -19,6 +19,8 @@ import Data.List
 
 import Prelude hiding (putStrLn, putStr)
 import Data.Text.Lazy.IO
+import Data.Text.Lazy (pack)
+
 
 runInterpreter mod = do
   case runTC mod of
@@ -33,7 +35,7 @@ runInterpreter mod = do
             Nothing -> error "no main function is defined!"
       case runExcept . (flip evalStateT context) $ interpret mainExpr of
         Right result -> putStrLn $ renderIll' (pretty result)
-        Left  error  -> print $ "intrepretation error: " ++ error
+        Left  error  -> putStrLn . pack$ "intrepretation error: " ++ error
 
 runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 
