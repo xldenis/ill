@@ -33,6 +33,8 @@ type RawDecl = Decl SourceSpan
 {-
   1. kind checking not implemented
   2. error messages suuuuuck
+  3. Fail assign terminated blocks during type checking
+  4. Capture avoidance during typechecking!
 -}
 
 typeCheck :: [BindingGroup SourceSpan] -> Check [BindingGroup TypedAnn]
@@ -159,29 +161,6 @@ typeCheck bgs = mapM go bgs
     emptySpan = SourceSpan (initialPos "") (initialPos "")
 
   go (OtherBG _)                 = throwError $ NotImplementedError "oops"
-
-addValue :: Ident -> Type Name -> Check ()
-addValue name ty = do
-  env <- env <$> get
-  let env' = env { names = (name, ty) : names env  }
-  modify $ \s -> s { env = env' }
-
-addDataType :: Name -> [Name] -> [(Name, [Type Name])] -> Kind -> Check ()
-addDataType name args dctors ctorKind = do
-  env <- env <$> get
-  let value = ctorKind
-  let env' = env { types = (name, ctorKind) : types env }
-  forM_ dctors $ uncurry (addDataConstructor name args)
-
-addDataConstructor :: Name -> [Name] -> Name -> [Type Name] -> Check ()
-addDataConstructor tyCons args dataCons tys = do
-  env <- env <$> get
-  let retTy = foldl TAp (TConstructor tyCons) (map TVar args)
-      dataConsTy = foldr tFn retTy tys
-      fields = args
-      consEntry = ConstructorEntry tyCons dataConsTy fields (length tys)
-  putEnv $ env { constructors = (dataCons, consEntry) : constructors env}
-  return ()
 
 type TypedDict   = [(Name, Type Name)]
 type UntypedDict = [(Name, Type Name)]

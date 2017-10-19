@@ -57,6 +57,8 @@ defaultCheckEnv = CheckState (Environment
   , ("geqInt",   tInteger `tFn` (tInteger `tFn` tBool))
   , ("maxInt",   tInteger `tFn` (tInteger `tFn` tInteger))
   , ("minInt",   tInteger `tFn` (tInteger `tFn` tInteger))
+  , ("plusStr",  tString `tFn` (tString `tFn` tString))
+  , ("showInt", tInteger `tFn` tString)
   , ("<", constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "Bool"))
   , (">", constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "Bool"))
   , ("+", constrain [("Semigroup", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
@@ -175,3 +177,28 @@ addTraitInstance trait supers inst = do
                   Nothing        -> [(inst, supers)]
 
   putEnv $ env { traitDictionaries = addInstanceToDict (trait, instDict) (traitDictionaries env) }
+
+addValue :: Name -> Type Name -> Check ()
+addValue name ty = do
+  env <- env <$> get
+  let env' = env { names = (name, ty) : names env  }
+  modify $ \s -> s { env = env' }
+
+addDataType :: Name -> [Name] -> [(Name, [Type Name])] -> Kind -> Check ()
+addDataType name args dctors ctorKind = do
+  env <- env <$> get
+  let value = ctorKind
+  let env' = env { types = (name, ctorKind) : types env }
+  modify $ \s -> s { env = env' }
+
+  forM_ dctors $ uncurry (addDataConstructor name args)
+
+addDataConstructor :: Name -> [Name] -> Name -> [Type Name] -> Check ()
+addDataConstructor tyCons args dataCons tys = do
+  env <- env <$> get
+  let retTy = foldl TAp (TConstructor tyCons) (map TVar args)
+      dataConsTy = foldr tFn retTy tys
+      fields = args
+      consEntry = ConstructorEntry tyCons dataConsTy fields (length tys)
+  putEnv $ env { constructors = (dataCons, consEntry) : constructors env}
+  return ()

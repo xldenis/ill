@@ -83,7 +83,6 @@ infer (TAp f a) = do
   fK  <- infer f
   aK  <- infer a
 
-  -- throwError $ show f ++ show fK ++ " / " ++ show aK
   fK =?= KFn aK res
 
   return res
@@ -91,7 +90,12 @@ infer (TAp f a) = do
 infer (TConstructor n) =
   lookupTypeVariable n
 
--- infer (Arrow f a) -- should probs desugar to ap before typechecking
--- infer (Trait n t)
--- infer (Constraint ts t)
--- infer (TUnknown u)
+infer (Arrow a b) = do -- (->) :: * -> * -> * => a -> b <=> a :: *, b *
+  res <- fresh
+
+  aK <- infer a
+  bK <- infer b
+
+  aK =?= Star
+  bK =?= Star
+  return Star
