@@ -15,6 +15,17 @@ module ComplexRun
     plus :: a -> a -> a
   end
 
+  trait Semigroup a | Monoid a
+    zero :: a
+  end
+
+  trait Monoid a | Group a
+    # Obeys the laws:
+    # a - a = zero
+    # (zero - a) + a = zero
+    minus :: a -> a -> a
+  end
+
   trait Eq a | Ord a
     # compare :: a -> a -> Bool
 
@@ -57,11 +68,27 @@ module ComplexRun
     end
   end
 
+  impl Semigroup String
+    fn plus(a, b)
+      plusStr(a, b) # primitive function
+    end
+  end
+
   impl Semigroup (Maybe a)
     fn plus(Just a, b)
       Just(a)
     or plus(Nothing, b)
       b
+    end
+  end
+
+  impl Semigroup (List a)
+    fn plus(Nil, x)
+      x
+    or plus(Cons x ls, Nil)
+      Cons(x, ls)
+    or plus(Cons x ls, ys)
+      Cons(x, plus(ls, ys))
     end
   end
 
@@ -84,17 +111,44 @@ module ComplexRun
   end
 
   impl Show a | Show (List a)
-    fn show(Cons el ls)
+    fn show(Cons el Nil)
       show(el)
-      show(ls)
+    or show(Cons el ls)
+      show(el) + ',' + show(ls)
     or show(Nil)
       ''
     end
+
+    # doesnt work until y-combinator typechecking bug is fixed
+    # fn show(list)
+    #   go = fn (x) =
+    #     case x of
+    #       when Cons el ls: case ls of
+    #         when Nil: show(el)
+    #         when ls: (show(el) + ',') + go(ls)
+    #       end
+    #     end
+    #   end
+
+    #   '[' + go(list) + ']'
+    # end
   end
 
   impl Show Int
     fn show(a)
-      '1'
+      showInt(a)
+    end
+  end
+
+  impl Monoid Int
+    fn zero ()
+      0
+    end
+  end
+
+  impl Group Int
+    fn minus()
+      minusInt
     end
   end
 
@@ -109,10 +163,10 @@ module ComplexRun
     summed_maybe = Just(5) + Nothing
 
     list = case summed_maybe of
-      when Just x: Cons(5, Nil)
-      when Nothing: Cons(5, Nil)
+      when Just x: build_list(x)
+      when Nothing: Nil
     end
 
-    show(list)
+    show(fmap(fn (x) = x + 10 end, list) + list)
   end
 end

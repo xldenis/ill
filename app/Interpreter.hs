@@ -32,7 +32,7 @@ runInterpreter mod = do
             Just (NonRec _ mainExpr) -> mainExpr
             Nothing -> error "no main function is defined!"
       case runExcept . (flip evalStateT context) $ interpret mainExpr of
-        Right result -> print $ renderIll' (pretty result)
+        Right result -> putStrLn $ renderIll' (pretty result)
         Left  error  -> print $ "intrepretation error: " ++ error
 
 runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
