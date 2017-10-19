@@ -74,8 +74,8 @@ module TC17
   end
 
   impl Ord Int
-    fn le () leInt end
-    fn ge () geInt end
+    fn le () ltInt end
+    fn ge () gtInt end
     fn leq () leqInt end
     fn geq () geqInt end
     fn max () maxInt end

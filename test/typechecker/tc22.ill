@@ -1,0 +1,7 @@
+module MutuallyRecursiveData
+  data A a = A (B a)
+  data B b = B (A b)
+
+  data Bool = True
+  data C = C (A Bool)
+end
