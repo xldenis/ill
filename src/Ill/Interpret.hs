@@ -10,7 +10,7 @@ import           Data.Function
 import           Ill.Syntax.Literal
 import           Ill.Syntax.Name
 import           Ill.Syntax.Type
-
+import           Ill.Syntax.Pretty (pretty)
 type MonadInterpret m = (MonadState Context m, MonadError String m)
 
 data Context = Context
@@ -23,10 +23,17 @@ type IVal = (Id, [CoreExp]) -- an evalutated constructor value
 
 primops =
   [ ("plusInt", (2, plus))
+  , ("minusInt", (2, minus))
   , ("gtInt",   (2, gt))
+  , ("plusStr", (2, plusStr))
+  , ("showInt", (1, showLit))
   ]
   where
+  plusStr [Lit (RawString a), Lit (RawString b)] = Lit . RawString $ a ++ b
+  showLit [Lit a] = Lit . RawString $ show $ pretty a
+
   plus = liftToCore (\a b -> Lit . Integer $ a + b)
+  minus = liftToCore (\a b -> Lit . Integer $ a - b)
   gt = liftToCore $ \a b -> case a > b of
       True -> Var "True"
       False -> Var "False"
@@ -36,8 +43,7 @@ primops =
 
 {-
   Partially functioning interpreter
-
-  Requires either a lambda lifting pass or support for closures (or subsitution)
+  recursive let bindings don't work :( use Y-combinator!
 -}
 
 interpret :: MonadInterpret m => CoreExp -> m CoreExp -- ???
@@ -51,9 +57,8 @@ interpret a@(App _ _) = do -- travel down spine until function is found
 
   go r [] = pure r
   go (Lambda b exp) (arg : args) = do
-    withBoundName (NonRec b arg) $ do
-      e' <- interpret exp
-      go e' args
+    e' <- interpret $ substitute (name b, arg) exp
+    go e' args
   go (Var "seq") args = do
     when (length args < 2) $ throwError "seq can't be partially applied"
     let ([a, b], remainder) = splitAt 2 args
@@ -86,7 +91,7 @@ interpret a@(App _ _) = do -- travel down spine until function is found
 interpret (Case scrut alts) = do
   scrut' <- interpret scrut
   selectAlt scrut' alts
---   -- omg pattern matching
+
   where
   selectAlt (Var nm) alts = do
     ctxt <- get
@@ -97,10 +102,10 @@ interpret (Case scrut alts) = do
         Nothing -> throwError $ "idk what to do during a var match: " ++ nm
 
   firstAlt nm _        (TrivialAlt exp : _) = interpret exp
-  firstAlt nm bindVals (ConAlt id binders exp : _) | nm == id = foldl
-    (\inner bind -> withBoundName bind inner)
-    (interpret exp)
-    (zipWith NonRec binders bindVals)
+  firstAlt nm bindVals (ConAlt id binders exp : _) | nm == id = interpret $ foldl
+    (\inner bind -> substitute bind inner )
+    exp
+    (zip (map name binders) bindVals)
   firstAlt nm bindVals (_ : xs) = firstAlt nm bindVals xs
   firstAlt nm _ [] = throwError $ "pattern match failed! " ++ show nm
 interpret v@(Var id) = do
@@ -108,10 +113,13 @@ interpret v@(Var id) = do
   case id `lookup` names of
     Just x  -> interpret x
     Nothing -> pure v
-interpret (Let bind exp) = withBoundName bind $ interpret exp
+interpret (Let bind exp) = interpret $ substitute (bindToSubst bind) exp
+  where bindToSubst (NonRec n exp) = (name n, exp)
 interpret t@(Type ty) = pure t
 interpret l@(Lit lit) = pure l
 
+substBoundName :: MonadInterpret m => Bind Var -> CoreExp -> m CoreExp
+substBoundName (NonRec n arg) exp = interpret $ substitute (name n, arg) exp
 
 withBoundName :: MonadInterpret m => Bind Var -> (m CoreExp) -> m CoreExp
 withBoundName (NonRec n exp) f = do

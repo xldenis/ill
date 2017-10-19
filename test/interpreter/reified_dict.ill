@@ -1,0 +1,42 @@
+module ReifiedDict
+  data Maybe a = Just a | Nothing
+
+  data String = String
+  data Show a = MkShow (a -> String)
+
+  fn show ()
+    fn (x3) =
+      case x3 of
+        when MkShow el : el
+      end
+    end
+  end
+
+  fn showMaybe_a ()
+    fn (x1) =
+      dict1 = x1
+      MkShow( fn (x2) =
+        case x2 of
+          when Just a : show(dict1)(a)
+          when Nothing : 'nothing'
+        end
+      end )
+    end
+  end
+
+  fn showInt ()
+    fn () =
+      MkShow(fn (x1) =
+        a = x1
+        '1'
+      end)
+    end
+  end
+
+  fn main ()
+    summed_maybe = Just(5)
+
+    show(showMaybe_a(showInt))(summed_maybe)
+  end
+
+end

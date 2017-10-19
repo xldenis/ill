@@ -29,7 +29,7 @@ type Id = Name
 declToCore :: [Decl TypedAnn] -> [Bind Var]
 declToCore ((a :< Value nm [([], exp)]) : ds) = (NonRec binder (toCore exp)) : declToCore ds
   where
-  binder = Id { name = nm, ty = fromTyAnn a, usage = Used }
+  binder = Id { varName = nm, ty = fromTyAnn a, usage = Used }
 declToCore (_ : ds) = declToCore ds
 declToCore [] = []
 
@@ -49,13 +49,13 @@ toCore (_ :< S.Lambda bind exp) = let
   vars = map toVar bind
   in foldr Lambda (toCore exp) vars
   where
-  toVar (a :< S.PVar nm) = Id { name = nm, ty = fromTyAnn a, usage = Used }
+  toVar (a :< S.PVar nm) = Id { varName = nm, ty = fromTyAnn a, usage = Used }
   isVarPat (_ :< S.PVar _) = True
   isVarPat _ = False
 toCore (_ :< S.Body exps) = toCore' exps
   where
   toCore' :: [Expr TypedAnn] -> CoreExp
-  toCore' ((_ :< S.Assign _ _ ): []) = error "omg" -- i think? i dont like this :(
+  toCore' ((_ :< a@(S.Assign _ _ )): []) = error (show a) -- i think? i dont like this :(
   toCore' ((_ :< S.Assign names exprs) : others) = let
     binders = map toBinder $ zip names exprs
     toBinder (nm, expr) = NonRec (Id nm (typeOf expr) Used) (toCore expr)

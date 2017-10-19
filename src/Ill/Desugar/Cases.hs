@@ -142,8 +142,9 @@ match vars eqns = do
       retTy = typeOf . snd . head $ head groups
       scrutTy = typeOf . head . fst . head $ head groups
     branches <- mapM (matchOneConsPat vars) groups
-
-    return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (updateEqn fail) branches)
+    -- a failure branch should be included allowing the variable branch to be inserted!
+    let failBranch = ((extract . fst $ head  branches) :< Wildcard, id)
+    return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (updateEqn fail) (branches ++ [failBranch]))
     where
 
     updateEqn f (pats, mr) = (pats, mr f)

@@ -18,6 +18,26 @@ data Core n
   | Lit Literal
   deriving (Show, Eq)
 
+substitute :: HasName n => (Id, Core n) -> Core n -> Core n
+substitute = go []
+  where
+  -- Are binders recursive ie: let a = a in a ?
+  -- go :: [Id] -> (Id, CoreExp) -> CoreExp -> CoreExp
+  go bound (nm, exp) (Var id)
+    | nm == id && not (nm `elem` bound) = exp
+
+  go bound subst     (Lambda n exp)     = Lambda n (go (name n : bound) subst exp)
+  go bound subst     (App exp arg)      = App (go bound subst exp) (go bound subst arg)
+  go bound subst     (Case scrut alts)  = Case (go bound subst scrut) (map goAlt alts)
+    where
+    goAlt (TrivialAlt exp)   = TrivialAlt (go bound subst exp)
+    goAlt (ConAlt id bs exp) = ConAlt id bs (go (map name bs ++ bound) subst exp)
+  go bound subst     (Let bind exp)     = Let (subBinder bind) (go (boundNames bind : bound) subst exp)
+    where
+    boundNames (NonRec n _)  = name n
+    subBinder (NonRec n exp) = NonRec n (go bound subst exp)
+  go _     _         x                  = x
+
 instance Pretty b => Pretty (Core b) where
   pretty (Lambda binder exp) = nest 2 $ pretty "\\" <> pretty binder <+> pretty "->" <> softline <> pretty exp
   pretty (App func arg)      = parensIf (needsParens func) (pretty func) <> parens (pretty arg)
@@ -42,13 +62,19 @@ instance Pretty n => Pretty (Bind n) where
   pretty (NonRec nm exp) = pretty nm <+> pretty "=" <+> pretty exp
 
 instance Pretty Var where
-  pretty (TyVar{ name = name}) = pretty name
-  pretty (Id{ name = name, usage = Used }) = pretty name
-  pretty (Id{ name = name, usage = NotUsed }) = pretty "_"
+  pretty (TyVar{ varName = name}) = pretty name
+  pretty (Id{ varName = name, usage = Used }) = pretty name
+  pretty (Id{ varName = name, usage = NotUsed }) = pretty "_"
+
+class HasName n where
+  name :: n -> Id
+
+instance HasName Var where
+  name = varName
 
 data Var
-  = TyVar { name :: Id, kind :: Kind }
-  | Id { name :: Id, ty :: Type Name, usage :: Usage }
+  = TyVar { varName :: Id, kind :: Kind }
+  | Id { varName :: Id, ty :: Type Name, usage :: Usage }
   deriving (Show, Eq)
 
 data Usage
