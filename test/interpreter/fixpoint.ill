@@ -1,0 +1,21 @@
+module FixPoint
+  data List a = Cons a (List a) | Nil
+  data Bool = True | False
+
+
+  fn ycom(f)
+    x = f(x)
+    x
+  end
+
+  fn main ()
+    lam = fn (next, x) =
+      case gtInt(x,0) of
+        when False: Nil
+        when True: Cons(x, next(x-1))
+      end
+    end
+
+    ycom(lam, 6)
+  end
+end

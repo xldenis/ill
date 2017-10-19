@@ -1,22 +1,18 @@
 module YCombinator
 
-  # ocom :: (a -> a) -> (a -> a)
-  fn ocom(f)
-    fn (x) = f(x(x)) end
-  end
+  # # ocom :: (a -> a) -> (a -> a)
+  # fn ocom(f)
+  #   fn (x) = f(x(x)) end
+  # end
 
-  # ycom :: (a -> a) -> a
-  fn ycom(f) =
-    ocom(f)(ocom(f))
-  end
+  # # ycom :: (a -> a) -> a
+  # fn ycom(f) =
+  #   ocom(f)(ocom(f))
+  # end
 
-  ycom2 :: (a -> a) -> a
+  # ycom2 :: (a -> a) -> a
   fn ycom2(f) # this definition doesn't terminate in typechecking
-    f(f(f(f)))
-    # (fn (x) =
-    #   f(x(x))
-    # end)(fn (x) =
-    #   f(x(x))
-    # end)
+   x = f(x)
+   x
   end
 end
