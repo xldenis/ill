@@ -20,7 +20,7 @@ nonBodyExpr :: Parser (Expr SourceSpan)
 nonBodyExpr = assign <|> fullExpr
 
 fullExpr :: Parser (Expr SourceSpan)
-fullExpr = makeExprParser (call <|> parens primExpr <|> primExpr) opTable
+fullExpr = makeExprParser (call <|> parens fullExpr <|> primExpr) opTable
   where primExpr = simpleExpr <|> consExpr
 
 consExpr :: Parser (Expr SourceSpan)

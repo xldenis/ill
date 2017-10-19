@@ -16,4 +16,4 @@ rawString :: Parser Literal
 rawString = RawString <$> str
   where str = squotes (many $ noneOf "'")
 
-literal = (try $ doubleLit) <|> integerLit <|> rawString
+literal = lexeme $ (try $ doubleLit) <|> integerLit <|> rawString
