@@ -156,7 +156,7 @@ module ComplexRun
   end
 
   fn main ()
-    summed_maybe = Just(5) + Nothing
+    summed_maybe = Just(50) + Nothing
 
     list = case summed_maybe of
       when Just x: build_list(x)

@@ -99,8 +99,8 @@ reduce constraints = do
   return $ simplify (traits env) (traitDictionaries env) hnfed
 
 
-idk :: [Constraint Name] -> [Constraint Name] -> Check () -- maybe [Constraint Name] ??
-idk assumed inferred = do
+checkSufficientConstraints :: [Constraint Name] -> [Constraint Name] -> Check () -- maybe [Constraint Name] ??
+checkSufficientConstraints assumed inferred = do
   inf' <- reduce inferred
   env <- getEnv
   let bad = filter (not . entails (traits env) (traitDictionaries env) assumed) inf'

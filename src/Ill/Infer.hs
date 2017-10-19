@@ -231,18 +231,18 @@ checkBindingGroupEl ty (a :< Value name els) dict = do
 
   minCons <- UnifyT . lift $ reduce (concat cons)
 
-  blargh constraints minCons
+  validateConstraints constraints minCons
 
   return $ Ann a ty :< Value name vals'
 
   where
 
-  blargh :: [Constraint Name] -> [Constraint Name] -> UnifyT (Type Name) Check ()
-  blargh given inferred = do
+  validateConstraints :: [Constraint Name] -> [Constraint Name] -> UnifyT (Type Name) Check ()
+  validateConstraints given inferred = do
     sub <- unifyCurrentSubstitution <$> UnifyT get
     let subbed = map (subCons sub) inferred
 
-    UnifyT . lift $ idk given subbed
+    UnifyT . lift $ checkSufficientConstraints given subbed
 
 
   subCons sub (n, tys) = (n, map (sub $?) tys)
