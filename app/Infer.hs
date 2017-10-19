@@ -31,7 +31,7 @@ infer m = let
 
 runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
 
-unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
+unCheck c = execCheck c
 
 printBG ((ValueBG ds):bgs) = printTypes ds >> printBG bgs
 printBG ((DataBG  ds):bgs) = printTypes ds >> printBG bgs

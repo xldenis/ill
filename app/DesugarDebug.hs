@@ -36,9 +36,7 @@ desugar stage ast = case runTC ast of
   where
   cliRenderArgs = defaultRenderArgs { width = 50}
 
-runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
-
-unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
+runTC (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 
 stageToPipeline :: String -> (Environment -> [Decl TypedAnn] -> [Decl TypedAnn])
 stageToPipeline "traits" e = desugarBinOps . desugarTraits e

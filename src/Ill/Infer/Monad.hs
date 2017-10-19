@@ -45,6 +45,9 @@ data CheckState = CheckState
 newtype Check a = Check { runCheck :: StateT CheckState (Except MultiError) a}
   deriving (Functor, Applicative, Monad, MonadError MultiError, MonadState CheckState)
 
+execCheck c = runExcept $ flip runStateT defaultCheckEnv $ (runCheck c)
+
+
 defaultCheckEnv = CheckState (Environment
   [ ("plusInt",  tInteger `tFn` (tInteger `tFn` tInteger))
   , ("minusInt", tInteger `tFn` (tInteger `tFn` tInteger))

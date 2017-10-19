@@ -37,7 +37,7 @@ runInterpreter mod = do
 
 runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 
-unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
+unCheck c = execCheck c
 
 prettyType a = renderIll defaultRenderArgs (pretty $ a)
 
