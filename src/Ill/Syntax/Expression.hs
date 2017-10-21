@@ -2,7 +2,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE TemplateHaskell   #-}
-
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Ill.Syntax.Expression where
 import           Control.Lens.TH
 
@@ -13,6 +14,10 @@ import           Ill.Syntax.Literal
 import           Ill.Syntax.Pattern
 
 import Data.Bifunctor
+import Data.Bifoldable
+import Data.Bitraversable
+
+import Control.Monad (join)
 
 data Expression p a
   = Apply a [a]
@@ -45,6 +50,27 @@ instance Bifunctor Expression where
   bimap l r (Literal a) = Literal a
   bimap l r (Body bs) = Body (map r bs)
   bimap l r (Array as) = Array (map r as)
+
+instance Bifoldable Expression where
+  bifoldMap l r (Case a brs) = (r a) `mappend` foldMap (bifoldMap (foldMap l) r) brs
+  bifoldMap l r val = bifoldMapDefault l r val
+
+instance Bitraversable Expression where
+  bitraverse l r (Case a brs) = Case <$> (r a) <*> traverse helper brs
+    where helper (pat, exp) = (,) <$> traverse l pat <*> (r exp)
+  bitraverse l r (Apply a as) = Apply <$> r a <*> (traverse r as)
+  bitraverse l r (BinOp o a b) = BinOp <$> (r o) <*> (r a) <*> (r b)
+  bitraverse l r (Assign s as) = Assign s <$> (traverse r as)
+  bitraverse l r (If c a b) = If <$> (r c) <*> (r a) <*> (r b)
+  bitraverse l r (Lambda ps b) = Lambda <$> (traverse (traverse l) ps) <*> (r b)
+  bitraverse l r (Var s) = pure $ Var s
+  bitraverse l r (Constructor s) = pure $ Constructor s
+  bitraverse l r (Literal a) = pure $ Literal a
+  bitraverse l r (Body bs) = Body <$> (traverse r bs)
+  bitraverse l r (Array as) = Array <$> (traverse r as)
+
+hoistBiCofree :: forall t m a g. (Traversable t, Monad m) => (forall x . t x -> m (g x)) -> Cofree t a -> m (Cofree g a)
+hoistBiCofree f (x :< y) = (x :<) <$> (f =<< hoistBiCofree f `traverse` y)
 
 instance Pretty (Expr a) where
   prettyList es = vsep $ (map pretty es)

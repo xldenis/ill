@@ -7,11 +7,14 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE InstanceSigs          #-}
 {-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 
 module Ill.Syntax
 ( module X
 , module Ill.Syntax
 , Cofree(..)
+, pretty
 ) where
 
 import           Control.Comonad.Cofree
@@ -28,10 +31,12 @@ import           Ill.Syntax.Name as X
 import           Control.Lens           (each, over, _2)
 import           Ill.Syntax.Pretty
 
-import           Text.Megaparsec (SourcePos)
+import           Text.Megaparsec (SourcePos(..), unPos)
 
 import           Data.List (intersperse, find)
 import           Data.Bifunctor
+import           Data.Bifoldable
+import           Data.Bitraversable
 
 type Prefix = String
 
@@ -49,7 +54,7 @@ data Declaration a b
   | Import Qualified Masks String Alias
   | TraitDecl [Constraint Name] Name [Name] [b]
   | TraitImpl [Constraint Name] Name [Type Name] [b]
-  deriving (Eq, Functor, Show)
+  deriving (Eq, Functor, Show, Traversable, Foldable)
 
 type Decl a = Cofree (Declaration a) a
 
@@ -72,10 +77,43 @@ instance Bifunctor Declaration where
   bimap l r (TraitDecl cs n nms bs) = TraitDecl cs n nms (map r bs)
   bimap l r (TraitImpl cs n tys bs) = TraitImpl cs n tys (map r bs)
 
+-- should figure out a way to do bifoldable/traversable
+
+instance Bifoldable Declaration where
+  bifoldMap l r (Value n brs) = foldMap helper brs
+    where
+    helper (pats, expr) = foldMap (foldMap l) pats `mappend` foldMap l expr
+  bifoldMap l r val = bifoldMapDefault l r val
+
+instance Bitraversable Declaration where
+  bitraverse :: forall f a b c d. Applicative f => (a -> f c) -> (b -> f d) -> Declaration a b -> f (Declaration c d)
+  bitraverse l _ (Value n brs) = Value n <$> traverse helper brs
+    where helper (pats, exp) = (,) <$> (traverse (traverse l) pats) <*> (hoistAppToCofree l exp)
+  bitraverse _ _ (Data n nms tys) = pure $ Data n nms tys
+  bitraverse _ _ (TypeSynonym n nms ty) = pure $ TypeSynonym n nms ty
+  bitraverse _ _ (Signature nm ty) = pure $ Signature nm ty
+  bitraverse _ _ (Import q m s a)  = pure $ Import q m s a
+  bitraverse _ r (TraitDecl cs n nms bs) = TraitDecl cs n nms <$> traverse r bs
+  bitraverse _ r (TraitImpl cs n tys bs) = TraitImpl cs n tys <$> traverse r bs
+
+hoistAppToCofree :: (Bitraversable t, Applicative f, Functor f) => (a -> f b) -> Cofree (t a) a -> f (Cofree (t b) b)
+hoistAppToCofree f = hoistAppToCofree2 f f
+
+hoistAppToCofree2 :: (Bitraversable t, Applicative f, Functor f) => (a -> f b) -> (c -> f d) -> Cofree (t a) c -> f (Cofree (t b) d)
+hoistAppToCofree2 f g (a :< e) = (:<) <$> g a <*> (bitraverse f (hoistAppToCofree2 f g) e)
+
 data SourceSpan = SourceSpan {begin :: SourcePos, end :: SourcePos} deriving (Eq, Show)
+
+instance Pretty SourceSpan where
+  pretty (SourceSpan begin end) = pretty (sourceName begin) <> pretty ":" <> prettyPos begin <> pretty "-" <> prettyPos end
+    where prettyPos pos = pretty (unPos $ sourceLine pos) <> pretty ":" <> pretty (unPos $ sourceColumn pos)
 
 data TypedAnn = TyAnn { span :: Maybe SourceSpan, ty :: TypeAnn }
   deriving (Show, Eq)
+
+instance Pretty TypedAnn where
+  pretty (TyAnn span ty) = pretty "ann" <+> braces (pretty "span" <+> pretty span <+> pretty "ty" <+> (pretty $ fromType ty))
+
 
 pattern Ann x y = TyAnn (Just x) (Type y)
 pattern SynAnn y = TyAnn Nothing (Type y)

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable, DeriveFoldable #-}
 module Ill.Syntax.Pattern where
 
 import Ill.Syntax.Pretty
@@ -11,7 +11,7 @@ data Pattern a
   | Wildcard
   | PVar String
   | PLit Literal
-  deriving (Eq, Show, Functor)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 type Pat a = Cofree Pattern a
 
