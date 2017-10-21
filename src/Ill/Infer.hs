@@ -26,7 +26,8 @@ import           Ill.Infer.Types
 import           Ill.Parser.Lexer     (SourceSpan (..))
 import           Ill.Syntax
 import           Ill.Syntax.Type
-
+import Data.Bitraversable
+import Debug.Trace
 
 type RawDecl = Decl SourceSpan
 
@@ -42,20 +43,23 @@ typeCheck bgs = mapM go bgs
   where
   go :: BindingGroup SourceSpan -> Check (BindingGroup TypedAnn)
   go (ValueBG ds)                  = do
-    v' <- liftUnify $ do
+    inferredVals <- liftUnify $ do
           (ut, et, dict, untypedDict) <- typeDictionary ds
           explicit <- forM et $ \e -> uncurry checkBindingGroupEl e dict
           implicit <- forM ut $ \e -> typeForBindingGroupEl e dict
 
           return $ explicit ++ implicit
 
-    values <- forM (appSubs v') $ \(ann :< v) -> do
+    subbedValues <- appSubs inferredVals
+    values <- forM subbedValues $ \(ann :< v) -> do
       let t = fromTyAnn ann
 
       t' <- flattenConstraints <$> simplify' t
+      when (ambiguous t') $ internalError $ "ambigious type!!!!" ++ show (ambiguities $ t')
 
-      addValue (valueName v) t'
-      return $ (ann { ty = Type t' }) :< v
+      let generalizedType = generalize t'
+      addValue (valueName v) generalizedType
+      return $ (ann { ty = Type generalizedType }) :< v
 
     return $ ValueBG values
 
@@ -63,7 +67,27 @@ typeCheck bgs = mapM go bgs
 
     valueName (Value n _) = n
 
-    appSubs (ts, sub) = map (nestedFmap (\a -> a { ty = fmapTy (\v -> varIfUnknown $ sub $? v) (ty a) })) ts
+    appSubs :: ([Decl TypedAnn], Substitution (Type Name)) -> Check [Decl TypedAnn]
+    appSubs (ts, sub) = mapM (substituteOneDecl sub) ts
+
+    substituteOneDecl :: Substitution (Type Name) -> Decl TypedAnn -> Check (Decl TypedAnn)
+    substituteOneDecl sub decl = hoistAppToCofree (substituteAnn sub) $ decl
+
+    substituteAnn :: Substitution (Type Name) -> TypedAnn -> Check (TypedAnn)
+    substituteAnn sub = \ann -> do
+      let annTy = fromTyAnn ann
+          subbedType = substituteOneType sub annTy
+      simplified <- pure subbedType
+      pure $ ann { ty = Type (simplified) }
+
+    ambiguous ty = not . null $ ambiguities ty
+    ambiguities ty = fvInConstraints \\ tyVars
+      where
+      tyVars = varsInType ty'
+      (constraints, ty') = unconstrained ty
+      fvInConstraints = nub $ concatMap ((concatMap freeVariables) . snd ) constraints
+
+    substituteOneType sub ty = varIfUnknown $ sub $? ty
 
     simplify' (Constrained cons t) = do
       cons' <- reduce cons
@@ -135,6 +159,8 @@ typeCheck bgs = mapM go bgs
       withTraitInstance nm supers args $
         forM et $ \e -> uncurry checkBindingGroupEl e dict
 
+    addTraitInstance nm supers args
+
     values <- forM (appSubs vals') $ \(ann :< v) -> do
       let t = varIfUnknown $ fromType (ty ann)
 
@@ -142,7 +168,6 @@ typeCheck bgs = mapM go bgs
 
       return $ (ann { ty = Type t' }) :< v
 
-    addTraitInstance nm supers args
 
     return . OtherBG $ TyAnn (pure a) None :< TraitImpl supers nm args (filter isValue values)
 
@@ -156,6 +181,8 @@ typeCheck bgs = mapM go bgs
     simplify' (Constrained cons t) = do
       cons' <- reduce cons
       return $ Constrained cons' t
+    simplify' (Forall vars ty) = Forall vars <$> simplify' ty
+
     simplify' t = return t
 
     emptySpan = SourceSpan (initialPos "") (initialPos "")
@@ -171,9 +198,9 @@ typeDictionary vals = do
       sigs =  sortOn signatureName $ filter isSignature vals
       sigNames = map signatureName sigs
       (typedVals, untyped) = partition (\v -> valueName v `elem` sigNames) values
-      typed = zip (map signatureType sigs) typedVals
+      typed = zip (map (generalize . signatureType) sigs) typedVals
 
-  untypedNames <- replicateM (length untyped) fresh
+  untypedNames <- replicateM (length untyped) (fresh)
   let untypedDict = zip (map valueName untyped) untypedNames
       typedDict   = map (\(t, v) -> (valueName v, t)) typed
   return (untyped, typed, typedDict ++ untypedDict, untypedDict)
@@ -201,33 +228,33 @@ typeForBindingGroupEl (a :< Value name els) dict = do
   let (vals', cons') = unzip x
   let fTy = foldr tFn (typeOf . snd $ last vals') patTys
       memberType = fromJust (lookup name dict)
+
   fTy `constrainedUnification` memberType
 
-  return $ Ann a (constrain (concat  cons') memberType) :< Value name vals'
+  return $ Ann a (constrain (concat cons') memberType) :< Value name vals'
 
 checkBindingGroupEl :: Type Name -> RawDecl -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
 checkBindingGroupEl ty (a :< Value name els) dict = do
   let (pats, _) = unzip els
       numArgs = length $ head pats
+
   when (any (/= numArgs) $ map length pats) . throwError $ InternalError "branches have different amounts of patterns"
 
-  let (constraints, ty') = unconstrained ty
+  let (constraints, ty') = unconstrained $ unForall ty
       unwrapped = unwrapN numArgs ty'
       argTys    = if length unwrapped > 1 then init unwrapped else []
       retTy     = last unwrapped
+      unForall (Forall _ ty) = ty
+      unForall ty = ty
 
-  x <- forM els $ \(pats, val) -> do
+  (cons, vals') <- liftM unzip . forM els $ \(pats, val) -> do
     let patTys = zip argTys pats
 
     (patDict, pats') <- inferPats patTys
     val' <- bindNames (patDict ++ dict) (check retTy val)
-
     cons <- retTy `constrainedUnification` typeOf val'
 
     return (cons, (pats', val'))
-
-
-  let (cons, vals') = unzip x
 
   minCons <- UnifyT . lift $ reduce (concat cons)
 

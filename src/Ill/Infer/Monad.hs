@@ -62,11 +62,11 @@ defaultCheckEnv = CheckState (Environment
   , ("minInt",   tInteger `tFn` (tInteger `tFn` tInteger))
   , ("plusStr",  tString `tFn` (tString `tFn` tString))
   , ("showInt", tInteger `tFn` tString)
-  , ("<", constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "Bool"))
-  , (">", constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "Bool"))
-  , ("+", constrain [("Semigroup", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
-  , ("-", constrain [("Group", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
-  , ("*", constrain [("MultSemigroup", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
+  , ("<", Forall ["a"] $ constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` tBool))
+  , (">", Forall ["a"] $ constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` tBool))
+  , ("+", Forall ["a"] $ constrain [("Semigroup", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
+  , ("-", Forall ["a"] $ constrain [("Group", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
+  , ("*", Forall ["a"] $ constrain [("MultSemigroup", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
   ] [] [] [] []) 0
 
 putEnv :: MonadState CheckState m => Environment -> m ()
@@ -145,7 +145,7 @@ addTrait :: MonadState CheckState m => Name -- class name
   -> m ()
 addTrait name supers args members = do
   modifyEnv $ \e -> e { traits = (name, TraitEntry supers args members) : traits e }
-  let qualifiedMembers = map (fmap qualifyType) members
+  let qualifiedMembers = map (fmap (generalize . qualifyType)) members
   modifyEnv $ \e -> e { names = qualifiedMembers ++ names e }
   where
   qualifyType t = Constrained fullConstraints t
@@ -153,16 +153,16 @@ addTrait name supers args members = do
 
 withTraitInstance :: MonadState CheckState m => Name -> [Constraint Name] -> [Type Name] -> m a -> m a
 withTraitInstance trait supers inst action = do
-  env <- env <$> get
+  environment <- env <$> get
 
-  let instDict = case trait `lookup` traitDictionaries env of
+  let instDict = case trait `lookup` traitDictionaries environment of
                   Just instances -> (inst, supers) : instances
                   Nothing        -> [(inst, supers)]
 
-  putEnv $ env { traitDictionaries = addInstanceToDict (trait, instDict) (traitDictionaries env) }
+  putEnv $ environment { traitDictionaries = addInstanceToDict (trait, instDict) (traitDictionaries environment) }
   a <- action
 
-  modifyEnv (\env -> env { traitDictionaries = traitDictionaries env })
+  modifyEnv (\env' -> env' { traitDictionaries = traitDictionaries environment })
 
   return a
 
@@ -200,7 +200,7 @@ addDataConstructor :: Name -> [Name] -> Name -> [Type Name] -> Check ()
 addDataConstructor tyCons args dataCons tys = do
   env <- env <$> get
   let retTy = foldl TAp (TConstructor tyCons) (map TVar args)
-      dataConsTy = foldr tFn retTy tys
+      dataConsTy = generalize $ foldr tFn retTy tys
       fields = args
       consEntry = ConstructorEntry tyCons dataConsTy fields (length tys)
   putEnv $ env { constructors = (dataCons, consEntry) : constructors env}
