@@ -20,8 +20,6 @@ import           Data.Bifunctor
 
 import Control.Monad.State (get)
 
-import Debug.Trace
-
 infer :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
 infer exp = rethrow (ErrorInExpression exp) (infer' exp)
 
@@ -80,7 +78,7 @@ infer' (a :< Lambda pats expr) = do
   (patDict, pats') <- inferPats (zip patTys pats)
   expr' <- bindNames patDict (infer expr)
 
-  let retTy = generalize $ foldr tFn (typeOf expr') patTys
+  let retTy = foldr tFn (typeOf expr') patTys
   return $ Ann a retTy :< Lambda pats' expr'
 infer' (a :< Assign lnames exps) = do
   varTys <- replicateM (length lnames) fresh
@@ -99,11 +97,8 @@ infer' (a :< Var nm) = do
 infer' (a :< Constructor nm) = do
   ConstructorEntry { consType = ty, consTyVars = args } <- lookupConstructor nm
 
-  subs <- mapM (\a -> (,) <$> pure a <*> fresh) args
-
-  let nT = replaceTypeVars subs ty
-
-  return $ Ann a nT :< Constructor nm
+  newType <- instantiate ty
+  return $ Ann a newType :< Constructor nm
 infer' (a :< Literal l) = do
   let ty = inferLit l
   return $ Ann a ty :< Literal l
@@ -126,9 +121,7 @@ check' expected (a :< Var nm) = do
 check' expected (a :< Constructor nm) = do
   ConstructorEntry { consType = ty, consTyVars = args } <- lookupConstructor nm
 
-  subs <- mapM (\a -> (,) <$> pure a <*> fresh) args
-
-  let nT = replaceTypeVars subs ty
+  nT <- instantiate ty
   nT =?= expected
 
   return $ Ann a nT :< Constructor nm

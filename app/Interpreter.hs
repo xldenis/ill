@@ -35,7 +35,7 @@ runInterpreter mod = do
             Nothing -> error "no main function is defined!"
       case runExcept . (flip evalStateT context) $ interpret mainExpr of
         Right result -> putStrLn $ renderIll' (pretty result)
-        Left  error  -> putStrLn . pack$ "intrepretation error: " ++ error
+        Left  error  -> putStrLn . pack $ "intrepretation error: " ++ (show $ pretty error)
 
 runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 
