@@ -1,16 +1,5 @@
 module Ill.Desugar.Cases where
 
-
- -- AST -> Core (Desugaring)
-
-{-
-  Passes:
-
-  1. Push in cases
-  2. Desugar to core
-  3. Type class application
-  4. ?????
--}
 import Control.Lens (each, _1, (%~))
 import Control.Lens.Plated
 import           Ill.Syntax

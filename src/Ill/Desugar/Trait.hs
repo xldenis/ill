@@ -162,7 +162,7 @@ addDictsToVals ann nm eqns = do
     localNameDict = zipWith (\cons ix -> (cons, "dict" ++ show ix)) memberConstraints [1..]
     localInstances = map (\(nm, tys) -> case nm `lookup` instanceDicts of
       Just instances -> (nm, instances ++ [(tys, [])])
-      Nothing        -> error "how did you manage this?"
+      Nothing        -> (nm, [(tys, [])])
       ) memberConstraints
     instanceDict = foldr addInstanceToDict instanceDicts localInstances
     dictPats = map (\(cons, nm) -> SynAnn (uncurry mkDictType cons) :< PVar nm) localNameDict

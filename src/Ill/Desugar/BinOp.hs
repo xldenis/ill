@@ -18,6 +18,11 @@ operatorDesugarTable =
   [ ("+", "plus")
   , ("-", "minus")
   , (">", "gt")
+  , ("<", "lt")
+  , ("&&", "and")
+  , ("||", "and")
+  , ("*", "times")
+  , ("*", "times")
   ]
 
 desugarExpr (binAnn :< BinOp (v :< Var nm) a b) = case nm `lookup` operatorDesugarTable of
