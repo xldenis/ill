@@ -45,7 +45,7 @@ main = do
     Right ast -> handleCommands config ast
 
 handleCommands :: Config -> Module SourceSpan -> IO ()
-handleCommands (Build f)  ast = putStrLn "build"
+handleCommands (Build f)  ast = putStrLn "build is not implemented yet, use run to interpret code"
 handleCommands (Format f) ast = T.putStrLn $ renderIll defaultRenderArgs (pretty ast)
 handleCommands (Infer f)  ast = infer ast
 handleCommands (Desugar stage f) ast = desugar stage ast

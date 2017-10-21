@@ -39,8 +39,9 @@ desugar stage ast = case runTC ast of
 runTC (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 
 stageToPipeline :: String -> (Environment -> [Decl TypedAnn] -> [Decl TypedAnn])
-stageToPipeline "traits" e = desugarBinOps . desugarTraits e
-stageToPipeline "cases"  e = (desugarTraits e . desugarBinOps) >=> pure . simplifyPatterns
+stageToPipeline "binop"  e = desugarBinOps
+stageToPipeline "traits" e = desugarTraits e . stageToPipeline "binop" e
+stageToPipeline "cases"  e = (stageToPipeline "traits" e) >=> pure . simplifyPatterns
 stageToPipeline _ _ = id
 
 prettyType a = renderIll defaultRenderArgs (pretty $ a)
