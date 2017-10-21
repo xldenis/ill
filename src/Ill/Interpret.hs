@@ -26,6 +26,7 @@ primops =
   [ ("plusInt", (2, plus))
   , ("minusInt", (2, minus))
   , ("gtInt",   (2, gt))
+  , ("ltInt", (2, lt))
   , ("plusStr", (2, plusStr))
   , ("showInt", (1, showLit))
   ]
@@ -36,6 +37,10 @@ primops =
   plus = liftToCore (\a b -> Lit . Integer $ a + b)
   minus = liftToCore (\a b -> Lit . Integer $ a - b)
   gt = liftToCore $ \a b -> case a > b of
+      True -> Var "True"
+      False -> Var "False"
+
+  lt = liftToCore $ \a b -> case a < b of
       True -> Var "True"
       False -> Var "False"
 
@@ -71,7 +76,7 @@ interpret a@(App _ _) = do -- travel down spine until function is found
     case var `lookup` cons of
       Nothing -> case var `lookup` primops of
         Nothing -> do
-          throwError $ "could not find the name: " ++ var ++ (show $ pretty a)
+          throwError $ "could not find the primitive operation: " ++ var  ++ " " ++ (show $ pretty a)
         Just (arity, f) | length args >= arity -> do
           let (consArgs, remainder) = splitAt arity args
           interpretedArgs <- mapM interpret consArgs
