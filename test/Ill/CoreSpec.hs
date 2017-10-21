@@ -88,6 +88,7 @@ spec = do
                     when Nil: 1
                     when b  : 2
                   end
+                  when _ : failedPattern
                 end
               end
             end
@@ -121,9 +122,11 @@ spec = do
                   when C x xs: case x3 of
                     when C y ys: C(f(x, y), mappairs(f, xs, ys))
                     when Nil: Nil
+                    when _ : failedPattern
                   end
                   when Nil: ys = x3
                     Nil
+                  when _ : failedPattern
                 end
               end
             end
@@ -131,7 +134,7 @@ spec = do
 
       renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
 
-    it "" $ do
+    it "simple module" $ do
 
       let mod = [modQ|
         module X
@@ -153,6 +156,7 @@ spec = do
             case u of
               when C a as: 1
               when Nil: 2
+              when _ : zzzx
             end
           |]
 

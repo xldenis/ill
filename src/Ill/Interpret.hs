@@ -102,6 +102,7 @@ interpret (Case scrut alts) = do
       Nothing -> case nm `lookup` (ctxt & constructors) of
         Just _  -> firstAlt nm [] alts
         Nothing -> throwError $ "idk what to do during a var match: " ++ nm
+  selectAlt x _ = error (show x)
 
   firstAlt nm _        (TrivialAlt exp : _) = interpret exp
   firstAlt nm bindVals (ConAlt id binders exp : _) | nm == id = interpret $ foldl
