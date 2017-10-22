@@ -59,3 +59,5 @@ tests:
     - filepath
     - comonad
     - template-haskell
+data-files:
+- assets/prelude.ill

@@ -34,8 +34,6 @@ file (Infer f) = f
 file (Desugar _ f) = f
 file (Run f) = f
 
-parseFromFile p file = runParser p file <$> T.readFile file
-
 main :: IO ()
 main = do
   config <- getRecord "Ill Compiler" :: IO Config

@@ -1,41 +1,11 @@
 module SimpleRun
-  data Maybe a = Just a | Nothing
-
-  trait Show a
-    show :: a -> String
-  end
-
-  # impl Show a | Show (List a)
-  #   fn show(Cons el ls)
-  #     show(el)
-  #     show(ls)
-  #   or show(Nil)
-  #     ''
-  #   end
-  # end
-
-  impl Show a | Show (Maybe a)
-    fn show(Just a)
-      show(a)
-    or show(Nothing)
-      'nothing'
-    end
-  end
-
-  impl Show Int
-    fn show(a)
-      showInt(a)
-    end
-  end
-
-
   fn main ()
     summed_maybe = Just(5)
 
-    # list = case summed_maybe of
-    #   when Just x: x
-    #   when Nothing: 0
-    # end
+    list = case summed_maybe of
+      when Just x: x
+      when Nothing: 0
+    end
 
     show(summed_maybe)
   end
