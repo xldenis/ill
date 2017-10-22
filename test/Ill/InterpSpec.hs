@@ -59,7 +59,7 @@ spec = do
 
       case runInterpreter mod of
         Right res -> res `shouldBe` (Lit $ Integer 2)
-        Left err -> expectationFailure $ err
+        Left err -> expectationFailure . show . pretty $ err
     describe "adt" $ do
       it "matches" $ do
         let mod = [modQ|
@@ -76,7 +76,7 @@ spec = do
         |]
         case runInterpreter mod of
           Right res -> res `shouldBe` (Lit $ Integer 20)
-          Left err -> expectationFailure $ err
+          Left err -> expectationFailure . show . pretty $ err
       it "matches complex patterns" $ do
         let mod = [modQ|
           module X
@@ -108,7 +108,7 @@ spec = do
 
         case runInterpreter mod of
           Right res -> res `shouldBe` (Lit $ Integer 22)
-          Left err -> expectationFailure $ err
+          Left err -> expectationFailure . show . pretty $ err
 
     it "basic command works" $ do
       let mod = [modQ|
@@ -129,7 +129,7 @@ spec = do
 
       case runInterpreter mod of
           Right res -> res `shouldBe` (Lit $ Integer 2)
-          Left err -> expectationFailure $ err
+          Left err -> expectationFailure . show . pretty $ err
 
 getConstructorArities (_ :< Data nm _ conses) = map (\cons ->
   case unwrapProduct cons of
