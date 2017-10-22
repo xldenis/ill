@@ -170,6 +170,12 @@ check' expected l@(a :< Lambda pats exp) = do
   expected =?= typeOf l'
 
   return l'
+check' expected c@(a :< Case scrut pats) = do
+  c' <- infer c
+
+  typeOf c' =?= expected
+
+  return c'
 check' expected ty = error (show $ pretty ty)
 
 
