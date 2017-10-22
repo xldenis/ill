@@ -1,0 +1,15 @@
+ module X
+   trait Semigroup a
+      plus :: a -> a -> a
+   end
+
+   impl (Semigroup Int)
+      fn plus ()
+        plusInt
+      end
+   end
+
+   fn main ()
+     1+1
+   end
+ end

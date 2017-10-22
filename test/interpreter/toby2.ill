@@ -1,0 +1,29 @@
+module TobyBreaksThings2
+  fn fac(x)
+    if x > 1 then
+      fac(x-2) + fac(x-1)
+    else
+      1
+    end
+  end
+
+  make_range :: Int -> List Int -> List Int
+  fn make_range(x, acc)
+    if x > 0 then
+      new_acc = Cons(x, acc)
+      range(x-1, new_acc) # the problem
+    else
+      acc
+    end
+  end
+
+  range :: Int -> List Int
+  fn range(x)
+    make_range(x, Nil)
+  end
+
+  fn main()
+    show(range(5))
+  end
+
+end

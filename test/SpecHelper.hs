@@ -1,5 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
-module SpecHelper where
+module SpecHelper
+( parseFromFile
+, module SpecHelper
+) where
 
 import Control.Monad (filterM)
 import Data.Text (Text)
@@ -12,7 +15,7 @@ import Test.Hspec.Megaparsec
 import Text.Megaparsec
 import Text.Megaparsec.Text
 
-parseFromFile p file = runParser p file <$> T.readFile file
+import Ill.Parser (parseFromFile)
 
 filesShouldParse :: Show b => FilePath -> Parser b -> Spec
 filesShouldParse dir p = do

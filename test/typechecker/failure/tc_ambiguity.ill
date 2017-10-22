@@ -5,8 +5,10 @@ module Ambiguity
 
   data List a = Cons a | Nil
 
-  impl Show (List a)
-    fn show (x)
+  impl Show a | Show (List a)
+    fn show(Cons x xs)
+      show(x)
+    or show(Nil)
       ''
     end
   end

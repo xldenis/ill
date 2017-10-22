@@ -1,0 +1,21 @@
+module DesugarTraits
+  trait Semigroup a
+    plus :: a -> a -> a
+  end
+
+  data Maybe a = Just a | Nothing
+
+  impl Semigroup (Maybe a)
+    fn plus(Just a, b)
+      Just(a)
+    or plus(Nothing, b)
+      b
+    end
+  end
+
+
+  fn main ()
+    summed_maybe = Just(50) + Nothing
+    summed_maybe
+  end
+end

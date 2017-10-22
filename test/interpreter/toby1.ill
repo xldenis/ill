@@ -1,0 +1,17 @@
+module TobyBreaksThings1
+  trait Ord a
+    lt :: a -> a -> Bool
+  end
+
+  impl Ord Int
+    fn lt () ltInt end
+  end
+
+  fn fac(x)
+    ltInt(x, 2)
+  end
+
+  fn main ()
+    fac(10)
+  end
+end

@@ -47,9 +47,9 @@ module TC16
     show(x)
   end
 
-  fn x3 ()
-    show(Nil)
-  end
+  # fn x3 ()
+  #   show(Nil)
+  # end
 
   fn x4 ()
     show(Cons(T, Nil))
