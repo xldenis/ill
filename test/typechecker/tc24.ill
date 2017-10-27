@@ -1,12 +1,5 @@
-module TobyBreaksThings3
-
-  fn fac(x)
-    if x > 1 then
-      fac(x-2) + fac(x-1)
-    else
-      1
-    end
-  end
+module TobyBreaksTypeChecking
+  data List a = Cons a (List a) | Nil
 
   make_range :: Int -> List Int -> List Int
   fn make_range(x, acc)
@@ -21,17 +14,4 @@ module TobyBreaksThings3
   fn range(x)
     make_range(x, Nil)
   end
-
-  fn mk_range2(x)
-    if x > 0 then
-      Cons(x, mk_range2(x-1))
-    else
-      Nil
-    end
-  end
-
-  fn main()
-    show(fmap(fac, range(25)))
-  end
-
 end
