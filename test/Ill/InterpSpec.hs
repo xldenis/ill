@@ -8,7 +8,7 @@ import Test.Hspec
 
 import SpecHelper
 
-import Ill.Syntax
+import Ill.Syntax hiding (Expression(..))
 import Ill.Infer
 import Ill.Infer.Monad as M
 
@@ -57,9 +57,11 @@ spec = do
         end
       |]
 
-      case runInterpreter mod of
-        Right res -> res `shouldBe` (Lit $ Integer 2)
-        Left err -> expectationFailure . show . pretty $ err
+      result <- runInterpreter mod
+      case result of
+        VLit l -> l `shouldBe` (Integer 2)
+        _ -> expectationFailure "a literal value should have been produced"
+
     describe "adt" $ do
       it "matches" $ do
         let mod = [modQ|
@@ -74,9 +76,11 @@ spec = do
             end
           end
         |]
-        case runInterpreter mod of
-          Right res -> res `shouldBe` (Lit $ Integer 20)
-          Left err -> expectationFailure . show . pretty $ err
+        result <- runInterpreter mod
+        case result of
+          VLit l -> l `shouldBe` (Integer 20)
+          _ -> expectationFailure "a literal value should have been produced"
+
       it "matches complex patterns" $ do
         let mod = [modQ|
           module X
@@ -106,9 +110,10 @@ spec = do
           end
         |]
 
-        case runInterpreter mod of
-          Right res -> res `shouldBe` (Lit $ Integer 22)
-          Left err -> expectationFailure . show . pretty $ err
+        result <- runInterpreter mod
+        case result of
+          VLit l -> l `shouldBe` (Integer 2)
+          _ -> expectationFailure "a literal value should have been produced"
 
     it "basic command works" $ do
       let mod = [modQ|
@@ -127,9 +132,10 @@ spec = do
         end
       |]
 
-      case runInterpreter mod of
-          Right res -> res `shouldBe` (Lit $ Integer 2)
-          Left err -> expectationFailure . show . pretty $ err
+      result <- runInterpreter mod
+      case result of
+        VLit l -> l `shouldBe` (Integer 2)
+        _ -> expectationFailure "a literal value should have been produced"
 
 getConstructorArities (_ :< Data nm _ conses) = map (\cons ->
   case unwrapProduct cons of
@@ -143,6 +149,6 @@ runInterpreter mod =  case runTC mod of
         desugared = desugaringPipe typed
     let core = declToCore desugared
         boundConstructors = desugared >>= getConstructorArities
-        context = Context (map (\(NonRec n e) -> (name n, e)) core) boundConstructors []
-        NonRec _ mainExpr = fromJust $ find (\(NonRec n _) -> (name n) == "main") core
-    runExcept . (flip evalStateT context) $ interpret mainExpr
+    env <- mkEnvForModule boundConstructors core
+
+    eval env (Var "main")
