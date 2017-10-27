@@ -55,19 +55,39 @@ primops =
   , ("minusInt", (2, minusInt))
   , ("plusInt", (2, plusInt))
   , ("gtInt",   (2, gtInt))
+  , ("multInt", (2, multInt))
+  -- , ("divInt", (2, divInt))
+  , ("eqInt", (2, eqInt))
+  , ("ltInt", (2, ltInt))
+  , ("leqInt", (2, leqInt))
+  , ("geqInt", (2, geqInt))
+  , ("maxInt", (2, maxInt))
+  , ("minInt", (2, minInt))
   ]
+
   where
-  gtInt = liftBinInt $ \a b -> case a > b of
-    True -> VConstructed "True" []
-    False -> VConstructed "False" []
+  multInt  = liftBinInt $ \a b -> VLit . Integer $ a * b
+  maxInt   = liftBinInt $ \a b -> VLit . Integer $ max a b
+  minInt   = liftBinInt $ \a b -> VLit . Integer $ min a b
   minusInt = liftBinInt $ \a b -> VLit . Integer $ a - b
-  plusInt = liftBinInt $ \a b -> VLit . Integer $ a + b
+  plusInt  = liftBinInt $ \a b -> VLit . Integer $ a + b
+
+  eqInt  = liftBinInt $ \a b -> liftCmp $ a == b
+  leqInt = liftBinInt $ \a b -> liftCmp $ a <= b
+  geqInt = liftBinInt $ \a b -> liftCmp $ a >= b
+  ltInt  = liftBinInt $ \a b -> liftCmp $ a < b
+  gtInt  = liftBinInt $ \a b -> liftCmp $ a > b
+
 
   plusStr [VLit (RawString a), VLit (RawString b)] = VLit . RawString $ a ++ b
   showInt [VLit (Integer a)] = VLit $ RawString (show a)
 
   liftBinInt f [VLit (Integer a), VLit (Integer b)] = f a b
   liftBinInt _ _ = error "ruh roh spaghettioes"
+
+  liftCmp b = case b of
+    True -> VConstructed "True" []
+    False -> VConstructed "False" []
 
 mkThunk :: Env -> Name -> CoreExp -> (Thunk -> IO Value)
 mkThunk env nm exp = \thunk -> do
