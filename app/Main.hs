@@ -9,7 +9,7 @@ import DesugarDebug
 import Interpreter
 import Text.Megaparsec
 
-import Ill.Syntax (Module)
+import Ill.Syntax (Module(..))
 import Ill.Parser.Lexer (SourceSpan)
 
 import Options.Generic
@@ -38,9 +38,15 @@ main :: IO ()
 main = do
   config <- getRecord "Ill Compiler" :: IO Config
   parsed <- parseFromFile illParser (file config)
-  case parsed of
+  parsedPrelude <- parseFromFile moduleParser "assets/prelude.ill"
+
+  let joined = (,) <$> parsedPrelude <*> parsed
+
+  case joined of
     Left err -> putStrLn $ parseErrorPretty err
-    Right ast -> handleCommands config ast
+    Right (prelude, ast) -> handleCommands config (mergeModules prelude ast)
+
+mergeModules (Module _ ds) (Module n ds2) = Module n (ds ++ ds2)
 
 handleCommands :: Config -> Module SourceSpan -> IO ()
 handleCommands (Build f)  ast = putStrLn "build is not implemented yet, use run to interpret code"

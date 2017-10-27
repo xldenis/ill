@@ -1,170 +1,156 @@
-{-# LANGUAGE ConstraintKinds       #-}
-
 module Ill.Interpret where
 
 import           Ill.Syntax.Core
+import           Ill.Syntax hiding (Expression(..))
 
 import           Control.Monad.Except
 import           Control.Monad.State
+
+import           Data.IORef
+import           Data.List (find)
 import           Data.Function
-import           Ill.Syntax.Literal
-import           Ill.Syntax.Name
-import           Ill.Syntax.Type
-import           Ill.Syntax.Pretty (pretty)
 
-import Ill.Error (rethrow)
-import Ill.Syntax.Pretty hiding (when)
+type Thunk = () -> IO Value
 
-type MonadInterpret m = (MonadState Context m, MonadError Error m)
+data Value
+  = VLit Literal
+  | VClosure (Thunk -> IO Value)
+  | VConstructed String [IORef Thunk]
 
-data Context = Context
-  { boundNames   :: [(Id, CoreExp)]
-  , constructors :: [(Id, Int)] -- cons name, arity
-  , allocated    :: [(Id, IVal)]
-  , allocationStats :: [(Id, Int)]
-  } deriving (Show)
+showish (VLit lit) = pretty lit
+showish (VClosure _) = pretty "<<closure>>"
+showish (VConstructed _ vars) = pretty "<<constructed>>"
 
-type IVal = (Id, [CoreExp]) -- an evalutated constructor value
+update :: IORef Thunk -> Value -> IO ()
+update ref val = do
+  writeIORef ref (\() -> return val)
+  return ()
+
+force :: IORef Thunk -> IO Value
+force ref = do
+  th <- readIORef ref
+  v  <- th ()
+  update ref v
+  return v
+
+data Env = Env { names :: [(Name, IORef Thunk)], constructors :: [(Name, Int)] }
+
+mkEnvForModule :: [(Name, Int)] -> [Bind Var] -> IO Env
+mkEnvForModule cons funcs = do
+  thunks <- replicateM (length funcs) (newIORef undefined)
+  let funcs' = map (\(NonRec var exp) -> (name var, exp)) funcs
+      names  = zipWith (\(nm, _) thunk -> (nm, thunk)) funcs' thunks
+      env    = Env names cons
+
+  zipWithM (\(name, value) thunk -> do
+    val <- eval env value
+    update thunk val
+    ) funcs' thunks
+
+  return $ env
 
 primops =
-  [ ("plusInt", (2, plus))
-  , ("minusInt", (2, minus))
-  , ("gtInt",   (2, gt))
-  , ("ltInt", (2, lt))
+  [ ("showInt", (1, showInt))
   , ("plusStr", (2, plusStr))
-  , ("showInt", (1, showLit))
+  , ("minusInt", (2, minusInt))
+  , ("plusInt", (2, plusInt))
+  , ("gtInt",   (2, gtInt))
   ]
   where
-  plusStr [Lit (RawString a), Lit (RawString b)] = Lit . RawString $ a ++ b
-  plusStr xs = error $ show $ pretty xs
-  showLit [Lit a] = Lit . RawString $ show $ pretty a
+  gtInt = liftBinInt $ \a b -> case a > b of
+    True -> VConstructed "True" []
+    False -> VConstructed "False" []
+  minusInt = liftBinInt $ \a b -> VLit . Integer $ a - b
+  plusInt = liftBinInt $ \a b -> VLit . Integer $ a + b
 
-  plus = liftToCore (\a b -> Lit . Integer $ a + b)
-  minus = liftToCore (\a b -> Lit . Integer $ a - b)
-  gt = liftToCore $ \a b -> case a > b of
-      True -> Var "True"
-      False -> Var "False"
+  plusStr [VLit (RawString a), VLit (RawString b)] = VLit . RawString $ a ++ b
+  showInt [VLit (Integer a)] = VLit $ RawString (show a)
 
-  lt = liftToCore $ \a b -> case a < b of
-      True -> Var "True"
-      False -> Var "False"
+  liftBinInt f [VLit (Integer a), VLit (Integer b)] = f a b
+  liftBinInt _ _ = error "ruh roh spaghettioes"
 
-  liftToCore f [Lit (Integer n), Lit (Integer m)] = f n m
-  liftToCore f [a, b] = error $ show a ++ show b
+mkThunk :: Env -> Name -> CoreExp -> (Thunk -> IO Value)
+mkThunk env nm exp = \thunk -> do
+  thunk' <- newIORef thunk
 
-{-
-  Partially functioning interpreter
-  recursive let bindings don't work :( use Y-combinator!
--}
+  eval (env { names = (nm, thunk') : names env }) exp
 
-data Error
-  = ElabError String
-  | WithLoc CoreExp Error
-  deriving (Show)
+eval :: Env -> CoreExp -> IO Value
+eval env (Var n) = do
+  case n `lookup` (env & names) of
+    Nothing -> case n `lookup` (env & constructors) of
+                  Just 0 -> return $ VConstructed n []
+                  Nothing -> error $ "failed to lookup " ++ n -- this is where i need to sneak in a subsitution for primops
+    Just thunk -> force thunk
+eval env (Lambda n exp) = return $ VClosure (mkThunk env (name n) exp)
+eval env (Lit lit) = return $ VLit lit
+eval env a@(App _ _) = do
+  let unwound = unwindSpineStack a []
 
-instance Pretty Error where
-  pretty (WithLoc location error) = vcat $
-    [ pretty "Error in the expression:"
-    , pretty location
-    , (nest 2 $ pretty error)
-    ]
-  pretty (ElabError string) = pretty "error during execution" <+> pretty string
-
-interpret :: MonadInterpret m => CoreExp -> m CoreExp -- ???
-interpret exp = rethrow (WithLoc exp) (interpret' exp)
-
-interpret' :: MonadInterpret m => CoreExp -> m CoreExp -- ???
-interpret' l@(Lambda bind exp) = pure l
-interpret' a@(App _ _) = do -- travel down spine until function is found
-  let (f, args) = unwindAppSpine a []
-  f' <- interpret f
-  go f' args
-
+  evalApp env unwound
   where
 
-  go r [] = pure r
-  go (Lambda b exp) (arg : args) = do
-    e' <- interpret $ substitute (name b, arg) exp
-    go e' args
-  go (Var "seq") args = do
-    when (length args < 2) $ throwError . ElabError $ "seq can't be partially applied"
-    let ([a, b], remainder) = splitAt 2 args
-    interpret a
-    res <- interpret b
-    go res remainder
-  go (Var var) args = do
-    cons <- gets constructors
-    case var `lookup` cons of
-      Nothing -> case var `lookup` primops of
-        Nothing -> do
-          throwError . ElabError $ "could not find the primitive operation: " ++ var  ++ " " ++ (show $ pretty a)
-        Just (arity, f) | length args >= arity -> do
-          let (consArgs, remainder) = splitAt arity args
-          interpretedArgs <- mapM interpret consArgs
-          go (f interpretedArgs) remainder
-      Just arity | length args >= arity -> do
-        let (consArgs, remainder) = splitAt arity args
-        value <- allocateValue var consArgs
+  unwindSpineStack (App f a) stack = unwindSpineStack f (a : stack)
+  unwindSpineStack a         stack = a : stack
 
-        go value remainder
-  go _ xs = throwError . ElabError $ "somehow leftover args? " ++ show xs ++ show (a)
+  evalApp env (Var v : stack)
+    | isPrimop v = do -- check for partial application of primop!!
+      let Just (arity, opF) = v `lookup` primops
+          args = take arity stack
+      args' <- mapM (eval env) args
 
-  unwindAppSpine (App f a) exps = unwindAppSpine f (a : exps)
-  unwindAppSpine a exps         = (a, exps)
+      return $ opF args'
+    | isConstructor v = do
+      let Just arity = v `lookup` (env & constructors)
+          args = take arity stack
 
-  allocateValue consName args = do
-    nameIx <- gets (length . allocated)
-    let newValue = ("allocated" ++ show nameIx, (consName, args))
+      args' <- forM args $ \arg -> newIORef $ \() -> eval env arg
 
-    stats' <- updateDict (+) (consName, 1) <$> gets allocationStats
-    modify $ \ctxt -> ctxt { allocated = newValue  : allocated ctxt, allocationStats = stats' }
-    return $ Var $ "allocated" ++ show nameIx
+      return $ VConstructed v args'
 
-interpret' (Case scrut alts) = do
-  scrut' <- interpret scrut
-  case scrut' of
-    Var nm -> do
-      ctxt <- get
-      case nm `lookup` (ctxt & allocated) of
-        Just (tag, bindings) -> firstAlt tag bindings alts
-        Nothing -> case nm `lookup` (ctxt & constructors) of
-          Just _  -> firstAlt nm [] alts
-          Nothing -> throwError . ElabError $ "somehow this variable was not allocated nor a cons: " ++ nm
-    x -> error (show x)
+  evalApp env (v : arg : stack) = do
+    val <- eval env v
+    go env val (arg : stack)
 
+    where
+    go env (VClosure closure) (arg : stack) = do
+      result <- closure $ \() -> eval env arg
+
+      go env result stack
+    go env res [] = pure res
+
+  isPrimop v = maybeToBool $ v `lookup` primops
+
+  isConstructor v = v `lookup` (env & constructors) & maybeToBool
+
+  maybeToBool x = case x of
+    Just _ -> True
+    Nothing -> False
+
+eval env (Case scrut alts) = do
+  scrut' <- eval env scrut
+  when (isLit scrut') $ error "sorry i dont support this yet :("
+  let VConstructed tag bound = scrut'
+  let Just matchedAlt = find (matchCons tag) alts
+
+  evalAlt env bound matchedAlt
   where
 
-  firstAlt nm _        (TrivialAlt exp : _) = do
-    result <-  interpret exp
-    when (Var "failedPattern" == result) $ throwError $ ElabError "pattern match failed :("
-    return result
-  firstAlt nm bindVals (ConAlt id binders exp : _) | nm == id = interpret $ foldl
-    (\inner bind -> substitute bind inner )
-    exp
-    (zip (map name binders) bindVals)
-  firstAlt nm bindVals (_ : xs) = firstAlt nm bindVals xs
-  firstAlt nm _ [] = throwError . ElabError $ "pattern match failed! " ++ show nm
-interpret' v@(Var id) = do
-  names <- gets boundNames
-  case id `lookup` names of
-    Just x  -> interpret x
-    Nothing -> pure v
-interpret' a@(Let bind exp) = do
-  bindings <- gets boundNames
-  let newName = "boundName" ++ show (length bindings)
-      NonRec n val = bind
-      val' = substitute (name n, Var newName) val
-  modify $ \ctxt -> ctxt { boundNames = (newName, val') : (boundNames ctxt) }
+  isLit (VLit _) = True
+  isLit _ = False
 
-  interpret $ substitute (name n, val') exp
+  matchCons tag (TrivialAlt _) = True
+  matchCons tag (ConAlt nm _ _) = nm == tag
 
-  where bindToSubst (NonRec n exp) = (name n, exp)
-interpret' t@(Type ty) = pure t
-interpret' l@(Lit lit) = pure l
+  evalAlt env _ (TrivialAlt exp) = eval env exp
+  evalAlt env bound (ConAlt _ vars exp) = do
+    let env' = env { names = zipWith (\v b -> (name v, b)) vars bound ++ (names env) }
+    eval env' exp
 
-updateDict f (k, v) ((dK, dV):dict) | k == dK = (k, f v dV) : dict
-                                  | otherwise = (dK, dV) : updateDict f (k, v) dict
-updateDict f (k, v) [] = [(k, v)]
+eval env (Let (NonRec nm arg) exp) = do
+  thunk <- newIORef undefined
+  let env' = env { names = (name nm, thunk) : names env }
+  writeIORef thunk $ \() -> eval env' arg
 
-substBoundName :: MonadInterpret m => Bind Var -> CoreExp -> m CoreExp
-substBoundName (NonRec n arg) exp = interpret $ substitute (name n, arg) exp
+  eval env' exp
+
