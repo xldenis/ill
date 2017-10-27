@@ -216,7 +216,7 @@ mkAccessor tyNm recTy tys fldNm ix = let
   val = mkAnn valTy :< Var "el"
   valTy = tys !! (ix - 1)
   accessorTy = recTy `tFn` valTy
-  in mkAnn valTy :< Value fldNm [([mkPattern recTy tyNm tys ix], val)]
+  in mkAnn accessorTy :< Value fldNm [([mkPattern recTy tyNm tys ix], val)]
 
 mkPattern :: Type Name -> Name -> [Type Name] -> Int -> Pat TypedAnn
 mkPattern recTy recNm tys ix = let

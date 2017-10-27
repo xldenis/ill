@@ -59,6 +59,7 @@ simplifyPatterns v@(a :< Value n eqns) = runFresh $ do
 
   let eqn' = [([], mkAbs (zipWith (\p t -> mkTypedAnn t :< PVar p) binders binderTy) retTy exp')]
   return $ a :< Value n eqn'
+
 simplifyPatterns v = v
 
 mkAbs binders retTy val = mkTypedAnn retTy :< Lambda binders val
