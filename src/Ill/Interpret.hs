@@ -3,7 +3,7 @@
 module Ill.Interpret where
 
 import           Ill.Syntax.Core
--- import Control.Lens
+
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Function
@@ -21,6 +21,7 @@ data Context = Context
   { boundNames   :: [(Id, CoreExp)]
   , constructors :: [(Id, Int)] -- cons name, arity
   , allocated    :: [(Id, IVal)]
+  , allocationStats :: [(Id, Int)]
   } deriving (Show)
 
 type IVal = (Id, [CoreExp]) -- an evalutated constructor value
@@ -100,35 +101,38 @@ interpret' a@(App _ _) = do -- travel down spine until function is found
         Just (arity, f) | length args >= arity -> do
           let (consArgs, remainder) = splitAt arity args
           interpretedArgs <- mapM interpret consArgs
-
-          when (any (== Var "failedPattern") interpretedArgs) $ throwError $ ElabError "omg"
           go (f interpretedArgs) remainder
-      Just (arity) | length args >= arity -> do
-        nameIx <- gets (length . allocated)
+      Just arity | length args >= arity -> do
         let (consArgs, remainder) = splitAt arity args
-            newValue = ("allocated" ++ show nameIx, (var, consArgs))
+        value <- allocateValue var consArgs
 
-        modify $ \ctxt -> ctxt { allocated = newValue  : allocated ctxt }
-
-        go (Var $ "allocated" ++ show nameIx) remainder
+        go value remainder
   go _ xs = throwError . ElabError $ "somehow leftover args? " ++ show xs ++ show (a)
 
   unwindAppSpine (App f a) exps = unwindAppSpine f (a : exps)
   unwindAppSpine a exps         = (a, exps)
 
+  allocateValue consName args = do
+    nameIx <- gets (length . allocated)
+    let newValue = ("allocated" ++ show nameIx, (consName, args))
+
+    stats' <- updateDict (+) (consName, 1) <$> gets allocationStats
+    modify $ \ctxt -> ctxt { allocated = newValue  : allocated ctxt, allocationStats = stats' }
+    return $ Var $ "allocated" ++ show nameIx
+
 interpret' (Case scrut alts) = do
   scrut' <- interpret scrut
-  selectAlt scrut' alts
+  case scrut' of
+    Var nm -> do
+      ctxt <- get
+      case nm `lookup` (ctxt & allocated) of
+        Just (tag, bindings) -> firstAlt tag bindings alts
+        Nothing -> case nm `lookup` (ctxt & constructors) of
+          Just _  -> firstAlt nm [] alts
+          Nothing -> throwError . ElabError $ "somehow this variable was not allocated nor a cons: " ++ nm
+    x -> error (show x)
 
   where
-  selectAlt (Var nm) alts = do
-    ctxt <- get
-    case nm `lookup` (ctxt & allocated) of
-      Just (tag, bindings) -> firstAlt tag bindings alts
-      Nothing -> case nm `lookup` (ctxt & constructors) of
-        Just _  -> firstAlt nm [] alts
-        Nothing -> throwError . ElabError $ "idk what to do during a var match: " ++ nm
-  selectAlt x _ = error (show x)
 
   firstAlt nm _        (TrivialAlt exp : _) = do
     result <-  interpret exp
@@ -157,6 +161,10 @@ interpret' a@(Let bind exp) = do
   where bindToSubst (NonRec n exp) = (name n, exp)
 interpret' t@(Type ty) = pure t
 interpret' l@(Lit lit) = pure l
+
+updateDict f (k, v) ((dK, dV):dict) | k == dK = (k, f v dV) : dict
+                                  | otherwise = (dK, dV) : updateDict f (k, v) dict
+updateDict f (k, v) [] = [(k, v)]
 
 substBoundName :: MonadInterpret m => Bind Var -> CoreExp -> m CoreExp
 substBoundName (NonRec n arg) exp = interpret $ substitute (name n, arg) exp
