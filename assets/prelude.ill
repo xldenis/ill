@@ -55,7 +55,7 @@ module Prelude
 
   impl Ord Int
     fn lt () ltInt end
-    fn gt () gtInt end
+    fn gt (a, b) gtInt(a, b) end
     fn leq () leqInt end
     fn geq () geqInt end
     fn max () maxInt end
@@ -112,21 +112,17 @@ module Prelude
 
   impl Show a | Show (List a)
     fn show(list)
-      y = fn (f) =
-        x = f(x)
-        x
-      end
-
-      go = fn (next, x) =
+      go = fn (x) =
         case x of
           when Cons el ls: case ls of
             when Nil: show(el)
-            when ls: (show(el) + ',') + next(ls)
+            when ls: (show(el) + ',') + go(ls)
           end
+          when Nil: ''
         end
       end
 
-      '[' + y(go, list) + ']'
+      '[' + go(list) + ']'
     end
   end
 
@@ -143,8 +139,8 @@ module Prelude
   end
 
   impl Group Int
-    fn minus()
-      minusInt
+    fn minus(a, b)
+      minusInt(a, b)
     end
   end
 
