@@ -17,6 +17,8 @@ import Options.Generic
 import qualified Data.Text.Lazy.IO as T (putStrLn)
 import qualified Data.Text.IO as T (readFile)
 
+import Paths_ill
+
 data Config
   = Build String
   | Format String
@@ -38,7 +40,8 @@ main :: IO ()
 main = do
   config <- getRecord "Ill Compiler" :: IO Config
   parsed <- parseFromFile illParser (file config)
-  parsedPrelude <- parseFromFile moduleParser "assets/prelude.ill"
+  preludePath <- getDataFileName "assets/prelude.ill"
+  parsedPrelude <- parseFromFile moduleParser preludePath
 
   let joined = (,) <$> parsedPrelude <*> parsed
 
