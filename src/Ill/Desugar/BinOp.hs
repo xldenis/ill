@@ -20,7 +20,7 @@ operatorDesugarTable =
   , (">", "gt")
   , ("<", "lt")
   , ("&&", "and")
-  , ("||", "and")
+  , ("||", "or")
   , ("*", "times")
   , ("*", "times")
   ]

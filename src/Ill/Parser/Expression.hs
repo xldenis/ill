@@ -97,18 +97,24 @@ constructor :: Parser (Expr SourceSpan)
 constructor = withLoc (Constructor <$> lexeme capitalized)
 
 opTable :: [[Operator Parser (Expr SourceSpan)]]
-opTable = [ [ binary "*"
-            , binary "/"
-            , binary "&&"]
-          , [ binary "+"
-            , binary "-"
-            , binary "||"]
-          , [ binary ">"
-            , binary "<"]
+opTable = [ [ binary $ symbol "*"
+            , binary $ symbol "/"
+            , binary $ symbol "&&"
+            ]
+          , [ binary $ symbol "+"
+            , binary $ symbol "-"
+            , binary $ symbol "||"
+            ]
+          , [ binary $ try . lexeme $ string ">" <* notFollowedBy (char '=')
+            , binary $ try . lexeme $ string "<" <* notFollowedBy (char '=')
+            , binary $ symbol ">="
+            , binary $ symbol "<="
+            , binary $ symbol "=="
+            ]
           ]
 
-binary :: String -> Operator Parser (Expr SourceSpan)
+binary :: Parser String -> Operator Parser (Expr SourceSpan)
 binary op = InfixL $ do
-  op <- withLoc $ Var <$> (symbol op)
+  op <- withLoc $ Var <$> op
   return $ \a b -> SourceSpan (begin $ extract a) (end $ extract b) :< (BinOp op a b)
 
