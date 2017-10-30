@@ -2,24 +2,31 @@
 
 A simple, strongly-typed language exploring different compiler techniques.
 
+## Current commands and usage
+
+Build the executable using `stack build`, it can then be run with `stack exec ill`. The following commands are available:
+
+```
+ill infer file/path # run the type checker on the specified module. Outputs the types and kinds of everything.
+ill format file/path # run the pretty printer on a module. Outputs pretty printed code.
+ill desugar (traits|cases) file/path # run the desuraging pipeline up to the specified pass. Outputs the transformed module and any core bindings that can be generated.
+ill run file/path # interpret a module using a Call-By-Name interpreter.
+ill build file/path # not yet implemented
+```
+
 ## ideas:
 
-- Global inference?
-- no statements
-- LLVM backend
 - Fast performance
 - structural typing?
 - gradual typing?
-- pattern matching
-- partial application
 - simple parallelism / concurrency
 - mutable state
   - via linear types?
 
 ## planned features
 
-- local inferrence
-- no global state
+- type inferrence / checking
+- purity
 - first class functions
   - lambdas
 - llvm
@@ -31,10 +38,12 @@ A simple, strongly-typed language exploring different compiler techniques.
 
 
 ```
-fn name(args: int) -> int
+name :: Nnt -> Int
+fn name(args)
   x = 1
-  x, y = 2, {2 => 3} # multi-assign
-end # returns ??
+  x, y = 2, 4 # multi-assign
+  y
+end # returns 4
 
 fn name(args) # inferred types
   body = 2
@@ -47,8 +56,8 @@ end
 
 ## Literals
 
-- Hash: `{}`
-- Array: `[]`
+- ~~Hash: `{}`~~ _Not Yet Implemented_
+- ~~Array: `[]`~~ _Not Yet Implemented_
 - Integers: `1`
 - Floats: `2`
 - Literal Strings `'string \n'`
@@ -67,7 +76,5 @@ Arguments are patterned matched and can take several forms.
 - Wildcards `_`
 
 Additionally they can have type hints or annotations `fn (x :: int, Node a b :: Tree Int)`
-
-The return type can be elided.
 
 
