@@ -136,6 +136,9 @@ typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
 typeOf = fromType . ty . extract
   where fromType (Type t) = t
 
+valueName :: Decl a -> Name
+valueName (_ :< Value n _) = n
+
 isValue :: Decl a -> Bool
 isValue (_ :< Value _ _) = True
 isValue _ = False

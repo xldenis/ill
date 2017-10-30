@@ -154,8 +154,8 @@ typeCheck bgs = mapM go bgs
     vals' <- liftUnify $ do
       (ut, et, dict, untypedDict) <- typeDictionary (annotated ++ ds)
 
-      when (not (null ut) || not (null untypedDict)) $ internalError "there are implicitly typed members to trait impl"
-
+      when (not (null ut) || not (null untypedDict)) $ do
+        internalError . intercalate "\n" $ [ "The trait " ++ nm ++ " does not contain the methods:" ] ++ map valueName ut
       withTraitInstance nm supers args $
         forM et $ \e -> uncurry checkBindingGroupEl e dict
 
