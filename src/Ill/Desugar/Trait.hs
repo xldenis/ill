@@ -86,7 +86,7 @@ import           Control.Comonad
 
 import           Data.Bifunctor
 import           Data.Foldable     (find, foldl', toList)
-import           Data.List         (intercalate)
+import           Data.List         (intercalate, sortOn)
 import           Data.Maybe
 import           Data.Semigroup
 
@@ -96,9 +96,8 @@ import           Ill.Infer.Monad
 import           Ill.Syntax
 import           Ill.Syntax.Pretty (pretty)
 {-
-  1. Ensure Record is built in correct order
-  2. Handle super classes and superclass accessors
-  3. Fix dictionary passing in dictionary definitions
+  1. Handle super classes and superclass accessors
+  2. Fix dictionary passing in dictionary definitions
 -}
 
 desugarTraits :: Environment -> [Decl TypedAnn] -> [Decl TypedAnn]
@@ -112,13 +111,14 @@ desugarTraits env ds = fromDecl =<< ds
 valFromInst :: MonadReader Environment m => [Constraint Name] -> Name -> [Type Name] -> [Decl TypedAnn] -> m (Decl TypedAnn)
 valFromInst supers nm tys decls = do
   let
-    tyCon    = SynAnn tyConTy :< Constructor ("Mk" <> nm)
-    tyConTy  = foldl tFn (mkDictType nm tys) (map typeOf decls)
-    instName = instanceName (nm, tys)
-    dictTy   = mkAnn $ mkDictType nm tys
-    applied  = dictTy :< Apply tyCon (map (fromValue . simplifyPatterns) decls)
-    valAnn    = mkAnn $ constrain supers (mkDictType nm tys)
-    superDicts = map (uncurry mkDictType) supers
+    sortedDecls = sortOn valueName decls
+    tyCon       = SynAnn tyConTy :< Constructor ("Mk" <> nm)
+    tyConTy     = foldl tFn (mkDictType nm tys) (map typeOf sortedDecls)
+    instName    = instanceName (nm, tys)
+    dictTy      = mkAnn $ mkDictType nm tys
+    applied     = dictTy :< Apply tyCon (map (fromValue . simplifyPatterns) sortedDecls)
+    valAnn      = mkAnn $ constrain supers (mkDictType nm tys)
+    superDicts  = map (uncurry mkDictType) supers
 
   addDictsToVals valAnn instName [([], applied)]
   where
@@ -138,14 +138,15 @@ constraintsToFn ty = let (cons, fTy) = unconstrained ty
 
 dataFromDecl :: [Constraint Name] -> Name -> [Name] -> [Decl TypedAnn] -> [Decl TypedAnn]
 dataFromDecl superTraits name vars members = let
+  sortedMem = sortOn (sigNm) members
   dataRec   = (:<) (TyAnn Nothing (Kind dataKind)) . Data name vars . pure . mkDictType tyName
   dataKind  = foldl (\c _ -> c `KFn` Star) Star vars
   tyName    = "Mk" <> name
-  memTys    = map typeOf members
+  memTys    = map typeOf sortedMem
   recTy     = foldl (\l r -> l `TAp` TVar r) (TConstructor name) vars
-  memNms    = map sigNm members
+  memNms    = map sigNm sortedMem
   superTys  = []
-  accessors = zipWith (mkAccessor tyName recTy (memTys ++ superTys)) memNms [1..length members]
+  accessors = zipWith (mkAccessor tyName recTy (memTys ++ superTys)) memNms [1..]
   -- figure out the kind of new datatype
   in dataRec (superTys ++ memTys) : accessors
   where
