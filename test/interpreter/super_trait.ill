@@ -1,0 +1,5 @@
+module SuperTraitMethod
+  fn main ()
+    show(fmap(geq(3), Just(4)))
+  end
+end
