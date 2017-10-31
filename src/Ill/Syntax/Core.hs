@@ -57,7 +57,7 @@ instance Pretty b => Pretty (Core b) where
 instance Pretty b => Pretty (Alt b) where
   pretty (ConAlt n binders exp) = pretty n <+> hsep (map pretty binders) <+> pretty "->" <+> pretty exp
   pretty (TrivialAlt exp) = pretty "_" <+> pretty "->" <+> pretty exp
-
+  pretty (LitAlt lit exp) = pretty lit <+> pretty "->" <+> pretty exp
 instance Pretty n => Pretty (Bind n) where
   pretty (NonRec nm exp) = pretty nm <+> pretty "=" <+> pretty exp
 
@@ -85,6 +85,7 @@ data Usage
 data Alt b
   = ConAlt Id [b] (Core b)
   | TrivialAlt (Core b)
+  | LitAlt Literal (Core b)
   deriving (Show, Eq)
 
 type Arg n = Core n

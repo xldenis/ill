@@ -1,33 +1,22 @@
 module TobyBreaksThings3
-
-  fn fac(x)
-    if x > 1 then
-      fac(x-2) + fac(x-1)
-    else
-      1
-    end
+  fn fac(0)
+    1
+  or fac(1)
+    1
+  or fac(x)
+    fac(x - 2) + fac(x - 1)
   end
 
   make_range :: Int -> List Int -> List Int
-  fn make_range(x, acc)
-    if x > 0 then
-      make_range(x - 1, Cons(x, acc)) # issue is the inline constructor
-    else
-      acc
-    end
+  fn make_range(0, acc)
+    acc
+  or make_range(x, acc)
+    make_range(x - 1, Cons(x, acc)) # issue is the inline constructor
   end
 
   range :: Int -> List Int
   fn range(x)
     make_range(x, Nil)
-  end
-
-  fn mk_range2(x)
-    if x > 0 then
-      Cons(x, mk_range2(x-1))
-    else
-      Nil
-    end
   end
 
   fn main()

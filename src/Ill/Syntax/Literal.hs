@@ -6,7 +6,7 @@ data Literal
   | EscString String
   | Integer Integer
   | Double Double
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 instance Pretty Literal where
   pretty (RawString x) = squotes (pretty x)

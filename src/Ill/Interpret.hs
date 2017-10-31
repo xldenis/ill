@@ -2,15 +2,17 @@ module Ill.Interpret where
 
 import           Ill.Syntax.Core
 import           Ill.Syntax hiding (Expression(..))
-import           Ill.Syntax.Pretty ((<+>))
+import           Ill.Syntax.Pretty ((<+>), hsep)
 
 import           Control.Monad.Except
 import           Control.Monad.State
+import           Control.Applicative
 
+import           Data.Foldable
+import           Data.Function
 import           Data.IORef
 import           Data.List (find)
-import           Data.Function
-import           Control.Applicative
+import           Data.Maybe
 
 type Thunk = () -> IO Value
 
@@ -92,7 +94,7 @@ primops =
   showInt [VLit (Integer a)] = VLit $ RawString (show a)
 
   liftBinInt f [VLit (Integer a), VLit (Integer b)] = f a b
-  liftBinInt _ _ = error "ruh roh spaghettioes"
+  liftBinInt _ args = error . show $ pretty "ruh roh spaghettioes" <+> hsep (map showish args)
 
   liftCmp b = case b of
     True -> VConstructed "True" []
@@ -146,23 +148,16 @@ eval env a@(App _ _) = do
 
 eval env (Case scrut alts) = do
   scrut' <- eval env scrut
-  when (isLit scrut') $ error "sorry i dont support this yet :("
-  let VConstructed tag bound = scrut'
-  let Just matchedAlt = find (matchCons tag) alts
-
-  evalAlt env bound matchedAlt
+  fromJust . asum $ map (evalAlt env scrut') alts
   where
 
-  isLit (VLit _) = True
-  isLit _ = False
-
-  matchCons tag (TrivialAlt _) = True
-  matchCons tag (ConAlt nm _ _) = nm == tag
-
-  evalAlt env _ (TrivialAlt exp) = eval env exp
-  evalAlt env bound (ConAlt _ vars exp) = do
+  evalAlt env (VLit l) (LitAlt lit exp) | lit == l = do
+    return $ eval env exp
+  evalAlt env (VConstructed tag bound) (ConAlt ctag vars exp) | ctag == tag = do
     let env' = env { names = zipWith (\v b -> (name v, b)) vars bound ++ (names env) }
-    eval env' exp
+    return $ eval env' exp
+  evalAlt env _ (TrivialAlt exp) = return $ eval env exp
+  evalAlt _ scrut alt = Nothing
 
 eval env (Let (NonRec nm arg) exp) = do
   thunk <- newIORef undefined

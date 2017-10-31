@@ -1,28 +1,31 @@
 module Ill.Desugar.Cases where
 
-import Control.Lens (each, _1, (%~))
-import Control.Lens.Plated
-import           Ill.Syntax
+
+import           Control.Comonad
+import           Control.Comonad.Cofree
+
+import           Control.Lens (each, _1, (%~))
+import           Control.Lens.Plated
+
 import           Control.Monad.Fresh
+import           Control.Monad.Identity
+import           Control.Monad.State
+
 import           Data.Function
 import           Data.List
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (catMaybes)
 
-import Control.Comonad
-import Control.Comonad.Cofree
-import Control.Monad.Identity
-import Control.Monad.State
+import           Ill.Syntax
 
-import Data.Maybe (catMaybes)
-
-data PatGroup = VarG | ConG String | WildG | LitG
+data PatGroup = VarG | ConG String | WildG | LitG Literal
   deriving (Show, Eq)
 
 patGroup :: Pattern a -> PatGroup
 patGroup (Destructor c _) = ConG c
 patGroup (PVar _)         = VarG
 patGroup (Wildcard)       = WildG
-patGroup (PLit _)         = LitG
+patGroup (PLit l)         = LitG l
 
 type Eqn a = ([Pat a], Expr a)
 
@@ -105,7 +108,7 @@ match vars eqns = do
     VarG   -> matchVarPat vars (map snd eqns)
     ConG _ -> matchConPat vars (subGroup [(c, e) | (ConG c, e) <- eqns])
     WildG  -> matchWildcardPat vars (map snd eqns)
-    LitG   -> error "literal patterns are not implemented"
+    LitG _ -> matchLiterals vars (subGroup $ [(l, e) | (LitG l, e) <- eqns])
 
   matchWildcardPat (_ : vars) eqns = match vars (shiftEqnPats eqns)
 
@@ -126,6 +129,28 @@ match vars eqns = do
   mkAssign :: String -> Expr TypedAnn -> Expr TypedAnn
   mkAssign n e = (extract e) :< Assign [n] [e]
 
+  matchLiterals :: MonadFresh m => [String] -> [[Eqn TypedAnn]] -> m (MatchResult TypedAnn)
+  matchLiterals (var : vars) subGroups = do
+    let
+      retTy = typeOf . snd . head $ head subGroups
+      scrutTy = typeOf . head . fst . head $ head subGroups
+
+    if (scrutTy == TConstructor "String") then
+      error "currently string literal matches arent implemented"
+    else do
+      branches <- mapM matchLiteral subGroups
+      let failBranch = ((extract . fst $ head  branches) :< Wildcard, id)
+
+      return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (fmap ($ fail)) (branches ++ [failBranch]))
+    where
+    firstPat (pats, e) = head pats
+
+    matchLiteral :: MonadFresh m => [Eqn TypedAnn] -> m (Pat TypedAnn, MatchResult TypedAnn)
+    matchLiteral group = do
+      let pat = firstPat (head group)
+      match_result <- match vars (shiftEqnPats group)
+      return (pat, match_result)
+
   matchConPat :: MonadFresh m => [String] -> [[Eqn TypedAnn]] -> m (MatchResult TypedAnn)
   matchConPat (var : vars) groups = do
     let
@@ -134,10 +159,7 @@ match vars eqns = do
     branches <- mapM (matchOneConsPat vars) groups
     -- a failure branch should be included allowing the variable branch to be inserted!
     let failBranch = ((extract . fst $ head  branches) :< Wildcard, id)
-    return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (updateEqn fail) (branches ++ [failBranch]))
-    where
-
-    updateEqn f (pats, mr) = (pats, mr f)
+    return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (fmap ($ fail)) (branches ++ [failBranch]))
 
   matchOneConsPat :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (Pat TypedAnn, MatchResult TypedAnn)
   matchOneConsPat vars group = do

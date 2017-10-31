@@ -24,6 +24,7 @@ instance Pretty (Cofree Pattern a) where
           complex _ = False
   pretty (_ :< Wildcard) = pretty "_"
   pretty (_ :< PVar x) = pretty x
+  pretty (_ :< PLit l) = pretty l
 
 patternNames :: Pat a -> [String]
 patternNames (_ :< PVar n) = [n]

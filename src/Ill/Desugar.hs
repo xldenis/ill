@@ -69,6 +69,7 @@ toCore (_ :< S.Literal lit ) = Lit lit
 toAlts = map toAlt
 
 toAlt (a :< Wildcard, e) = TrivialAlt $ toCore e
+toAlt (_ :< PLit lit, exp) = LitAlt lit $ toCore exp
 toAlt (_ :< Destructor n ps, exp) = ConAlt n (map toVar ps) $ toCore exp
   where
   toVar (a :< Wildcard) = Id "" (fromTyAnn a) NotUsed
