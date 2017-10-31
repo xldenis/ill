@@ -1,0 +1,15 @@
+module X
+  trait A a
+    b :: a
+  end
+
+  impl A Int
+    fn b ()
+      c(5)
+    end
+  end
+
+  fn c (i)
+    i - 5
+  end
+end

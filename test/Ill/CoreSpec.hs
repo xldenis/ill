@@ -64,38 +64,7 @@ spec = do
 
   describe "desugaring" $ do
     it "desugars constructor groups" $ do
-      let mod = [modQ|
-        module X
-          data L a = C a (L a) | Nil
-
-          fn mappairs(x)
-            case x of
-              when C el Nil: 1
-              when C el ls:  2
-            end
-          end
-        end
-      |]
-
-      let Right (typed, _) = runTC mod
-          ValueBG [x] = last typed
-          result = simplifyPatterns x
-          expected = [decl|
-            fn mappairs()
-              fn (x1) =
-                case x1 of
-                  when C el omg0: case omg0 of
-                    when Nil: 1
-                    when b  : 2
-                  end
-                  when _ : failedPattern
-                end
-              end
-            end
-          |]
-
-      renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
-
+      constructorGroups
     it "mappairs" $ do
       let mod = [modQ|
         module X
@@ -160,5 +129,38 @@ spec = do
             end
           |]
 
-          in dropAnn result `shouldBe` dropAnn expected
+          in renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
+
+constructorGroups = do
+  let mod = [modQ|
+    module X
+      data L a = C a (L a) | Nil
+
+      fn mappairs(x)
+        case x of
+          when C el Nil: 1
+          when C el ls:  2
+        end
+      end
+    end
+  |]
+
+  let Right (typed, _) = runTC mod
+      ValueBG [x] = last typed
+      result = simplifyPatterns x
+      expected = [decl|
+        fn mappairs()
+          fn (x1) =
+            case x1 of
+              when C el omg0: case omg0 of
+                when Nil: 1
+                when b  : 2
+              end
+              when _ : failedPattern
+            end
+          end
+        end
+      |]
+
+  renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
 

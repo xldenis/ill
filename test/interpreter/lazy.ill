@@ -1,0 +1,12 @@
+module LazyProof
+
+  # This program will only terminate with a lazy evaluator
+
+  fn main ()
+    (fn (x) = 45 end)(omega)
+  end
+
+  fn omega ()
+    omega
+  end
+end

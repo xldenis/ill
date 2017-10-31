@@ -2,6 +2,7 @@ module Ill.Interpret where
 
 import           Ill.Syntax.Core
 import           Ill.Syntax hiding (Expression(..))
+import           Ill.Syntax.Pretty ((<+>))
 
 import           Control.Monad.Except
 import           Control.Monad.State
@@ -9,6 +10,7 @@ import           Control.Monad.State
 import           Data.IORef
 import           Data.List (find)
 import           Data.Function
+import           Control.Applicative
 
 type Thunk = () -> IO Value
 
@@ -16,14 +18,23 @@ data Value
   = VLit Literal
   | VClosure (Thunk -> IO Value)
   | VConstructed String [IORef Thunk]
+  | VPrimop String Int ([Value] -> Value)
+  | VConstructor String Int
 
 showish (VLit lit) = pretty lit
 showish (VClosure _) = pretty "<<closure>>"
-showish (VConstructed _ vars) = pretty "<<constructed>>"
+showish (VConstructed n vars) = pretty "<<constructed:" <+> pretty n <+> pretty ">>"
+showish (VPrimop n _ _) = pretty "<<primop:" <+> pretty n <+> pretty ">>"
+showish (VConstructor n arty) = pretty "<<constructor:" <+> pretty n <+> pretty "arity:" <+> pretty arty <+> pretty ">>"
 
 update :: IORef Thunk -> Value -> IO ()
 update ref val = do
   writeIORef ref (\() -> return val)
+  return ()
+
+update' :: IORef Thunk -> Thunk -> IO ()
+update' ref thunk = do
+  writeIORef ref thunk
   return ()
 
 force :: IORef Thunk -> IO Value
@@ -37,14 +48,13 @@ data Env = Env { names :: [(Name, IORef Thunk)], constructors :: [(Name, Int)] }
 
 mkEnvForModule :: [(Name, Int)] -> [Bind Var] -> IO Env
 mkEnvForModule cons funcs = do
-  thunks <- replicateM (length funcs) (newIORef undefined)
+  thunks <- replicateM (length funcs) (newIORef $ error "error setting up interpreter context")
   let funcs' = map (\(NonRec var exp) -> (name var, exp)) funcs
       names  = zipWith (\(nm, _) thunk -> (nm, thunk)) funcs' thunks
       env    = Env names cons
 
   zipWithM (\(name, value) thunk -> do
-    val <- eval env value
-    update thunk val
+    update' thunk $ \() -> eval env value
     ) funcs' thunks
 
   return $ env
@@ -78,7 +88,6 @@ primops =
   ltInt  = liftBinInt $ \a b -> liftCmp $ a < b
   gtInt  = liftBinInt $ \a b -> liftCmp $ a > b
 
-
   plusStr [VLit (RawString a), VLit (RawString b)] = VLit . RawString $ a ++ b
   showInt [VLit (Integer a)] = VLit $ RawString (show a)
 
@@ -96,56 +105,44 @@ mkThunk env nm exp = \thunk -> do
   eval (env { names = (nm, thunk') : names env }) exp
 
 eval :: Env -> CoreExp -> IO Value
-eval env (Var n) = do
-  case n `lookup` (env & names) of
-    Nothing -> case n `lookup` (env & constructors) of
-                  Just 0 -> return $ VConstructed n []
-                  Nothing -> error $ "failed to lookup " ++ n -- this is where i need to sneak in a subsitution for primops
-    Just thunk -> force thunk
+eval env (Var n) =
+  case lookupVar <|> lookupConstructor <|> lookupPrimOp of
+    Nothing -> error $ "failed to lookup " ++ n
+    Just x -> x
+  where
+  lookupVar = n `lookup` (env & names) >>= return . force
+  lookupConstructor = n `lookup` (env & constructors) >>= \arity -> case arity of
+    0 -> return . return $ VConstructed n []
+    arity -> return . return $ VConstructor n arity
+  lookupPrimOp = n `lookup` primops >>= \(arity, f) -> (return . return $ VPrimop n arity f)
+
 eval env (Lambda n exp) = return $ VClosure (mkThunk env (name n) exp)
 eval env (Lit lit) = return $ VLit lit
 eval env a@(App _ _) = do
-  let unwound = unwindSpineStack a []
+  let (v : stack) = unwindSpineStack a []
+  val <- eval env v
+  evalApp env val stack
 
-  evalApp env unwound
   where
 
   unwindSpineStack (App f a) stack = unwindSpineStack f (a : stack)
   unwindSpineStack a         stack = a : stack
 
-  evalApp env (Var v : stack)
-    | isPrimop v = do -- check for partial application of primop!!
-      let Just (arity, opF) = v `lookup` primops
-          args = take arity stack
-      args' <- mapM (eval env) args
+  evalApp env (VConstructor n arity) stack | length stack >= arity = do
+    let (args, remainder) = splitAt arity stack
+    args' <- forM args $ \arg -> newIORef $ \() -> eval env arg
 
-      return $ opF args'
-    | isConstructor v = do
-      let Just arity = v `lookup` (env & constructors)
-          args = take arity stack
+    evalApp env (VConstructed n args') remainder
+  evalApp env (VPrimop opName arity opF) stack = do -- check for partial application
+    let (args, res) = splitAt arity stack
+    args' <- mapM (eval env) args
+    evalApp env (opF args') res
 
-      args' <- forM args $ \arg -> newIORef $ \() -> eval env arg
-
-      return $ VConstructed v args'
-
-  evalApp env (v : arg : stack) = do
-    val <- eval env v
-    go env val (arg : stack)
-
-    where
-    go env (VClosure closure) (arg : stack) = do
-      result <- closure $ \() -> eval env arg
-
-      go env result stack
-    go env res [] = pure res
-
-  isPrimop v = maybeToBool $ v `lookup` primops
-
-  isConstructor v = v `lookup` (env & constructors) & maybeToBool
-
-  maybeToBool x = case x of
-    Just _ -> True
-    Nothing -> False
+  evalApp env (VClosure closure) (arg : stack) = do
+    result <- closure $ \() -> eval env arg
+    evalApp env result stack
+  evalApp env res [] = pure res
+  evalApp env res args = error . show $ showish res <+> pretty args
 
 eval env (Case scrut alts) = do
   scrut' <- eval env scrut
@@ -170,7 +167,7 @@ eval env (Case scrut alts) = do
 eval env (Let (NonRec nm arg) exp) = do
   thunk <- newIORef undefined
   let env' = env { names = (name nm, thunk) : names env }
-  writeIORef thunk $ \() -> eval env' arg
+  update' thunk $ \() -> eval env' arg
 
   eval env' exp
 

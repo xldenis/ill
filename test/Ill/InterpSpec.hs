@@ -112,7 +112,7 @@ spec = do
 
         result <- runInterpreter mod
         case result of
-          VLit l -> l `shouldBe` (Integer 2)
+          VLit l -> l `shouldBe` (Integer 22)
           _ -> expectationFailure "a literal value should have been produced"
 
     it "basic command works" $ do

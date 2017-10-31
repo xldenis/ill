@@ -31,7 +31,7 @@ module TobyBreaksThings3
   end
 
   fn main()
-    show(fmap(fac, range(25)))
+    show(fmap(fac, range(15)))
   end
 
 end

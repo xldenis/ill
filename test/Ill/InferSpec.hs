@@ -67,4 +67,4 @@ filesShouldCheck dir = do
         case runTC (bindingGroups ds >>= typeCheck) of
           Right _ -> return ()
           Left err -> expectationFailure $
-            "module should have typechecked but instead returned: " ++ show err
+            "module should have typechecked but instead returned: " ++ (show $ pretty err)
