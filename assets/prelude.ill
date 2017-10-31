@@ -132,6 +132,14 @@ module Prelude
     end
   end
 
+  impl Show Bool
+    fn show(True)
+      'True'
+    or show(False)
+      'False'
+    end
+  end
+
   impl Monoid Int
     fn zero ()
       0
