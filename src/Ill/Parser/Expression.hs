@@ -13,6 +13,11 @@ import Control.Comonad.Cofree
 import Control.Comonad
 import Control.Monad (when)
 
+import Control.Lens.Extras
+import Control.Lens ((^?))
+import Data.Function ((&))
+import Data.Maybe
+
 expression :: Parser (Expr SourceSpan)
 expression = body <|> nonBodyExpr
 
@@ -31,7 +36,9 @@ simpleExpr = literalE <|> var <|> constructor
 
 body :: Parser (Expr SourceSpan) -- need backtracking?
 body = withLoc $ do
-  Body <$> nonBodyExpr `sepEndBy1` sep
+  bodyExps <- nonBodyExpr `sepEndBy1` sep
+  when (isJust $ (last bodyExps) ^? _unwrap . _Assign) (fail "blocks must be terminated by non-assignment expression")
+  return $ Body bodyExps
 
 assign :: Parser (Expr SourceSpan)
 assign = withLoc $ do
@@ -49,7 +56,7 @@ call = try $ do
   func <- var <|> constructor <|> parens consExpr
   args <- some $ (,) <$> (parens $ list fullExpr) <*> getPosition
   return $ foldl (f start) func args
-  where f startpos func (args, pos) =(SourceSpan startpos pos)  :< Apply func args
+  where f startpos func (args, pos) = (SourceSpan startpos pos) :< Apply func args
 
 caseE :: Parser (Expr SourceSpan)
 caseE = withLoc $ do
