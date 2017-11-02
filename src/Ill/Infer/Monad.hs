@@ -126,7 +126,7 @@ lookupTrait name = do
 bindNames :: MonadState CheckState m => [(Name, Type Name)] -> m a -> m a
 bindNames nms action = do
   orig <- get
-  modify (\s -> s { env = (env s) { names = names (env s) ++ nms } })
+  modify (\s -> s { env = (env s) { names = nms ++ names (env s) } })
   a <- action
   modify (\s -> s { env = (env s) { names = names . env $ orig } })
   return a

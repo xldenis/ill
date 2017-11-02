@@ -151,10 +151,12 @@ constructorGroups = do
       expected = [decl|
         fn mappairs()
           fn (x1) =
-            case x1 of
+            x = x1
+            case x of
               when C el omg0: case omg0 of
                 when Nil: 1
-                when b  : 2
+                when _  : ls = omg0
+                2
               end
               when _ : failedPattern
             end

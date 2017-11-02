@@ -33,14 +33,23 @@ type RawDecl = Decl SourceSpan
 
 {-
   1. kind checking not implemented
-  2. error messages suuuuuck
-  3. Fail assign terminated blocks during type checking
-  4. Capture avoidance during typechecking!
+  2. error messages suck
 -}
 
-typeCheck :: [BindingGroup SourceSpan] -> Check [BindingGroup TypedAnn]
-typeCheck bgs = mapM go bgs
+typeCheck :: BoundModules SourceSpan -> Check [BindingGroup TypedAnn]
+typeCheck (BoundModules
+  { classDecls = classDecls
+  , instDecls  = instDecls
+  , valueDecls = valueDecls
+  , otherDecls = otherDecls
+  , dataDecls  = dataDecls
+  }) = do
+    mapM gatherInstInfo instDecls
+    mapM go (dataDecls ++ classDecls ++ valueDecls ++ instDecls ++ otherDecls)
+
   where
+  gatherInstInfo (OtherBG (_ :< TraitImpl supers nm args _)) = addTraitInstance nm supers args
+
   go :: BindingGroup SourceSpan -> Check (BindingGroup TypedAnn)
   go (ValueBG ds)                  = do
     inferredVals <- liftUnify $ do
@@ -142,6 +151,7 @@ typeCheck bgs = mapM go bgs
     trait <- lookupTrait nm
     let subs = zip (traitVars trait) args
         cons = map (\(nm, cs') -> (nm, map (replaceTypeVars subs) cs' )) (superTraits trait)
+
     unsatisfiedSupers <- reduce cons
     when (not $ null unsatisfiedSupers) . internalError $ "unsatisfied supertraits in instance: " ++ show unsatisfiedSupers
 
@@ -156,8 +166,9 @@ typeCheck bgs = mapM go bgs
 
       when (not (null ut) || not (null untypedDict)) $ do
         internalError . intercalate "\n" $ [ "The trait " ++ nm ++ " does not contain the methods:" ] ++ map valueName ut
+
       withTraitInstance nm supers args $
-        forM et $ \e -> uncurry checkBindingGroupEl e dict
+        forM et $ \e -> uncurry checkBindingGroupEl e []
 
     addTraitInstance nm supers args
 

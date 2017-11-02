@@ -23,6 +23,14 @@ data BindingGroup a
   | OtherBG  (Decl a)
   deriving (Show, Eq)
 
+data BoundModules a = BoundModules
+  { classDecls :: [BindingGroup a]
+  , instDecls  :: [BindingGroup a]
+  , valueDecls :: [BindingGroup a]
+  , otherDecls :: [BindingGroup a]
+  , dataDecls  :: [BindingGroup a]
+  } deriving (Show, Eq)
+
 bgNames (ValueBG ds) = map valueName ds
   where
   valueName (_ :< Value n _) = n
@@ -41,7 +49,7 @@ fromBindingGroups bgs = fromBG =<< bgs
   fromBG (DataBG  ds) = ds
   fromBG (OtherBG d) = pure d
 
-bindingGroups :: MonadError MultiError m => [Decl a] -> m [BindingGroup a]
+bindingGroups :: MonadError MultiError m => [Decl a] -> m (BoundModules a)
 bindingGroups ds = do
   let dataDecls = filter isDataDecl ds
       valueDecls = filter isValue ds ++ filter isSignature ds
@@ -53,11 +61,13 @@ bindingGroups ds = do
 
   instBGs <- sortedInstances (filter isDecl ds) (filter isImpl ds)
 
-  return $ dataBGs ++
-     map OtherBG (filter isDecl ds) ++
-     instBGs ++
-     others ++
-     valueBGs
+  return $ BoundModules
+    { dataDecls = dataBGs
+    , instDecls = instBGs
+    , classDecls = map OtherBG (filter isDecl ds)
+    , valueDecls = valueBGs
+    , otherDecls = others
+    }
 
 sccToDecl :: SCC (Decl a) -> [Decl a]
 sccToDecl (AcyclicSCC d)  = [d]
