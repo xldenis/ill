@@ -1,10 +1,20 @@
 module TobyBreaksThings3
-  fn fac(0)
-    1
-  or fac(1)
-    1
-  or fac(x)
-    fac(x - 2) + fac(x - 1)
+  fn fib(i)
+    partialIx(i, fibs)
+  end
+
+  fn fibs ()
+    fromJust = fn (x) = case x of
+      when Just x2: x2
+      end
+    end
+    Cons(0, Cons(1, zipWith(plus, fibs, fromJust(tail(fibs)))))
+  end
+
+  fn partialIx(0, Cons x xs)
+    x
+  or partialIx(i, Cons x xs)
+    partialIx(i - 1, xs)
   end
 
   make_range :: Int -> List Int -> List Int
@@ -20,7 +30,6 @@ module TobyBreaksThings3
   end
 
   fn main()
-    show(fmap(fac, range(15)))
+    show(fmap(fib, range(250)))
   end
-
 end

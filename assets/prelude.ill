@@ -112,17 +112,7 @@ module Prelude
 
   impl Show a | Show (List a)
     fn show(list)
-      go = fn (x) =
-        case x of
-          when Cons el ls: case ls of
-            when Nil: show(el)
-            when ls: (show(el) + ',') + go(ls)
-          end
-          when Nil: ''
-        end
-      end
-
-      '[' + go(list) + ']'
+      '[' + foldr(plus, '', intersperse(',', fmap(show, list))) + ']'
     end
   end
 
@@ -154,9 +144,99 @@ module Prelude
 
   impl Show a | Show (Maybe a)
     fn show(Just a)
-      show(a)
+      'Just' + show(a)
     or show(Nothing)
       'nothing'
     end
+  end
+
+  trait Foldable t
+    foldr :: (a -> b -> b) -> b -> t a -> b
+    foldl :: (b -> a -> b) -> b -> t a -> b
+  end
+
+  impl Foldable List
+    fn foldr(f, z, Cons x xs)
+      f(x, foldr(f, z, xs))
+    or foldr(f, z, Nil)
+      z
+    end
+
+    fn foldl(f, z, Cons x xs)
+      foldl(f, f(z, x), xs)
+    or foldl(f, z, Nil)
+      z
+    end
+  end
+
+  intersperse :: a -> List a -> List a
+  fn intersperse(item, Cons el Nil)
+    Cons(el, Nil)
+  or intersperse(item, Cons el l2)
+    Cons(el, Cons(item, intersperse(item, l2)))
+  or intersperse(item, Nil)
+    Nil
+  end
+
+  head :: List a -> Maybe a
+  fn head(Cons x xs)
+    Just(x)
+  or head(Nil)
+    Nothing
+  end
+
+  last :: List a -> Maybe a
+  fn last(Cons x xs)
+    Just(x)
+  or last(Nil)
+    Nothing
+  end
+
+  tail :: List a -> Maybe (List a)
+  fn tail(Cons x xs)
+    Just(xs)
+  or tail(Nil)
+    Nothing
+  end
+
+  init :: List a -> Maybe (List a)
+  fn init(Cons x Nil)
+    Just(Nil)
+  or init(Cons x xs)
+    case init(xs) of
+      when Just xs1: Just(Cons(x, xs1))
+      when Nothing: Just(Cons(x, Nil))
+    end
+  or init(Nil)
+    Nothing
+  end
+
+  uncons :: List a -> Maybe (Tuple a (List a))
+  fn uncons(Cons x xs)
+    Just(T(x, xs))
+  or uncons(Nil)
+    Nothing
+  end
+
+  const :: a -> (b -> a)
+  fn const(e)
+    fn (x) = e end
+  end
+
+  null :: Foldable t | t a -> Bool
+  fn null ()
+    foldr(const(const(False)), True)
+  end
+
+  length :: Foldable t | t a -> Int
+  fn length(list)
+    foldl(fn (x, y) = x + 1 end, 0, list)
+  end
+
+  zipWith :: (a -> b -> c) -> (List a) -> (List b) -> (List c)
+  fn zipWith(f, Cons x xs, Cons y ys)
+    Cons(f(x, y), zipWith(f, xs, ys))
+  or zipWith(f, a, b)
+    Nil
   end
 end
