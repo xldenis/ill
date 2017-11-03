@@ -197,8 +197,9 @@ match vars eqns = do
 
 mkAdjustments :: Expr a -> [Name] -> (Expr a)
 mkAdjustments from to = let
-  from' = replicate (length to) from
-  in extract from :< Assign to from'
+  to' = nub to
+  from' = replicate (length to') from
+  in extract from :< Assign to' from'
 
 
 makeVarNames :: (Show a, MonadFresh m) => [Pat a] -> m [String]
