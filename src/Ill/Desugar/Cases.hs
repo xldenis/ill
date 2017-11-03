@@ -29,12 +29,14 @@ patGroup (PLit l)         = LitG l
 
 type Eqn a = ([Pat a], Expr a)
 
+eqnsPats :: [Eqn a] -> [Pat a]
 eqnsPats = fst . head
+
+eqnsExpr :: [Eqn a] -> Expr a
 eqnsExpr = snd . head
 
 {-
   1. fix binding of new vars
-  2. Add lambda abstraction around match
   3. actually fail non-total matches
 -}
 
@@ -114,15 +116,24 @@ match vars eqns = do
 
   matchVarPat :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (MatchResult TypedAnn)
   matchVarPat (v : vars) eqns = do
-    let (a, pat) = fromPVar . head $ eqnsPats eqns
+    let (a, _) = fromPVar . head $ eqnsPats eqns
+        varNames = map (snd . fromPVar) $ headEqnPats eqns
 
     matchResult <- match vars (shiftEqnPats eqns)
 
-    return $ \fail -> case matchResult fail of
-      _ :< Body xs -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : xs  else xs
-      y            -> mkBody $ if pat /= v then  mkAssign pat (a :< Var v) : [y] else [y]
+    return $ \fail -> let
+      expList = bodyToList $ matchResult fail
+      bindings = filter (/= v) varNames
+
+      in mkBody $ case bindings of
+        [] -> expList
+        namesToChange-> mkAdjustments (a :< Var v) namesToChange : expList
 
     where
+
+    bodyToList (_ :< Body xs) = xs
+    bodyToList y              = [y]
+
     fromPVar (a :< PVar pat) = (a, pat)
     fromPVar _ = error "impossible non-var pattern in when matching variable patterns"
 
@@ -180,6 +191,15 @@ match vars eqns = do
   shiftCons ((_ :< Destructor _ ps) : xs, rhs) = (ps ++ xs, rhs)
 
   shiftEqnPats = map (\(pats, eq) -> (tail pats, eq))
+
+  headEqnPats :: [Eqn a] -> [Pat a]
+  headEqnPats = map (head . fst)
+
+mkAdjustments :: Expr a -> [Name] -> (Expr a)
+mkAdjustments from to = let
+  from' = replicate (length to) from
+  in extract from :< Assign to from'
+
 
 makeVarNames :: (Show a, MonadFresh m) => [Pat a] -> m [String]
 makeVarNames ((_ :< PVar n) : ps) = (:) <$> pure ( n) <*> makeVarNames ps

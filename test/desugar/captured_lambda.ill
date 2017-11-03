@@ -6,6 +6,6 @@ module ImproperBindingInCase # need to move this to desguar tests
   end
 
   fn main ()
-    test_messed_up_name_binds(5, Just(5))
+    test_messed_up_name_binds(10, Just(5))
   end
 end
