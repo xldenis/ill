@@ -169,6 +169,20 @@ module Prelude
     end
   end
 
+  impl Foldable Maybe
+    fn foldr(f, z, Just x)
+      f(z, x)
+    or foldr(f, z, Nothing)
+      z
+    end
+
+    fn foldr(f, z, Just x)
+      f(x, z)
+    or foldr(f, z, Nothing)
+      z
+    end
+  end
+
   intersperse :: a -> List a -> List a
   fn intersperse(item, Cons el Nil)
     Cons(el, Nil)
