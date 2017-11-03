@@ -35,13 +35,13 @@ simpleExpr :: Parser (Expr SourceSpan)
 simpleExpr = literalE <|> var <|> constructor
 
 body :: Parser (Expr SourceSpan) -- need backtracking?
-body = withLoc $ do
+body = label "body expression" . withLoc $ do
   bodyExps <- nonBodyExpr `sepEndBy1` sep
   when (isJust $ (last bodyExps) ^? _unwrap . _Assign) (fail "blocks must be terminated by non-assignment expression")
   return $ Body bodyExps
 
 assign :: Parser (Expr SourceSpan)
-assign = withLoc $ do
+assign = label "assignment" . withLoc $ do
   names <- try $ do
     list identifier <* symbol "="
   values <- list fullExpr
@@ -51,7 +51,7 @@ assign = withLoc $ do
   return $ Assign names values
 
 call :: Parser (Expr SourceSpan)
-call = try $ do
+call = label "functional invocation" . try $ do
   start <- getPosition
   func <- var <|> constructor <|> parens consExpr
   args <- some $ (,) <$> (parens $ list fullExpr) <*> getPosition
@@ -59,7 +59,7 @@ call = try $ do
   where f startpos func (args, pos) = (SourceSpan startpos pos) :< Apply func args
 
 caseE :: Parser (Expr SourceSpan)
-caseE = withLoc $ do
+caseE = label "case expression" . withLoc $ do
   symbol "case"
   expr <- fullExpr
   symbol "of"
@@ -75,7 +75,7 @@ caseE = withLoc $ do
   return $ Case expr matchers -- matchers
 
 lambda :: Parser (Expr SourceSpan)
-lambda = withLoc $ do
+lambda = label "lambda expression" . withLoc $ do
   symbol "fn"
   args <- lexeme $ parens . list $ pattern
   symbol "=" <* scn
@@ -84,24 +84,24 @@ lambda = withLoc $ do
   return $ Lambda args body
 
 ifE :: Parser (Expr SourceSpan)
-ifE = withLoc $ do
+ifE = label "if expression" . withLoc $ do
   symbol "if"
-  cond <- fullExpr
-  symbol "then" <* scn
+  cond <- label "condition" fullExpr
+  label "then" $ symbol "then" <* scn
   left <- expression
-  symbol "else" <* scn
+  label "else-branch" $ symbol "else" <* scn
   right <- expression
   symbol "end"
 
   return $ If cond left right
 
-literalE = withLoc (Literal <$> literal)
+literalE = label "literal" $ withLoc (Literal <$> literal)
 
 var :: Parser (Expr SourceSpan)
-var = try $ withLoc (Var <$> identifier)
+var = label "variable" . try $ withLoc (Var <$> identifier)
 
 constructor :: Parser (Expr SourceSpan)
-constructor = withLoc (Constructor <$> lexeme capitalized)
+constructor = label "constructor" $ withLoc (Constructor <$> lexeme capitalized)
 
 opTable :: [[Operator Parser (Expr SourceSpan)]]
 opTable = [ [ binary $ symbol "*"

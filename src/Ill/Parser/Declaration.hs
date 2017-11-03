@@ -16,12 +16,13 @@ import Ill.Parser.Expression
 
 
 declaration :: Parser (Decl SourceSpan)
-declaration =
-  dataDeclaration <|> typeSynonymDeclaration <|> importDeclaration <|>
-  valueDeclaration <|> signatureDeclaration <|> traitDeclaration <|> implDeclaration
+declaration = choice
+  [ dataDeclaration, typeSynonymDeclaration, importDeclaration,
+    valueDeclaration, signatureDeclaration, traitDeclaration, implDeclaration
+  ]
 
 dataDeclaration :: Parser (Decl SourceSpan)
-dataDeclaration = withLoc $ do
+dataDeclaration = label "data type" . withLoc $ do
   symbol "data"
   name <- upperIdent
   vars <- many identifier
@@ -30,7 +31,7 @@ dataDeclaration = withLoc $ do
   return $ Data name vars types
 
 typeSynonymDeclaration :: Parser (Decl SourceSpan)
-typeSynonymDeclaration = withLoc $ do
+typeSynonymDeclaration = label "type synonym" .  withLoc $ do
   try $ symbol "type"
   alias <- upperIdent
   vars  <- many identifier
@@ -39,7 +40,7 @@ typeSynonymDeclaration = withLoc $ do
   return $ TypeSynonym alias vars aliasee
 
 traitDeclaration :: Parser (Decl SourceSpan)
-traitDeclaration = withLoc $ do
+traitDeclaration = label "trait declaration" . withLoc $ do
   symbol "trait"
   supers <- constraintP <|> (pure [])
   name <- lexeme capitalized
@@ -49,7 +50,7 @@ traitDeclaration = withLoc $ do
   return $ TraitDecl supers name args body
 
 implDeclaration :: Parser (Decl SourceSpan)
-implDeclaration = withLoc $ do
+implDeclaration = label "trait implementation" . withLoc $ do
   symbol "impl"
   trt <- fullType
   let (constraints, ty) = unconstrained trt
@@ -63,33 +64,31 @@ implDeclaration = withLoc $ do
   return $ TraitImpl constraints className' vars body
 
 signatureDeclaration :: Parser (Decl SourceSpan)
-signatureDeclaration = try $ withLoc $ do
-  ident <- identifier
-  symbol "::"
+signatureDeclaration = label "value signature" . withLoc $ do
+  ident <- try $ identifier <* symbol "::"
   Signature ident <$> fullType
 
--- TODO: Argument pattern matching?
 valueDeclaration :: Parser (Decl SourceSpan)
-valueDeclaration = withLoc $ do
+valueDeclaration = label "value" . withLoc $ do
   symbol "fn"
   name <- identifier
   main <- branch
   alts <- many $ do
     symbol "or"
-    bname <- identifier
-    when (bname /= name) $ fail ("Invalid function alternative for " ++ name)
+    bname <- symbol name
     branch
   symbol "end"
   return $ Value name (main : alts)
-  where branch = do
-                  args <- parens $ list pattern
-                  scn
-                  body <- body
-                  scn
-                  return (args, body)
+  where
+  branch = do
+    args <- parens $ list pattern
+    scn
+    body <- body
+    scn
+    return (args, body)
 
 importDeclaration :: Parser (Decl SourceSpan)
-importDeclaration = withLoc $ do
+importDeclaration = label "import" . withLoc $ do
   symbol "import"
   qual <- qualified
   path <- intercalate "." <$> (lexeme $ capitalized `sepBy` (char '.'))
