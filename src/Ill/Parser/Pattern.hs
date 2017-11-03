@@ -1,10 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Ill.Parser.Pattern (pattern) where
 
 import Ill.Syntax
 import Ill.Parser.Lexer
 import Ill.Parser.Literal
 
-import Text.Megaparsec.Text
 import Text.Megaparsec
 
 import Control.Applicative ((<|>))

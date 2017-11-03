@@ -1,7 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Ill.Parser.Type where
 import Control.Applicative
 
-import Text.Megaparsec.Text
 import Text.Megaparsec
 import Text.Megaparsec.Expr
 

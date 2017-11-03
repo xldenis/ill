@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Ill.Parser
 ( module Ill.Parser
 , parse
@@ -8,7 +9,6 @@ import           Control.Applicative    ((<*))
 import           Data.List              (intercalate)
 
 import           Text.Megaparsec
-import           Text.Megaparsec.Text
 
 import           Ill.Syntax
 
@@ -17,6 +17,7 @@ import           Ill.Parser.Expression
 import           Ill.Parser.Lexer
 
 import qualified Data.Text.IO as T (readFile)
+import           Data.Void
 
 moduleParser :: Parser (Module SourceSpan)
 moduleParser = do
@@ -29,5 +30,5 @@ moduleParser = do
 illParser :: Parser (Module SourceSpan)
 illParser = scn *> moduleParser
 
-parseFromFile :: Parser a -> FilePath -> IO (Either (ParseError Char Dec) a)
+parseFromFile :: Parser a -> FilePath -> IO (Either (ParseError Char Void) a)
 parseFromFile p file = runParser p file <$> T.readFile file

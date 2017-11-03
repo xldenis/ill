@@ -39,14 +39,16 @@ file (Run f) = f
 main :: IO ()
 main = do
   config <- getRecord "Ill Compiler" :: IO Config
-  parsed <- parseFromFile illParser (file config)
   preludePath <- getDataFileName "assets/prelude.ill"
   parsedPrelude <- parseFromFile moduleParser preludePath
+
+  stream <- T.readFile (file config)
+  let parsed = runParser illParser (file config) stream
 
   let joined = (,) <$> parsedPrelude <*> parsed
 
   case joined of
-    Left err -> putStrLn $ parseErrorPretty err
+    Left err -> putStrLn $ parseErrorPretty' stream err
     Right (prelude, ast) -> handleCommands config (mergeModules prelude ast)
 
 mergeModules (Module _ ds) (Module n ds2) = Module n (ds ++ ds2)

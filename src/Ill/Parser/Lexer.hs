@@ -1,17 +1,26 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Ill.Parser.Lexer
 ( module Ill.Parser.Lexer
 , SourceSpan(..)
+, module Text.Megaparsec.Char
+, pack, unpack, Text
 ) where
 
-import qualified Text.Megaparsec.Lexer as L
-import Text.Megaparsec.Text
+import qualified Text.Megaparsec.Char.Lexer as L
+import Text.Megaparsec.Char
 import Text.Megaparsec
 
 import Control.Comonad.Cofree
 import Control.Applicative ((<*), empty)
 import Control.Monad (void)
 
+import Data.Text (Text, unpack, pack)
+
+import Data.Void
+
 import Ill.Syntax (SourceSpan(..))
+
+type Parser = Parsec Void Text
 
 reserved :: [String]
 reserved = ["if", "then", "else", "end", "fn", "import", "qualified", "hiding", "trait", "data", "type", "or", "case", "of", "when"]
@@ -19,7 +28,7 @@ reserved = ["if", "then", "else", "end", "fn", "import", "qualified", "hiding", 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
-symbol :: String -> Parser String
+symbol :: Text -> Parser Text
 symbol = L.symbol sc
 
 identifier :: Parser String
@@ -30,7 +39,10 @@ identifier = p >>= res
           else
             return i
 
-identLetters = oneOf "_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+identLetters = oneOf letters
+  where
+  letters :: String
+  letters = "_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
 upperIdent :: Parser String
 upperIdent = lexeme capitalized
@@ -42,16 +54,16 @@ scn :: Parser ()
 scn = L.space (void spaceChar) lineComment empty
 
 sc :: Parser ()
-sc = L.space (void $ oneOf " \t") lineComment empty
+sc = L.space (void $ oneOf [' ', '\t']) lineComment empty
 
 sep :: Parser ()
-sep = oneOf "\n;" *> scn
+sep = oneOf ['\n', ';'] *> scn
 
 lineComment :: Parser ()
-lineComment = char '#' *> skipMany (noneOf "\n")
+lineComment = char '#' *> skipMany (noneOf ['\n'])
 
 integer :: Parser Integer
-integer = lexeme (L.signed sc L.integer)
+integer = lexeme (L.signed sc L.decimal)
 
 double :: Parser Double
 double = lexeme (L.signed sc L.float)
@@ -67,7 +79,7 @@ list :: Parser a -> Parser [a]
 list a = a `sepBy` symbol ","
 
 parens :: Parser a -> Parser a
-parens = between (symbol "(") (symbol ")")
+parens = between (symbol "(" :: Parser Text) (symbol ")" :: Parser Text)
 
 squotes :: Parser a -> Parser a
 squotes = between (char '\'') (char '\'')

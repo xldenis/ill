@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Ill.Parser.Declaration (declaration) where
 
 import Control.Monad (when)
@@ -5,7 +6,6 @@ import Control.Monad (when)
 import Data.List (intercalate)
 import Data.Maybe
 
-import Text.Megaparsec.Text
 import Text.Megaparsec
 
 import Ill.Syntax
@@ -75,7 +75,7 @@ valueDeclaration = label "value" . withLoc $ do
   main <- branch
   alts <- many $ do
     symbol "or"
-    bname <- symbol name
+    bname <- symbol $ pack name
     branch
   symbol "end"
   return $ Value name (main : alts)

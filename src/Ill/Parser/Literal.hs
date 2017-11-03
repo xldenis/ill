@@ -4,7 +4,6 @@ import Ill.Syntax.Literal
 import Ill.Parser.Lexer
 
 import Text.Megaparsec
-import Text.Megaparsec.Text
 
 integerLit :: Parser Literal
 integerLit = Integer <$> integer

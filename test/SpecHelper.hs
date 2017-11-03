@@ -13,11 +13,11 @@ import System.FilePath
 import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.Megaparsec
-import Text.Megaparsec.Text
 
 import Ill.Parser (parseFromFile)
+import Data.Void
 
-filesShouldParse :: Show b => FilePath -> Parser b -> Spec
+filesShouldParse :: Show b => FilePath -> Parsec Void Text b -> Spec
 filesShouldParse dir p = do
   fs <- runIO $ getFilesInDir dir
 
@@ -26,7 +26,7 @@ filesShouldParse dir p = do
       it ((takeFileName f) ++ " parses correctly.") $ do
         (parseFromFile (p <* eof) f) >>= shouldSucceed) fs
 
-filesShouldFail :: Show b => FilePath -> Parser b -> Spec
+filesShouldFail :: Show b => FilePath -> Parsec Void Text b -> Spec
 filesShouldFail dir p = do
   fs <- runIO $ getFilesInDir dir
 

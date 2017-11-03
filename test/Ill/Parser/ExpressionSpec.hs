@@ -13,6 +13,9 @@ import Data.List.NonEmpty
 
 import Ill.Parser.Expression
 
+import Data.Void
+import Data.Text (pack)
+
 spec :: Spec
 spec = parallel $ do
   unitSpec
@@ -26,4 +29,4 @@ unitSpec = do
       shouldSucceed $ parse (call <* eof) "" "func()"
   describe "assign" $ do
     it "errors properly" $ do
-      parse assign "" "a, a = 2" `shouldFailWith` err (SourcePos "" (unsafePos 1) (unsafePos 9) :| [])  (cstm $ DecFail "Invalid assignment: length mismatch.")
+      parse assign "" "a, a = 2" `shouldFailWith` errFancy (posN 8 (pack "12345678")) (fancy $ ErrorFail "Invalid assignment: length mismatch.")

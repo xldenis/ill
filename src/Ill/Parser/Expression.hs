@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Ill.Parser.Expression where
 
 import Ill.Parser.Lexer
@@ -6,7 +7,6 @@ import Ill.Parser.Literal
 import Ill.Syntax
 
 import Text.Megaparsec
-import Text.Megaparsec.Text
 import Text.Megaparsec.Expr
 
 import Control.Comonad.Cofree
@@ -17,6 +17,7 @@ import Control.Lens.Extras
 import Control.Lens ((^?))
 import Data.Function ((&))
 import Data.Maybe
+import Data.Text (Text, unpack)
 
 expression :: Parser (Expr SourceSpan)
 expression = body <|> nonBodyExpr
@@ -120,8 +121,8 @@ opTable = [ [ binary $ symbol "*"
             ]
           ]
 
-binary :: Parser String -> Operator Parser (Expr SourceSpan)
+binary :: Parser Text -> Operator Parser (Expr SourceSpan)
 binary op = InfixL $ do
-  op <- withLoc $ Var <$> op
+  op <- withLoc $ Var . unpack <$> op
   return $ \a b -> SourceSpan (begin $ extract a) (end $ extract b) :< (BinOp op a b)
 
