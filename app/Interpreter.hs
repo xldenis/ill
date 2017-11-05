@@ -2,7 +2,7 @@ module Interpreter where
 
 import Ill.BindingGroup
 
-import Ill.Desugar
+import Ill.Desugar as Desugar
 
 import Ill.Infer
 import Ill.Infer.Monad
@@ -31,10 +31,10 @@ import qualified Ill.Interpret as Interp
 runInterpreter mod = do
   case  compileToCore mod of
     Left err -> putStrLn $ err
-    Right (coreMod, moduleCons) -> do
-      let boundConstructors = moduleCons
+    Right (coreMod) -> do
+      let boundConstructors = Desugar.constructors coreMod
 
-      env <- Interp.mkEnvForModule boundConstructors coreMod
+      env <- Interp.mkEnvForModule boundConstructors (bindings coreMod)
       val <- Interp.eval env (Var "main")
 
       print (Interp.showish val)
@@ -57,5 +57,5 @@ compileToCore mod =  do
   case runTC mod of
     Right (typed, e) -> let
       desugared = desugaringPipeline e typed
-      in Right (declToCore desugared, desugared >>= getConstructorArities)
+      in Right (declsToCore desugared)
     Left err -> Left $ prettyType err

@@ -12,6 +12,8 @@ import Ill.Desugar.Trait as X
 import Ill.Desugar.Cases as X
 import Ill.Desugar.BinOp as X
 
+import Control.Monad.State
+
 type Id = Name
 
 {-
@@ -24,14 +26,29 @@ type Id = Name
   to variables with the name of the contrsuctor.
 -}
 
-  -- | Rec
+data CoreModule = Mod
+  { bindings :: [Bind Var]
+  , constructors :: [(Name, Int)] -- wip: more generally track constructor info
+  } deriving (Show, Eq)
 
-declToCore :: [Decl TypedAnn] -> [Bind Var]
-declToCore ((a :< Value nm [([], exp)]) : ds) = (NonRec binder (toCore exp)) : declToCore ds
+
+declsToCore :: [Decl TypedAnn] -> CoreModule
+declsToCore decls = execState (mapM declToCore' decls) (Mod [] [])
+
+declToCore' :: Decl TypedAnn -> State CoreModule ()
+declToCore' (a :< Value nm [([], exp)]) = do
+  modify $ \m -> m { bindings = (NonRec binder (toCore exp)) : bindings m }
   where
   binder = Id { varName = nm, ty = fromTyAnn a, usage = Used }
-declToCore (_ : ds) = declToCore ds
-declToCore [] = []
+declToCore' (_ :< Data nm _ conses) = do
+  let cons' = map (\cons ->
+        case unwrapProduct cons of
+          (TConstructor consNm : args) -> (consNm, length args)
+        ) conses
+  modify $ \m -> m { constructors = cons' ++ constructors m }
+
+declToCore' (_) = pure ()
+
 
 toCore :: Expr TypedAnn -> CoreExp
 toCore (_ :< S.Var n) = Var n

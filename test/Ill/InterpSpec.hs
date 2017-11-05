@@ -147,8 +147,7 @@ runInterpreter mod =  case runTC mod of
   Right (typed, e) -> do
     let desugaringPipe = (desugarTraits e . desugarBinOps) >=> pure . simplifyPatterns
         desugared = desugaringPipe typed
-    let core = declToCore desugared
-        boundConstructors = desugared >>= getConstructorArities
+    let (Mod core boundConstructors) = declsToCore desugared
     env <- mkEnvForModule boundConstructors core
 
     eval env (Var "main")
