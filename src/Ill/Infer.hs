@@ -2,6 +2,10 @@ module Ill.Infer
 ( module Ill.Infer
 , runCheck
 , defaultCheckEnv
+, Environment(..)
+, ConstructorEntry(..)
+, TraitEntry(..)
+, CheckState(..)
 ) where
 
 import           Control.Monad.Except
@@ -27,7 +31,6 @@ import           Ill.Parser.Lexer     (SourceSpan (..))
 import           Ill.Syntax
 import           Ill.Syntax.Type
 import Data.Bitraversable
-import Debug.Trace
 
 type RawDecl = Decl SourceSpan
 

@@ -20,7 +20,6 @@ infer m = let
   in case typed of
     Left e ->
       case e of
-        -- UnificationError t1 t2 -> putStrLn "UnificationError: " >> (putStrLn $ prettyType t1) >> (putStrLn $ prettyType t1)
         otherwise -> putStrLn $ prettyType e
     Right (ts, checkState) -> do
       printBG ts

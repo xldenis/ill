@@ -158,7 +158,7 @@ addDictsToVals ann nm eqns = do
 
   let
     (memberConstraints, memberTy) = unconstrained (fromTyAnn ann)
-    fty' = constraintsToFn (fromTyAnn ann)
+    fty' = generalize $ constraintsToFn (fromTyAnn ann)
     instDictNames = instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, instanceName i)
     localNameDict = zipWith (\cons ix -> (cons, "dict" ++ show ix)) memberConstraints [1..]
     localInstances = map (\(nm, tys) -> case nm `lookup` instanceDicts of

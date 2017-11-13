@@ -117,7 +117,7 @@ eval env (Var n) =
     0 -> return . return $ VConstructed n []
     arity -> return . return $ VConstructor n arity
   lookupPrimOp = n `lookup` primops >>= \(arity, f) -> (return . return $ VPrimop n arity f)
-
+eval env (Lambda (TyVar{}) exp) = eval env exp
 eval env (Lambda n exp) = return $ VClosure (mkThunk env (name n) exp)
 eval env (Lit lit) = return $ VLit lit
 eval env a@(App _ _) = do

@@ -1,30 +1,29 @@
 module Interpreter where
 
-import Ill.BindingGroup
+import Control.Monad
+import Control.Monad.Except
+import Control.Monad.State
 
+import Data.Bifunctor
+import Data.List
+import Data.Maybe
+import Data.Text.Lazy (pack)
+import Data.Text.Lazy.IO
+
+import Ill.BindingGroup
 import Ill.Desugar as Desugar
 
 import Ill.Infer
 import Ill.Infer.Monad
 
 import Ill.Interpret
+import Ill.Parser
 
 import Ill.Syntax hiding (Expression(..))
 import Ill.Syntax.Core
 import Ill.Syntax.Pretty
-import Ill.Parser
-
-import Control.Monad.State
-import Control.Monad.Except
-import Control.Monad
-
-import Data.Bifunctor
-import Data.Maybe
-import Data.List
 
 import Prelude hiding (putStrLn, putStr)
-import Data.Text.Lazy.IO
-import Data.Text.Lazy (pack)
 
 import qualified Ill.Interpret as Interp
 
@@ -45,7 +44,8 @@ unCheck c = execCheck c
 
 prettyType a = renderIll defaultRenderArgs (pretty $ a)
 
-desugaringPipeline env = (desugarTraits env . desugarBinOps) >=> pure . simplifyPatterns
+desugaringPipeline :: Environment -> [Decl TypedAnn] -> [Decl TypedAnn]
+desugaringPipeline env = desugarTraits env . desugarBinOps >=> pure . simplifyPatterns
 
 getConstructorArities (_ :< Data nm _ conses) = map (\cons ->
   case unwrapProduct cons of

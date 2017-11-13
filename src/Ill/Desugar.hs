@@ -13,7 +13,7 @@ import Ill.Desugar.Cases as X
 import Ill.Desugar.BinOp as X
 
 import Control.Monad.State
-
+import Debug.Trace
 type Id = Name
 
 {-
@@ -37,8 +37,16 @@ declsToCore decls = execState (mapM declToCore' decls) (Mod [] [])
 
 declToCore' :: Decl TypedAnn -> State CoreModule ()
 declToCore' (a :< Value nm [([], exp)]) = do
-  modify $ \m -> m { bindings = (NonRec binder (toCore exp)) : bindings m }
+  -- traceShowM (fromTyAnn a)
+  let vars   = unforall (fromTyAnn a)
+      tBinds = map (\var -> TyVar var Star) vars
+      bindExp = foldl (\core binder -> Lambda binder core) (toCore exp) tBinds
+
+  modify $ \m -> m { bindings = NonRec binder bindExp : bindings m }
   where
+  unforall (Forall tVars _) = tVars
+  unforall _                = []
+
   binder = Id { varName = nm, ty = fromTyAnn a, usage = Used }
 declToCore' (_ :< Data nm _ conses) = do
   let cons' = map (\cons ->

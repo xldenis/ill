@@ -2,7 +2,7 @@
 module List
   import Data.Char # ???
   # ---aajalkajdsflkj
-  repeat :: a -> int -> b
+  repeat :: a -> int -> Int
   fn repeat(a, times)
     1
   end

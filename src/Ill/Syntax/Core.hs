@@ -62,8 +62,8 @@ instance Pretty n => Pretty (Bind n) where
   pretty (NonRec nm exp) = pretty nm <+> pretty "=" <+> pretty exp
 
 instance Pretty Var where
-  pretty (TyVar{ varName = name}) = pretty name
-  pretty (Id{ varName = name, usage = Used }) = pretty name
+  pretty (TyVar{ varName = name}) = parens $ pretty "@" <> pretty name
+  pretty (Id{ varName = name, usage = Used, ty = ty }) = parens $ pretty name <+> pretty "::" <+> pretty ty
   pretty (Id{ varName = name, usage = NotUsed }) = pretty "_"
 
 class HasName n where

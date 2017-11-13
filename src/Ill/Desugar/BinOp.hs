@@ -13,7 +13,6 @@ desugarDecl (a :< Value n eqns) = a :< (Value n $ transformOn (each . _2) desuga
 desugarDecl (ann :< TraitImpl a b c m) = ann :< (TraitImpl a b c (map desugarDecl m))
 desugarDecl a = a
 
-
 operatorDesugarTable =
   [ ("+", "plus")
   , ("-", "minus")

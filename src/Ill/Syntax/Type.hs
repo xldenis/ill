@@ -29,6 +29,7 @@ instance Pretty (Type String) where
           prettyCons (nm, ts) = pretty nm <+> hsep (map pretty ts)
   pretty (TUnknown u) = pretty "unknown" <+> pretty (show u)
   pretty (Forall vars ty) = pretty "forall" <+> hsep (map pretty vars) <+> pretty "." <+> pretty ty
+
 tArrow :: Type String
 tArrow = TConstructor "->"
 
@@ -37,11 +38,9 @@ tFn = Arrow
 
 tString :: Type String
 tString = TConstructor "String"
-
 tBool = TConstructor "Bool"
 tInteger = TConstructor "Int"
 tDouble = TConstructor "Double"
-
 tNil = TConstructor "Nil"
 
 complex :: Type t -> Bool
@@ -110,9 +109,7 @@ constrain :: [Constraint String] -> Type String -> Type String
 constrain [] t = t
 constrain cs (Constrained cs' t) = Constrained (nub $ cs ++ cs') t
 constrain cs (Forall vars t) = Forall vars (constrain cs t)
-
 constrain cs a = Constrained cs a
-
 
 constraints :: Type String -> [Constraint String]
 constraints = fst . unconstrained
@@ -124,7 +121,6 @@ unwrapFnType :: Type String -> [Type String]
 unwrapFnType (Forall _ ty) = unwrapFnType ty
 unwrapFnType t = unfoldr' go t
   where
-
   go (TAp (TAp (TConstructor "->") a) b) = (a, Just b)
   go (Arrow a b) = (a, Just b)
   go a           = (a, Nothing)
@@ -137,7 +133,6 @@ unwrapN :: Int -> Type String -> [Type String]
 unwrapN n (Forall _ ty) = unwrapN n ty
 unwrapN n t = unfoldr' n go t
   where
-
   go (TAp (TAp (TConstructor "->") a) b) = (a, Just b)
   go (Arrow a b) = (a, Just b)
   go a           = (a, Nothing)
