@@ -72,32 +72,28 @@ instance Bitraversable Expression where
 hoistBiCofree :: forall t m a g. (Traversable t, Monad m) => (forall x . t x -> m (g x)) -> Cofree t a -> m (Cofree g a)
 hoistBiCofree f (x :< y) = (x :<) <$> (f =<< hoistBiCofree f `traverse` y)
 
-instance Pretty (Expr a) where
-  prettyList es = vsep $ (map pretty es)
-  pretty (_ :< f) = pretty' f where
-    -- Remove usage of tupled which clattens long cases to one line :(
-    --
-    pretty' (Apply func args) = pretty func <> tupled (map pretty args)
-    pretty' (BinOp op l r) = pretty l <+> pretty op <+> pretty r
-    pretty' (Assign idents exprs) = cat (punctuate comma (map pretty idents)) <+> pretty '=' <+> cat (punctuate comma (map pretty exprs))
-    pretty' (Case cond branches) = nest 2 (vsep'
-      [ pretty "case" <+> pretty cond <+> pretty "of"
-      , (vsep (map prettyBranch branches))
-      ]) <> hardline <> pretty "end"
+instance Pretty1 (Expression a) where
+  liftPretty pretty' (Apply func args) = pretty' func <> tupled (map pretty' args)
+  liftPretty pretty' (BinOp op l r) = pretty' l <+> pretty' op <+> pretty' r
+  liftPretty pretty' (Assign idents exprs) = cat (punctuate comma (map pretty idents)) <+> pretty '=' <+> cat (punctuate comma (map pretty' exprs))
+  liftPretty pretty' (Case cond branches) = nest 2 (vsep'
+    [ pretty "case" <+> pretty' cond <+> pretty "of"
+    , (vsep (map prettyBranch branches))
+    ]) <> hardline <> pretty "end"
 
-      where prettyBranch (pat, branch) = pretty "when" <+> pretty pat <+> pretty ":" <+> pretty branch
-    pretty' (If cond left right) = vsep
-      [ pretty "if" <+> pretty cond <+> pretty "then"
-      , nest 2 (pretty left)
-      , pretty "else"
-      , nest 2 (pretty right)
-      , pretty "end"
-      ]
-    pretty' (Lambda args body) = nest 2 (pretty "fn" <+> tupled (map pretty args) <+> pretty "=" `above` (pretty body) ) `above` pretty "end"
-    pretty' (Var v) = pretty v
-    pretty' (Constructor c) = pretty c
-    pretty' (Literal l) = pretty l
-    pretty' (Body body) = prettyList body
-    --pretty' (Hash x) = _
-    pretty' (Array ar) = list (map pretty ar)
+    where prettyBranch (pat, branch) = pretty "when" <+> pretty pat <+> pretty ":" <+> pretty' branch
+  liftPretty pretty' (If cond left right) = vsep
+    [ pretty "if" <+> pretty' cond <+> pretty "then"
+    , nest 2 (pretty' left)
+    , pretty "else"
+    , nest 2 (pretty' right)
+    , pretty "end"
+    ]
+  liftPretty pretty' (Lambda args body) = nest 2 (pretty "fn" <+> tupled (map pretty args) <+> pretty "=" `above` (pretty' body) ) `above` pretty "end"
+  liftPretty pretty' (Var v) = pretty v
+  liftPretty pretty' (Constructor c) = pretty c
+  liftPretty pretty' (Literal l) = pretty l
+  liftPretty pretty' (Body body) = vsep $ (map pretty' body)
+  --liftPretty pretty' (Hash x) = _
+  liftPretty pretty' (Array ar) = list (map pretty' ar)
 

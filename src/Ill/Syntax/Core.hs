@@ -95,3 +95,4 @@ data Bind n
   = NonRec n (Core n)
   deriving (Show, Eq)
 
+type Program = [Bind Var]

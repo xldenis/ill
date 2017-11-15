@@ -5,13 +5,19 @@ module Ill.Syntax.Pretty
 , intersperse
 ) where
 
-
 import Data.Text.Lazy hiding (intersperse)
 import Data.Text.Prettyprint.Doc.Render.Text
 
 import Data.Text.Prettyprint.Doc hiding (width)
 import Data.Text.Prettyprint.Doc.Internal (Doc(..), PageWidth(..))
 import Data.List (intersperse)
+
+-- Use this from upstream when released
+class Pretty1 f where
+    liftPretty
+        :: (a -> Doc ann)
+        -> f a
+        -> Doc ann
 
 parensIf :: Bool -> Doc a -> Doc a
 parensIf = when parens
@@ -29,6 +35,16 @@ renderIll RenderArgs{ribbon , width} doc = renderLazy (layoutPretty (LayoutOptio
 
 renderIll' :: Doc a -> Text
 renderIll' = renderIll defaultRenderArgs
+
+{-
+  A helper method for the purpose of determining whether a pretty document should be wrapped in parens
+-}
+complexDoc :: Doc a -> Bool
+complexDoc Empty = False
+complexDoc (Char _) = False
+complexDoc (Text _ _) = False
+complexDoc (Annotated _ d) = complexDoc d
+complexDoc _ = True
 
 (<->) :: Doc a -> Doc a -> Doc a
 a <-> Empty = a

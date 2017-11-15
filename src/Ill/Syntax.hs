@@ -177,28 +177,28 @@ instance Pretty (Module a) where
     vsep (intersperse mempty (map pretty decls))) `above`
     pretty "end"
 
-instance Pretty (Cofree (Declaration a) a) where
-  pretty (_ :< Data name vars cons) = pretty "data" <+> pretty name <+> hsep' (map pretty vars) <> pretty '=' <+> alternative (map pretty cons)
+instance Pretty1 (Declaration a) where
+  liftPretty pretty' (Data name vars cons) = pretty "data" <+> pretty name <+> hsep' (map pretty vars) <> pretty '=' <+> alternative (map pretty cons)
     where alternative = encloseSep mempty mempty (pretty " | ")
           hsep' [] = mempty
           hsep' xs = hsep xs <+> emptyDoc
-  pretty (_ :< TypeSynonym alias vars target) = pretty "type" <+> pretty alias <+> pretty vars <+> pretty "=" <+> pretty target
-  pretty (_ :< Value name cases) = vsep (headBranch : map otherBranch (tail cases)) `above` pretty "end"
+  liftPretty pretty' (TypeSynonym alias vars target) = pretty "type" <+> pretty alias <+> pretty vars <+> pretty "=" <+> pretty target
+  liftPretty pretty' (Value name cases) = vsep (headBranch : map otherBranch (tail cases)) `above` pretty "end"
     where branch (args, body) = nest 2 $ tupled (map pretty args) `above` pretty body
           headBranch    = pretty "fn" <+> pretty name <+> branch (head cases)
           otherBranch b = pretty "or" <+> pretty name <+> branch b
-  pretty (_ :< Signature func tp) = pretty func <+> pretty "::" <+> pretty tp
-  pretty (_ :< Import qual msk name alias) = pretty "import" <-> when (const $ pretty "qualified") qual mempty
+  liftPretty pretty' (Signature func tp) = pretty func <+> pretty "::" <+> pretty tp
+  liftPretty pretty' (Import qual msk name alias) = pretty "import" <-> when (const $ pretty "qualified") qual mempty
     <-> pretty name <-> prettyJust alias <-> prettyMask msk
       where prettyJust (Just alias') = pretty "as" <+> pretty alias'
             prettyJust  Nothing     = mempty
             prettyMask (Hiding nms) = pretty "hiding" <+> tupled (map pretty nms)
             prettyMask (Only   nms) = tupled $ map pretty nms
             prettyMask _            = mempty
-  pretty (_ :< TraitDecl super name args body)  = nest 2 (pretty "trait" <+> declarationLine `above` vsep (map pretty body)) `above` pretty "end"
+  liftPretty pretty' (TraitDecl super name args body)  = nest 2 (pretty "trait" <+> declarationLine `above` vsep (map pretty' body)) `above` pretty "end"
     where constraints c = if null c then mempty else hsep (punctuate comma (map pretty c)) <+> pretty "|"
           declarationLine = constraints super <+> pretty name <+> (hsep $ map pretty args)
-  pretty (_ :< TraitImpl supers trtNm args body) = nest 2 (declarationLine `above` vsep (map pretty body)) `above` pretty "end"
+  liftPretty pretty' (TraitImpl supers trtNm args body) = nest 2 (declarationLine `above` vsep (map pretty' body)) `above` pretty "end"
     where
     constraints c = if null c then mempty else hsep (punctuate comma (map prettyCons c)) <+> pretty "|"
     prettyCons (nm, ts) = pretty nm <+> hsep (map pretty ts)

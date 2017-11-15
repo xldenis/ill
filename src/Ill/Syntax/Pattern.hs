@@ -17,14 +17,17 @@ type Pat a = Cofree Pattern a
 
 type Patterns a = [Pat a]
 
-instance Pretty (Cofree Pattern a) where
-  pretty (_ :< Destructor cons args) = pretty cons <-> hsep (map (\a -> parensIf (complex a) (pretty a)) args)
-    where complex (_ :< Destructor _ []) = False
-          complex (_ :< Destructor _ _)  = True
-          complex _ = False
-  pretty (_ :< Wildcard) = pretty "_"
-  pretty (_ :< PVar x) = pretty x
-  pretty (_ :< PLit l) = pretty l
+instance Pretty1 f => Pretty (Cofree f a) where
+  pretty (a :< el) = liftPretty pretty el
+
+instance Pretty1 Pattern where
+  liftPretty pretty' (Destructor cons args) = pretty cons <-> hsep (map
+    (\a -> let
+      doc = pretty' a
+    in parensIf (complexDoc doc) doc) args)
+  liftPretty pretty' (Wildcard) = pretty "_"
+  liftPretty pretty' (PVar x) = pretty x
+  liftPretty pretty' (PLit l) = pretty l
 
 patternNames :: Pat a -> [String]
 patternNames (_ :< PVar n) = [n]
