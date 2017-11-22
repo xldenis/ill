@@ -20,7 +20,7 @@ type Constraint t = (t, [Type t])
 
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
-  pretty (TAp (TAp (TConstructor "->") a) b) = parensIf (complex a) (pretty a) <+> (pretty "->") <+> (pretty b)
+  pretty (TAp (TAp (TConstructor "->") a) b) = parensIf (complex a) (pretty a) <+> (pretty "->") <+> pretty b
   pretty (TAp f a) = pretty f <+> parensIf (complex a) (pretty a)
   pretty (TConstructor cons) = pretty cons
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> pretty "->" <+> (pretty to)
@@ -33,7 +33,7 @@ instance Pretty (Type String) where
 tArrow :: Type String
 tArrow = TConstructor "->"
 
-tFn :: Type String -> Type String -> Type String
+tFn :: Type a -> Type a -> Type a
 tFn = Arrow
 
 tString :: Type String
@@ -46,14 +46,27 @@ tNil = TConstructor "Nil"
 complex :: Type t -> Bool
 complex (Arrow _ _) = True
 complex (TAp _ _) = True
+complex (Forall _ _) = True
+complex (Constrained _ _) = True
 complex _ = False
 
-generalize :: Type String -> Type String
+generalize :: Eq a => Type a -> Type a
 generalize f@(Forall _ _) = f
 generalize ty | null fv = ty
-              | otherwise = Forall (freeVariables ty) ty
+              | otherwise = generalizeWith (freeVariables ty) ty
   where
   fv = freeVariables ty
+
+generalizeWith [] ty = ty
+generalizeWith fv ty = Forall fv ty
+
+generalizeWithout :: Eq a => [a] -> Type a -> Type a
+generalizeWithout vars (Forall boundVars t) = case (nub $ freeVariables t ++ boundVars) \\ vars of
+  [] -> t
+  xs -> Forall xs t
+generalizeWithout vars ty
+  | freeVariables ty \\ vars /= [] = Forall (freeVariables ty \\ vars) ty
+  | otherwise = ty
 
 freeVariables :: Eq t => Type t -> [t]
 freeVariables = nub . freeVariables'
@@ -67,7 +80,7 @@ freeVariables = nub . freeVariables'
     consVars = concat . map consVar
     consVar (_, vars) = concat $ map freeVariables' vars
   freeVariables' (TUnknown u) = []
-  freeVariables' (Forall tyvars ty) = freeVariables' ty \\ tyvars
+  freeVariables' (Forall tyvars ty) = freeVariables ty \\ tyvars
 
 varIfUnknown :: Type String -> Type String
 varIfUnknown (TAp l r) = TAp (varIfUnknown l) (varIfUnknown r)
@@ -79,7 +92,7 @@ varIfUnknown (TUnknown u) = TVar toName
 varIfUnknown (Forall vars ty) = Forall vars (varIfUnknown ty)
 varIfUnknown a = a
 
-varsInType :: Type String -> [String]
+varsInType :: Eq a => Type a -> [a]
 varsInType = nub . varsInType'
   where
   varsInType' (TAp l r) = varsInType' l ++ varsInType' r
@@ -90,7 +103,7 @@ varsInType = nub . varsInType'
   varsInType' (Forall vars t) = vars ++ varsInType' t
   varsInType' a = []
 
-unconstrained :: Type String -> ([Constraint String], Type String)
+unconstrained :: Type a -> ([Constraint a], Type a)
 unconstrained (Constrained cons t) = (cons, t)
 unconstrained (Forall vars ty) = let
   (cons, ty') = unconstrained ty
@@ -105,17 +118,17 @@ unconstrained t@(Arrow l r) = let
   in (cons1 ++ cons2, Arrow l' r')
 unconstrained t = ([], t)
 
-constrain :: [Constraint String] -> Type String -> Type String
+constrain :: Eq a => [Constraint a] -> Type a -> Type a
 constrain [] t = t
 constrain cs (Constrained cs' t) = Constrained (nub $ cs ++ cs') t
 constrain cs (Forall vars t) = Forall vars (constrain cs t)
 constrain cs a = Constrained cs a
 
-constraints :: Type String -> [Constraint String]
+constraints :: Type a -> [Constraint a]
 constraints = fst . unconstrained
 
-flattenConstraints :: Type String -> Type String
-flattenConstraints = uncurry constrain . unconstrained
+flattenConstraints :: Eq a => Type a -> Type a
+flattenConstraints = uncurry (constrain . nub) . unconstrained
 
 unwrapFnType :: Type String -> [Type String]
 unwrapFnType (Forall _ ty) = unwrapFnType ty
@@ -142,21 +155,40 @@ unwrapN n t = unfoldr' n go t
     (a, Just b') -> a : unfoldr' (n - 1) f b'
     (a, Nothing) -> [a]
 
-replaceTypeVars :: [(String, Type String)] -> Type String -> Type String
+applyTypeVars subs (Forall vars ty) = generalizeWithout vars' (replaceTypeVars selectedSubs ty)
+  where
+  selectedSubs = filter (\(var, _) -> var `elem` vars) subs
+  vars' = vars `intersect` (map fst subs)
+applyTypeVars subs ty = ty
+
+replaceTypeVars :: Eq a => [(a, Type a)] -> Type a -> Type a
 replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)
 replaceTypeVars subs (Arrow l r) = Arrow (replaceTypeVars subs l) (replaceTypeVars subs r)
 replaceTypeVars subs (TAp f a) = TAp (replaceTypeVars subs f) (replaceTypeVars subs a)
 replaceTypeVars subs (Constrained cs a) = Constrained cs' (replaceTypeVars subs a)
   where cs' = map (fmap $ map (replaceTypeVars subs)) cs
-replaceTypeVars subs f@(Forall vars ty) | not (null intersection) = replaceTypeVars (filter (\(n, _) -> not $ n `elem` intersection) subs) f
-                                        | otherwise = Forall vars (replaceTypeVars subs ty)
+replaceTypeVars subs f@(Forall vars ty)
+  | not (null intersection) = replaceTypeVars (filter (\(n, _) -> not $ n `elem` intersection) subs) f
+  | otherwise = Forall vars (replaceTypeVars subs ty)
   where
   keys = map fst subs
-  intersection = keys \\ vars
-  -- usedVars = concatMap (usedTypeVariables . snd) m
+  intersection = keys `intersect` vars
 replaceTypeVars subs a = a
 
-unwrapProduct :: Type String -> [Type String]
+-- Verify that a type is strictly less general than a second one implements a rough form of <=
+-- do something to handle foralls
+subsume :: Eq a => Type a -> Type a -> Maybe [(a, Type a)]
+subsume t1 t2 = pure nub <*> subsume' t1 t2
+  where
+  -- this isn't entirely correct?
+  subsume' (Forall vs t) (Forall vs' t') = subsume' t t'
+  subsume' (TAp l1 r1) (TAp l2 r2)       = (++) <$> subsume' l1 l2 <*> subsume' r1 r2
+  subsume' (Arrow l1 r1) (Arrow l2 r2)   = (++) <$> subsume' l1 l2 <*> subsume' r1 r2
+  subsume' (TVar v) t                    = pure [(v, t)]
+  subsume' (TConstructor t1) (TConstructor t2) | t1 == t2 = pure []
+  subsume' _ _ = Nothing
+
+unwrapProduct :: Type a -> [Type a]
 unwrapProduct ty = reverse $ unfoldr' go ty
   where
   go (TAp f a) = (a, Just f)
