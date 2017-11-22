@@ -6,4 +6,5 @@ extra-deps:
 - prettyprinter-1.1
 - prettyprinter-ansi-terminal-1.1
 resolver: nightly-2017-10-31
-
+ghc-options:
+  "*": -j #+RTS -A128m -n2m -RTS
