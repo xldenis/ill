@@ -52,19 +52,20 @@ type MF  a = FreshT Identity a
 
 runFresh = runIdentity . flip evalStateT 0 . unFreshT
 
+matchFailure = SynAnn (generalize $ TVar "a") :< Var "failedPattern"
+
 simplifyPatterns :: Decl TypedAnn -> Decl TypedAnn
 simplifyPatterns v@(a :< Value n eqns) = runFresh $ do
   let
     binders = enumFromTo 1 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
     binderTy = init . unwrapFnType . snd . unconstrained $ typeOf v
     retTy = typeOf . snd $ head eqns
-    failure = (undefined :< Var "failedPattern")
+    failure = matchFailure
   matchResult <- match binders eqns
   exp' <- transformM simplifyCaseExpr (matchResult failure)
+  let eqn' = [([], mkAbs (zipWith (\p t -> mkTypedAnn t :< PVar p) binders binderTy) (typeOf v) exp')]
 
-  let eqn' = [([], mkAbs (zipWith (\p t -> mkTypedAnn t :< PVar p) binders binderTy) retTy exp')]
   return $ a :< Value n eqn'
-
 simplifyPatterns v = v
 
 mkAbs binders retTy val = mkTypedAnn retTy :< Lambda binders val
@@ -72,14 +73,13 @@ mkAbs binders retTy val = mkTypedAnn retTy :< Lambda binders val
 simplifyCaseExpr :: MonadFresh m => Expr TypedAnn -> m (Expr TypedAnn)
 simplifyCaseExpr e@(a :< Case s alts) = do
   let
-  -- binder = head . unwrapFnType (typeOf e)
     eqns = alts & each . _1 %~ pure
-    failure = (undefined :< Var "failedPattern")
+    failure = matchFailure
     caseTy = typeOf e
     scrutTy = typeOf s
   (adjustments, binder) <- binderName s
   matchResult <- match [binder] eqns
-  return  $ mkBody $ catMaybes [adjustments, Just $ matchResult failure]
+  return $ mkBody $ catMaybes [adjustments, Just $ matchResult failure]
 
   where
   binderName (_ :< Var nm) = pure (Nothing, nm)
@@ -169,7 +169,9 @@ match vars eqns = do
       scrutTy = typeOf . head . fst . head $ head groups
     branches <- mapM (matchOneConsPat vars) groups
     -- a failure branch should be included allowing the variable branch to be inserted!
-    let failBranch = ((extract . fst $ head  branches) :< Wildcard, id)
+
+    let failBranch = ((extract . fst $ head branches) :< Wildcard, updateInstAnn)
+        updateInstAnn (ann :< e) = ann { ty = ((ty ann) { instTy = Just retTy }) } :< e
     return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (fmap ($ fail)) (branches ++ [failBranch]))
 
   matchOneConsPat :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (Pat TypedAnn, MatchResult TypedAnn)

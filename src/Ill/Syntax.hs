@@ -15,6 +15,7 @@ module Ill.Syntax
 , module Ill.Syntax
 , Cofree(..)
 , pretty
+, extract
 ) where
 
 import           Control.Comonad.Cofree
@@ -108,33 +109,39 @@ instance Pretty SourceSpan where
   pretty (SourceSpan begin end) = pretty (sourceName begin) <> pretty ":" <> prettyPos begin <> pretty "-" <> prettyPos end
     where prettyPos pos = pretty (unPos $ sourceLine pos) <> pretty ":" <> pretty (unPos $ sourceColumn pos)
 
-data TypedAnn = TyAnn { span :: Maybe SourceSpan, ty :: TypeAnn }
+data TypedAnn = TyAnn { span :: Maybe SourceSpan, ty :: TypeAnn}
   deriving (Show, Eq)
 
 instance Pretty TypedAnn where
-  pretty (TyAnn span ty) = pretty "ann" <+> braces (pretty "span" <+> pretty span <+> pretty "ty" <+> (pretty $ fromType ty))
+  pretty (TyAnn span ty) = pretty "ann" <+> braces (pretty "span" <+> pretty span <+> pretty "ty" <+> (pretty $ ty))
 
-
-pattern Ann x y = TyAnn (Just x) (Type y)
-pattern SynAnn y = TyAnn Nothing (Type y)
+pattern Ann x y = TyAnn (Just x) (Type y Nothing)
+pattern SynAnn y = TyAnn Nothing (Type y Nothing)
 
 data TypeAnn
-  = Type (Type Name)
+  = Type { polyTy :: (Type Name), instTy :: Maybe (Type Name) }
   | Kind Kind
   | None
   deriving (Show, Eq)
 
+instance Pretty TypeAnn where
+  pretty (Type polyTy instTy) = pretty polyTy <+> pretty "instantiated" <+> pretty instTy
+  pretty (Kind k) = pretty k
+  pretty (None)  = mempty
+
 -- Spooky partial function. Use only when invariant holds
 fromType :: TypeAnn -> Type Name
-fromType (Type t) = t
+fromType (Type t _) = t
 fromType _ = error "impossible expression has non-type annotation"
 
 fromTyAnn :: TypedAnn -> Type Name
 fromTyAnn = fromType . ty
 
 typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
-typeOf = fromType . ty . extract
-  where fromType (Type t) = t
+typeOf = polyTy . ty . extract
+
+instTyOf :: Functor f => Cofree f TypedAnn -> Maybe (Type Name)
+instTyOf = instTy . ty . extract
 
 valueName :: Decl a -> Name
 valueName (_ :< Value n _) = n
@@ -162,8 +169,8 @@ isDecl _ = False
 nestedFmap :: (Bifunctor f, Functor (f a)) => (a -> b) -> Cofree (f a) a -> (Cofree (f b) b)
 nestedFmap f v = hoistCofree (first f) $ fmap f v
 
-fmapTy f (Type t) = Type (f t)
-fmapTy f t        = t
+fmapTy f (Type t m) = Type (f t) m
+fmapTy f t          = t
 
 dropAnn :: (Bifunctor f, Functor (f a)) => Cofree (f a) a -> Cofree (f ()) ()
 dropAnn = nestedFmap (const ())

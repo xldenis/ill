@@ -50,8 +50,4 @@ prettyTraitInfo (nm, TraitEntry supers args mems) =
       mems'  = map (\(memNm, ty) -> pretty memNm <+> "::" <+> pretty ty) mems
   in renderIll defaultRenderArgs (nest 2 $ topRow `above` vsep mems')
 
-instance Pretty TypeAnn where
-  pretty (Type ty) = pretty ty
-  pretty (Kind k) = pretty k
-  pretty (None)  = mempty
 

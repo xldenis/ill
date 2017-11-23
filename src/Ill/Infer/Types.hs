@@ -6,29 +6,35 @@ module Ill.Infer.Types
 , constrainedUnification
 , inferPats
 ) where
-import           Control.Monad.Unify
 
-import           Ill.Infer.Monad
-import           Ill.Syntax
+import           Control.Monad.Unify
+import           Control.Comonad (extract)
+import           Control.Monad.State (get)
 
 import qualified Data.HashMap.Strict as H
 import           Data.List
 import           Data.Maybe
-import           Ill.Error
-import           Ill.Parser.Lexer    (SourceSpan (..))
 import           Data.Bifunctor
 
-import Control.Monad.State (get)
+import           Ill.Infer.Monad
+import           Ill.Syntax hiding (typeOf)
+import           Ill.Error
+import           Ill.Parser.Lexer    (SourceSpan (..))
+
+typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
+typeOf c =  fromMaybe (polyTy $ fromTy c) (instTy $ fromTy c)
+  where fromTy = ty . extract
 
 infer :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
 infer exp = rethrow (ErrorInExpression exp) (infer' exp)
 
 infer' :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
 infer' (a :< Apply l args) = do
-  f' <- infer l
-  args' <- mapM infer args
   retTy <- fresh
-  constraints <- typeOf f' `constrainedUnification` flattenConstraints (foldr tFn retTy (map typeOf args'))
+  f' <- infer l
+
+  args' <- mapM infer args
+  constraints <- typeOf f' `constrainedUnification` flattenConstraints (foldr tFn retTy $ map typeOf args')
   let retTy' = constrain constraints retTy
 
   return $ Ann a retTy' :< Apply f' args'
@@ -93,12 +99,12 @@ infer' (a :< Var nm) = do
   ty <-  lookupVariable nm
   ty' <- instantiate ty
 
-  return $ Ann a ty' :< Var nm
+  return $ TyAnn (Just a) (Type ty $ Just ty') :< Var nm
 infer' (a :< Constructor nm) = do
   ConstructorEntry { consType = ty, consTyVars = args } <- lookupConstructor nm
+  ty' <- instantiate ty
 
-  newType <- instantiate ty
-  return $ Ann a newType :< Constructor nm
+  return $ TyAnn (Just a) (Type ty $ Just ty') :< Constructor nm
 infer' (a :< Literal l) = do
   let ty = inferLit l
   return $ Ann a ty :< Literal l
@@ -116,22 +122,23 @@ check' expected (a :< If cond l r) = do
 check' expected (a :< Var nm) = do
   ty <- lookupVariable nm
   ty' <- instantiate ty
+
   cons <- ty' `constrainedUnification` expected
-  return $ Ann a (constrain cons ty') :< Var nm
+
+  return $ TyAnn (Just a) (Type ty $ Just $ constrain cons ty') :< Var nm
 check' expected (a :< Constructor nm) = do
   ConstructorEntry { consType = ty, consTyVars = args } <- lookupConstructor nm
+  ty' <- instantiate ty
+  ty' =?= expected
 
-  nT <- instantiate ty
-  nT =?= expected
-
-  return $ Ann a nT :< Constructor nm
+  return $ TyAnn (Just a) (Type ty $ Just ty') :< Constructor nm
 check' expected v@(_ :< BinOp _ _ _) = do
   v' <- infer v
   cons <- typeOf v' `constrainedUnification` expected
   return $ fmap (modifyTyAnn (constrain cons)) v'
   where
 
-  modifyTyAnn f (TyAnn src (Type ty)) = TyAnn src (Type $ f ty)
+  modifyTyAnn f (TyAnn src (Type ty m)) = TyAnn src (Type (f ty) m)
   modifyTyAnn f t = t
 check' expected (a :< Body [e]) = do
   ty <- check expected e
@@ -148,7 +155,7 @@ check' expected (a :< Apply f args) = do
   f' <- infer f
 
   subst <- unifyCurrentSubstitution <$> UnifyT get
-  let fTy' = subst $? (typeOf f')
+  let fTy' = (subst $?) (typeOf f')
 
   let (constraints, ty') = unconstrained ( fTy')
       unwrapped = unwrapN (length args) ty'
@@ -159,7 +166,7 @@ check' expected (a :< Apply f args) = do
 
   retTy =?= expected
 
-  return $ Ann a retTy :< Apply f' args'
+  return $ Ann a (constrain constraints retTy) :< Apply f' args'
 check' expected (a :< Literal lit) = do
   let ty = inferLit lit
   ty =?= expected

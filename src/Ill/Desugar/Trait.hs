@@ -86,7 +86,7 @@ import           Control.Comonad
 
 import           Data.Bifunctor
 import           Data.Foldable     (find, foldl', toList)
-import           Data.List         (intercalate, sortOn)
+import           Data.List         (intercalate, sortOn, (\\), nub)
 import           Data.Maybe
 import           Data.Semigroup
 
@@ -95,6 +95,7 @@ import           Ill.Infer.Entail  as E
 import           Ill.Infer.Monad
 import           Ill.Syntax
 import           Ill.Syntax.Pretty (pretty)
+
 {-
   1. Handle super classes and superclass accessors
   2. Fix dictionary passing in dictionary definitions
@@ -110,18 +111,33 @@ desugarTraits env ds = fromDecl =<< ds
 
 valFromInst :: MonadReader Environment m => [Constraint Name] -> Name -> [Type Name] -> [Decl TypedAnn] -> m (Decl TypedAnn)
 valFromInst supers nm tys decls = do
+  trait <- reader traits >>= \traits -> case lookup nm traits of
+    Just traitDict -> return traitDict
+    Nothing -> error "this isn't possible"
+
+  let memberTys = map (generalizeWithout vars . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
+      superTys  = map (uncurry mkProductType) (superTraits trait)
+      argVars   = nub . concat $ map freeVariables tys
+      vars      = traitVars trait
+      tyConTy   = mkDictType nm vars superTys memberTys
+      subConTy  = applyTypeVars subst tyConTy
+      subst     = zip vars tys
   let
     sortedDecls = sortOn valueName decls
-    tyCon       = SynAnn tyConTy :< Constructor ("Mk" <> nm)
-    tyConTy     = foldl tFn (mkDictType nm tys) (map typeOf sortedDecls)
+    tyCon       = TyAnn Nothing (Type tyConTy (Just subConTy)) :< Constructor ("Mk" <> nm)
     instName    = instanceName (nm, tys)
-    dictTy      = mkAnn $ mkDictType nm tys
-    applied     = dictTy :< Apply tyCon (map (fromValue . simplifyPatterns) sortedDecls)
-    valAnn      = mkAnn $ constrain supers (mkDictType nm tys)
-    superDicts  = map (uncurry mkDictType) supers
+    dictTy      = mkProductType nm tys
+    applied     = mkAnn dictTy :< ( Apply tyCon $ superDicts ++ (map (fromValue . simplifyPatterns) sortedDecls))
+    valAnn      = mkAnn $ constrain supers dictTy
+    superDictTy = map (SynAnn . uncurry mkProductType . substituteConstraint subst) (superTraits trait)
+    superDictVal = map (Var . instanceName . substituteConstraint subst) (superTraits trait)
+    superDicts  = zipWith (:<) superDictTy superDictVal
 
+  -- there's a bug in simplify patterns its not returning the correct values
   addDictsToVals valAnn instName [([], applied)]
   where
+
+  substituteConstraint subst (nm, tys) = (nm, map (replaceTypeVars subst) tys)
 
   valueName (_ :< Value nm _) = nm
 
@@ -130,23 +146,38 @@ valFromInst supers nm tys decls = do
   fromValue (_ :< Value _ [([], e)]) = e
   fromValue _ = error "impossible non-value during trait decl desugaring"
 
-instanceName (nm, tys) = nm <> intercalate "_" (toList =<< tys)
-mkDictType nm args = foldl TAp (TConstructor nm) args
+  unforall (Forall _ ty) = ty
+  unforall ty = ty
 
-constraintsToFn ty = let (cons, fTy) = unconstrained ty
-  in foldr1 tFn $ (map (uncurry mkDictType) cons) ++ unwrapFnType fTy
+instanceName (nm, tys) = nm <> intercalate "_" (toList =<< tys)
+
+mkProductType nm args = foldl TAp (TConstructor nm) args
+
+constraintsToFn :: Bool -> Type Name -> Type Name
+constraintsToFn needsGen ty = let
+  (cons, fTy) = unconstrained ty
+  vars :: [Name]
+  vars = concat . concat $ map (map freeVariables . snd) cons
+  baseTy = if needsGen then generalizeWithout vars fTy else fTy
+
+  in foldr tFn baseTy $ (map (uncurry mkProductType) cons)
+
+mkDictType :: Name -> [Name] -> [Type Name] -> [Type Name] -> Type Name
+mkDictType name vars supers members = let
+  builtDictTy = mkProductType name (map TVar vars)
+  in generalize $ foldr tFn builtDictTy (supers ++ members)
 
 dataFromDecl :: [Constraint Name] -> Name -> [Name] -> [Decl TypedAnn] -> [Decl TypedAnn]
 dataFromDecl superTraits name vars members = let
-  sortedMem = sortOn (sigNm) members
-  dataRec   = (:<) (TyAnn Nothing (Kind dataKind)) . Data name vars . pure . mkDictType tyName
+  sortedMem = sortOn sigNm members
+  dataRec   = (:<) (TyAnn Nothing (Kind dataKind)) . Data name vars . pure . mkProductType tyName
   dataKind  = foldl (\c _ -> c `KFn` Star) Star vars
   tyName    = "Mk" <> name
-  memTys    = map typeOf sortedMem
+  memTys    = map (generalizeWithout vars . typeOf) sortedMem
   recTy     = foldl (\l r -> l `TAp` TVar r) (TConstructor name) vars
   memNms    = map sigNm sortedMem
-  superTys  = []
-  accessors = zipWith (mkAccessor tyName recTy (memTys ++ superTys)) memNms [1..]
+  superTys  = map (uncurry mkProductType) superTraits
+  accessors = zipWith (mkAccessor tyName recTy (superTys ++ memTys)) memNms [(length superTys + 1)..]
   -- figure out the kind of new datatype
   in dataRec (superTys ++ memTys) : accessors
   where
@@ -158,65 +189,107 @@ addDictsToVals ann nm eqns = do
 
   let
     (memberConstraints, memberTy) = unconstrained (fromTyAnn ann)
-    fty' = generalize $ constraintsToFn (fromTyAnn ann)
-    instDictNames = instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, instanceName i)
-    localNameDict = zipWith (\cons ix -> (cons, "dict" ++ show ix)) memberConstraints [1..]
+    fty' = generalize $ constraintsToFn False (unforall $ fromTyAnn ann)
+    instDictNames = instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, GlobalDict $ instanceName i)
+    localNameDict = zipWith (\cons ix -> (cons, LocalDict $ "dict" ++ show ix)) memberConstraints [1..]
     localInstances = map (\(nm, tys) -> case nm `lookup` instanceDicts of
-      Just instances -> (nm, instances ++ [(tys, [])])
-      Nothing        -> (nm, [(tys, [])])
+      Just instances -> (nm, instances ++ [InstanceEntry tys []])
+      Nothing        -> (nm, [InstanceEntry tys []])
       ) memberConstraints
     instanceDict = foldr addInstanceToDict instanceDicts localInstances
-    dictPats = map (\(cons, nm) -> SynAnn (uncurry mkDictType cons) :< PVar nm) localNameDict
+    dictPats = map (\(cons, LocalDict nm) -> SynAnn (uncurry mkProductType cons) :< PVar nm) localNameDict
     nameDict = instDictNames ++ localNameDict
 
   local (\env -> env { traitDictionaries = instanceDict }) $ do
     eqns' <- addDictsToEqns nameDict eqns
-    return $ ann { ty = Type fty' } :< Value nm (addPatsToEqns dictPats $ eqns')
+    return $ ann { ty = Type fty' Nothing } :< Value nm (addPatsToEqns dictPats $ eqns')
   where
-  instanceDictToConstraint :: (Name, [TraitInstance]) -> [Constraint Name]
-  instanceDictToConstraint (nm, instances) = map (\i -> (nm, fst i)) instances
+  instanceDictToConstraint :: (Name, [InstanceEntry]) -> [Constraint Name]
+  instanceDictToConstraint (nm, instances) = map (\i -> (nm, instTypes i)) instances
 
   addPatsToEqns ps eqns = map (first ((++) ps)) eqns
 
-type NameDict = [(Constraint Name, Name)]
+  unforall (Forall _ ty) = ty
+  unforall ty = ty
+
+data DictName = LocalDict Name | GlobalDict Name
+  deriving (Show, Eq)
+type NameDict = [(Constraint Name, DictName)]
 
 addDictsToEqns :: MonadReader Environment m => NameDict -> [Eqn TypedAnn] -> m [Eqn TypedAnn]
-addDictsToEqns dict eqns = forMOf (each . _2) eqns (transformM (replaceTraitMethods dict))
+addDictsToEqns dict eqns = forMOf (each . _2) eqns (transformMOf plate (replaceTraitMethods dict))
+
+{-
+  The intent of this method is to provide a top-down traversal that provides a dict of bound names along the way
+
+-}
+
+transformMOfWithNames l f = go where
+  go t@(_ :< Assign lhs rhs) = do
+    mapMOf l go t >>= f
+  go t = mapMOf l go t >>= f
 
 replaceTraitMethods :: MonadReader Environment m => NameDict -> Expr TypedAnn -> m (Expr TypedAnn)
 replaceTraitMethods dicts v@(a :< Var nm) = do
-  allTraitMethods <- reader traits >>= pure . join . map (methodSigs . snd)
+  traitInfo <- reader traits
+  let allTraitMethods = join $ map (\(nm, entry) -> map (fmap (const(nm, entry))) (methodSigs entry)) traitInfo
   case nm `lookup` allTraitMethods of
-    Just x  -> do
+    Just (traitNm, entry) -> do
       instanceDict <- reader traitDictionaries
-      return $ mkDictLookup instanceDict x
+      let traitCons   = constraints $ fromJust $ instTyOf v
+          instanceTys = fromJust $ traitNm `lookup` traitCons
+          subst       = zip (traitVars entry) instanceTys
+          memPolyTy   = generalize . constraintsToFn True . polyTy $ ty a
+          tyAnn       = Type memPolyTy (Just $ applyTypeVars subst memPolyTy)
+          dictAnn     = fmapTyAnn (snd . unconstrained . applyTypeVars subst) a
+          dictVal     = dictAnn :< mkDictLookup instanceDict (tyAnn)
+      return $ dictVal
     Nothing -> pure v
 
   where
-  mkDictLookup id ty = a :< Apply (SynAnn ty :< Var nm) (map (mkDictVal id) (constraints $ typeOf v))
-  mkDictVal id ty = case findInst ty id dicts of
-      Just (dict, [])   -> SynAnn tNil :< Var dict
-      Just (dict, cons) -> SynAnn tNil :< Apply (SynAnn tNil :< Var dict) (map (mkDictVal id) cons)
-      Nothing -> error $ "couldnt find a dict for "
-        ++ show (pretty ty)
-        ++ show (pretty id)
-        ++ show (findInst ty id dicts)
+  fmapTyAnn f ann = ann { ty = ( mapTy f (ty ann)) }
+  mapTy f (Type pT iT) = Type (f pT) (f <$> iT)
+
+  mkDictLookup :: InstanceDict -> TypeAnn -> Expression TypedAnn (Expr TypedAnn)
+  mkDictLookup id ty = Apply (TyAnn Nothing ty :< Var nm) (map (mkDictVal id) (constraints . fromJust $ instTyOf v))
+
+  mkDictVal :: InstanceDict -> Constraint Name -> Expr TypedAnn
+  mkDictVal id traitCons = case findInst traitCons id dicts of
+    Just (LocalDict dict, _, _) -> SynAnn instDictTy :< Var dict
+    Just (GlobalDict dict, entry, subTraits)   -> let
+      freeVars = nub . concat $ map freeVariables (instTypes entry)
+      consVars = concat $ fmap (concat . fmap freeVariables . snd) (instConstraints entry)
+      instTy = constraintsToFn False $ constrain (subTraits) instDictTy
+      polyTy = generalize $ constraintsToFn False $ constrain (instConstraints entry) polyDictTy
+      polyDictTy = mkProductType (fst traitCons) (instTypes entry)
+      dictAnn = TyAnn Nothing (Type polyTy $ Just instTy)
+      in case subTraits of
+        [] -> dictAnn :< Var dict
+        subTraits -> SynAnn (uncurry mkProductType traitCons) :< Apply (dictAnn :< Var dict) (map (mkDictVal id) subTraits)
+
+    Nothing -> error $ "couldnt find a dict for "
+      ++ show (pretty traitCons)
+      ++ show (id)
+      ++ show (findInst traitCons id dicts)
+    where
+    instDictTy = uncurry mkProductType traitCons
+
 replaceTraitMethods _ x = pure x
 
-findInst :: Constraint Name -> InstanceDict -> NameDict -> Maybe (Name, [Constraint Name])
+findInst :: Constraint Name -> InstanceDict -> NameDict -> Maybe (DictName, InstanceEntry, [Constraint Name])
 findInst c@(nm, tys) id namedict = do
-  subDict <- goalsByInst id c
+  (entry, subDict) <- matchInst id c
   matched <- find (\(c2, _) -> matcher c c2) namedict
-  return (snd matched, subDict)
+  return (snd matched, entry, subDict)
   where
   consTy = foldl1 TAp
-  matcher (nm1, ty1) (nm2, ty2) | nm1 == nm2 = isJust $ E.match (consTy ty2) (consTy ty1)
+  matcher (nm1, ty1) (nm2, ty2) | nm1 == nm2 = isJust $ subsume (consTy ty2) (consTy ty1)
   matcher _ _ = False
 
 mkAccessor tyNm recTy tys fldNm ix = let
   val = mkAnn valTy :< Var "el"
   valTy = tys !! (ix - 1)
-  accessorTy = recTy `tFn` valTy
+  accessorTy = generalize $ recTy `tFn` valTy
   in mkAnn accessorTy :< Value fldNm [([mkPattern recTy tyNm tys ix], val)]
 
 mkPattern :: Type Name -> Name -> [Type Name] -> Int -> Pat TypedAnn
@@ -228,14 +301,3 @@ mkPattern recTy recNm tys ix = let
   in mkAnn recTy :< Destructor recNm annPats
 
 mkAnn = SynAnn
-{-
-
-Given MkShow (A a) b c
-
-fn ShowA (MkShow a _ _)
-fn b (MkShow _ b _)
--}
-
-valueFromInst :: [Constraint Name] -> Name -> [Type Name] -> [Decl TypedAnn] -> Decl TypedAnn
-valueFromInst = error "todo"
-

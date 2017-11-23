@@ -56,41 +56,30 @@ typeCheck (BoundModules
   go :: BindingGroup SourceSpan -> Check (BindingGroup TypedAnn)
   go (ValueBG ds)                  = do
     inferredVals <- liftUnify $ do
-          (ut, et, dict, untypedDict) <- typeDictionary ds
-          explicit <- forM et $ \e -> uncurry checkBindingGroupEl e dict
-          implicit <- forM ut $ \e -> typeForBindingGroupEl e dict
+      (ut, et, dict, untypedDict) <- typeDictionary (map generalizeSig ds)
+      explicit <- forM et $ \e -> uncurry checkBindingGroupEl e dict
+      implicit <- forM ut $ \e -> typeForBindingGroupEl e dict
 
-          return $ explicit ++ implicit
+      return $ explicit ++ implicit
 
     subbedValues <- appSubs inferredVals
     values <- forM subbedValues $ \(ann :< v) -> do
       let t = fromTyAnn ann
 
       t' <- flattenConstraints <$> simplify' t
-      when (ambiguous t') $ internalError $ "ambigious type!!!!" ++ show (ambiguities $ t')
+      when (ambiguous t') $ internalError $ "ambigious type: " ++ show (ambiguities $ t') ++ valueName v ++ (show $ pretty (fromTyAnn ann))
 
       let generalizedType = generalize t'
       addValue (valueName v) generalizedType
-      return $ (ann { ty = Type generalizedType }) :< v
+      return $ (ann { ty = Type generalizedType Nothing }) :< v
 
     return $ ValueBG values
 
     where
+    generalizeSig (a :< Signature nm ty) = a :< Signature nm (generalize ty)
+    generalizeSig decl = decl
 
     valueName (Value n _) = n
-
-    appSubs :: ([Decl TypedAnn], Substitution (Type Name)) -> Check [Decl TypedAnn]
-    appSubs (ts, sub) = mapM (substituteOneDecl sub) ts
-
-    substituteOneDecl :: Substitution (Type Name) -> Decl TypedAnn -> Check (Decl TypedAnn)
-    substituteOneDecl sub decl = hoistAppToCofree (substituteAnn sub) $ decl
-
-    substituteAnn :: Substitution (Type Name) -> TypedAnn -> Check (TypedAnn)
-    substituteAnn sub = \ann -> do
-      let annTy = fromTyAnn ann
-          subbedType = substituteOneType sub annTy
-      simplified <- pure subbedType
-      pure $ ann { ty = Type (simplified) }
 
     ambiguous ty = not . null $ ambiguities ty
     ambiguities ty = fvInConstraints \\ tyVars
@@ -127,19 +116,17 @@ typeCheck (BoundModules
     coerceAnn _ = error "impossible non-data value found in data binding group"
 
     consPair :: Type Name -> (Name, [Type Name])
-    consPair   = fromCons . fromJust . uncons . reverse . unfoldCons
+    consPair   = fromCons . fromJust . uncons . unwrapProduct
 
     fromCons (TConstructor n, b) = (n,b)
     fromCons _ = error "non constructor value found"
-
-    unfoldCons (TAp f a) = a : unfoldCons f
-    unfoldCons a         = [a]
 
   go (OtherBG (_ :< TypeSynonym{})) = throwError $ NotImplementedError "oops"
   go (OtherBG (a :< Import q m n al)) = return $ OtherBG $ TyAnn (pure a) None :< Import q m n al
   go (OtherBG (a :< TraitDecl supers name args members)) = do
     let memTys = map toPair members
         members' = map annSigs members
+
     addTrait name supers args memTys
 
     return . OtherBG $ TyAnn (pure a) None :< TraitDecl supers name args members'
@@ -160,7 +147,8 @@ typeCheck (BoundModules
 
     let constraints' = (nm, args) : supers
         tySubs     = zip (traitVars trait) args
-        sigTys     = map (fmap (constrain constraints' . replaceTypeVars tySubs)) (methodSigs trait)
+        argVars    = nub . concat $ map freeVariables args
+        sigTys     = map (fmap (generalizeWithout argVars . constrain constraints' . applyTypeVars tySubs)) (methodSigs trait)
         signatures = map (uncurry Signature) sigTys
         annotated  = map (\sig -> emptySpan :< sig) signatures
 
@@ -170,17 +158,20 @@ typeCheck (BoundModules
       when (not (null ut) || not (null untypedDict)) $ do
         internalError . intercalate "\n" $ [ "The trait " ++ nm ++ " does not contain the methods:" ] ++ map valueName ut
 
+      {-
+        unncessary since all traits are bound already
+      -}
       withTraitInstance nm supers args $
         forM et $ \e -> uncurry checkBindingGroupEl e []
 
     addTraitInstance nm supers args
 
-    values <- forM (appSubs vals') $ \(ann :< v) -> do
+    subbedValues <- appSubs vals'
+    values <- forM (subbedValues) $ \(ann :< v) -> do
       let t = varIfUnknown $ fromType (ty ann)
 
       t' <- flattenConstraints <$> simplify' t
-
-      return $ (ann { ty = Type t' }) :< v
+      return $ (ann { ty = Type t' Nothing }) :< v
 
 
     return . OtherBG $ TyAnn (pure a) None :< TraitImpl supers nm args (filter isValue values)
@@ -190,18 +181,32 @@ typeCheck (BoundModules
     traitName (TAp f _)         = traitName f
     traitName (TConstructor c)  = c
 
-    appSubs (ts, sub) = map (nestedFmap (\a -> a { ty = fmapTy (\v -> varIfUnknown $ sub $? v) (ty a) })) ts
-
     simplify' (Constrained cons t) = do
       cons' <- reduce cons
       return $ Constrained cons' t
     simplify' (Forall vars ty) = Forall vars <$> simplify' ty
-
     simplify' t = return t
 
     emptySpan = SourceSpan (initialPos "") (initialPos "")
 
   go (OtherBG _)                 = throwError $ NotImplementedError "oops"
+
+appSubs :: ([Decl TypedAnn], Substitution (Type Name)) -> Check [Decl TypedAnn]
+appSubs (ts, sub) = mapM (substituteOneDecl sub) ts
+
+substituteOneDecl :: Substitution (Type Name) -> Decl TypedAnn -> Check (Decl TypedAnn)
+substituteOneDecl sub decl = hoistAppToCofree (substituteAnn sub) $ decl
+
+substituteAnn :: Substitution (Type Name) -> TypedAnn -> Check (TypedAnn)
+substituteAnn sub = \ann -> do
+  let (Type poly inst) = ty ann
+      subbedPoly = substituteOneType sub poly
+      subbedInst = substituteOneType sub <$> inst
+
+  pure $ ann { ty = Type subbedPoly subbedInst }
+
+substituteOneType :: Substitution (Type Name) -> Type Name -> Type Name
+substituteOneType sub ty = varIfUnknown $ sub $? ty
 
 type TypedDict   = [(Name, Type Name)]
 type UntypedDict = [(Name, Type Name)]
@@ -212,7 +217,7 @@ typeDictionary vals = do
       sigs =  sortOn signatureName $ filter isSignature vals
       sigNames = map signatureName sigs
       (typedVals, untyped) = partition (\v -> valueName v `elem` sigNames) values
-      typed = zip (map (generalize . signatureType) sigs) typedVals
+      typed = zip (map (signatureType) sigs) typedVals
 
   untypedNames <- replicateM (length untyped) (fresh)
   let untypedDict = zip (map valueName untyped) untypedNames

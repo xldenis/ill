@@ -34,8 +34,12 @@ data TraitEntry = TraitEntry
   , methodSigs :: [(Name, Type Name)]
   } deriving (Show, Eq)
 
-type InstanceDict = [(Name, [TraitInstance])]
-type TraitInstance = ([Type Name], [Constraint Name])
+type InstanceDict = [(Name, [InstanceEntry])]
+
+data InstanceEntry = InstanceEntry
+  { instTypes       :: [Type Name]
+  , instConstraints :: [Constraint Name]
+  } deriving (Show, Eq)
 
 data CheckState = CheckState
   { env     :: Environment
@@ -70,6 +74,7 @@ defaultCheckEnv = CheckState (Environment
   , ("+", generalize $ constrain [("Semigroup", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
   , ("-", generalize $ constrain [("Group", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
   , ("*", generalize $ constrain [("MultSemigroup", [TVar "a"])] $ TVar "a" `tFn` (TVar "a" `tFn` TVar "a"))
+  , ("failedPattern", generalize $ TVar "a")
   ] [] [] [] []) 0
 
 putEnv :: MonadState CheckState m => Environment -> m ()
@@ -147,8 +152,8 @@ addTrait :: MonadState CheckState m => Name -- class name
   -> [(Name, Type Name)]  -- name and type of member sigs
   -> m ()
 addTrait name supers args members = do
-  modifyEnv $ \e -> e { traits = (name, TraitEntry supers args members) : traits e }
   let qualifiedMembers = map (fmap (generalize . qualifyType)) members
+  modifyEnv $ \e -> e { traits = (name, TraitEntry supers args qualifiedMembers) : traits e }
   modifyEnv $ \e -> e { names = qualifiedMembers ++ names e }
   where
   qualifyType t = Constrained fullConstraints t
@@ -159,8 +164,8 @@ withTraitInstance trait supers inst action = do
   environment <- env <$> get
 
   let instDict = case trait `lookup` traitDictionaries environment of
-                  Just instances -> (inst, supers) : instances
-                  Nothing        -> [(inst, supers)]
+                  Just instances -> InstanceEntry inst supers : instances
+                  Nothing        -> [InstanceEntry inst supers]
 
   putEnv $ environment { traitDictionaries = addInstanceToDict (trait, instDict) (traitDictionaries environment) }
   a <- action
@@ -169,7 +174,7 @@ withTraitInstance trait supers inst action = do
 
   return a
 
-addInstanceToDict :: (Name, [TraitInstance]) -> InstanceDict -> InstanceDict
+addInstanceToDict :: (Name, [InstanceEntry]) -> InstanceDict -> InstanceDict
 addInstanceToDict (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
 addInstanceToDict v (x : xs)            = x : addInstanceToDict v xs
 addInstanceToDict v []                  = [v]
@@ -179,8 +184,8 @@ addTraitInstance trait supers inst = do
   env <- env <$> get
 
   let instDict = case trait `lookup` traitDictionaries env of
-                  Just instances -> (inst, supers) : instances
-                  Nothing        -> [(inst, supers)]
+                  Just instances -> InstanceEntry inst supers : instances
+                  Nothing        -> [InstanceEntry inst supers]
 
   putEnv $ env { traitDictionaries = addInstanceToDict (trait, instDict) (traitDictionaries env) }
 
