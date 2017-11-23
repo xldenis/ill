@@ -1,0 +1,18 @@
+module Core8
+  trait Show a
+    show :: a -> String
+  end
+
+  trait Foldable t
+    foldr :: (a -> b -> b) -> b -> t a -> b
+    foldl :: (b -> a -> b) -> b -> t a -> b
+  end
+
+  # The bug here is that foldr doesn't have a @List type application
+  impl Show a | Show (List a)
+    fn show(list)
+      '[' + foldr(plus, '', intersperse(',', fmap(show, list))) + ']'
+    end
+  end
+
+end

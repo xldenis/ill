@@ -1,0 +1,18 @@
+module Core10
+
+  data List  a = Cons a (List a) | Nil
+
+  trait Semigroup a
+    plus :: a -> a -> a
+  end
+
+  impl Semigroup (List a)
+    fn plus(Nil, x)
+      x
+    or plus(Cons x ls, Nil)
+      Cons(x, ls)
+    or plus(Cons x ls, ys)
+      Cons(x, plus(ls, ys))
+    end
+  end
+end

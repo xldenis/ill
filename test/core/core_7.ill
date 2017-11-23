@@ -1,0 +1,12 @@
+module Core7
+  trait Foldable t
+    foldr :: (a -> b -> b) -> b -> t a -> b
+    foldl :: (b -> a -> b) -> b -> t a -> b
+  end
+
+  # The bug here is that there is no inner type lambda for @a
+  length :: Foldable t | t a -> Int
+  fn length(list)
+    foldl(fn (x, y) = x + 1 end, 0, list)
+  end
+end

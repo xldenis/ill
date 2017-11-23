@@ -27,6 +27,7 @@ import Data.Maybe
 runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
 
 mkVar nm = Id { varName = nm, C.idTy = tNil, usage = Used }
+
 spec :: Spec
 spec = do
   describe "substitution" $ do

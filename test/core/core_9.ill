@@ -1,0 +1,12 @@
+module Core9
+  data List a = Cons a (List a) | Nil
+
+  # partialIx :: Int -> List a -> a
+
+  fn partialIx(0, Cons x xs)
+    x
+  or partialIx(i, Cons x xs)
+    # partialIx doesnt get the (@ a) application
+    partialIx(i - 1, xs)
+  end
+end

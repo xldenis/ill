@@ -11,6 +11,7 @@ module TobyBreaksThings3
     Cons(0, Cons(1, zipWith(plus, fibs, fromJust(tail(fibs)))))
   end
 
+  partialIx :: Int -> List a -> a
   fn partialIx(0, Cons x xs)
     x
   or partialIx(i, Cons x xs)
