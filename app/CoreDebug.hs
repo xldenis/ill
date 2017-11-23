@@ -28,12 +28,12 @@ coreDebug ast = case runTC ast of
     let desugared = pipeline env typed
         core = declsToCore desugared
 
+    putStrLn $ pack "\n\nCORE OUTPUT\n\n"
+    putStrLn $ renderIll cliRenderArgs (vcat $ map pretty $ bindings $ core)
+
     case runLinter core of
       Left err -> putStrLn $ pack err
       Right () -> do
-        putStrLn $ pack "\n\nCORE OUTPUT\n\n"
-        putStrLn $ renderIll cliRenderArgs (vcat $ map pretty $ bindings $ core)
-
         putStrLn $ pack "omgyesss"
 
   where

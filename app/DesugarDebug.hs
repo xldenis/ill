@@ -30,8 +30,6 @@ desugar stage ast = case runTC ast of
 
     -- print (map pretty $ traitDictionaries env)
     putStrLn $ renderIll' (pretty $ Module "t" desugared)
-    putStrLn $ pack "\n\nCORE OUTPUT\n\n"
-    putStrLn $ renderIll cliRenderArgs (vcat $ map pretty $ bindings $ declsToCore desugared)
   where
   cliRenderArgs = defaultRenderArgs { width = 50}
 
