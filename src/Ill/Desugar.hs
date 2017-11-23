@@ -42,7 +42,7 @@ declToCore' (a :< Value nm [([], exp)]) = do
   unforall (Forall tVars _) = tVars
   unforall _                = []
 
-  binder = Id { varName = nm, ty = fromTyAnn a, usage = Used }
+  binder = Id { varName = nm, idTy = fromTyAnn a, usage = Used }
 declToCore' (_ :< Data nm args conses) = do
   let cons' = map (\cons ->
         case unwrapProduct cons of
@@ -73,7 +73,7 @@ toCore (_ :< S.Lambda bind exp) = let
   vars = map toVar bind
   in foldr Lambda (toCore exp) vars
   where
-  toVar (a :< S.PVar nm) = Id { varName = nm, ty = fromTyAnn a, usage = Used }
+  toVar (a :< S.PVar nm) = Id { varName = nm, idTy = fromTyAnn a, usage = Used }
   isVarPat (_ :< S.PVar _) = True
   isVarPat _ = False
 toCore (_ :< S.Body exps) = toCore' exps

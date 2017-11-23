@@ -26,7 +26,7 @@ instance HasName Var where
 
 data Var
   = TyVar { varName :: Id, kind :: Kind }
-  | Id { varName :: Id, ty :: Type Name, usage :: Usage }
+  | Id { varName :: Id, idTy :: Type Name, usage :: Usage }
   deriving (Show, Eq)
 
 data Usage
@@ -99,5 +99,5 @@ instance Pretty n => Pretty (Bind n) where
 
 instance Pretty Var where
   pretty (TyVar{ varName = name}) = parens $ pretty "@" <> pretty name
-  pretty (Id{ varName = name, usage = Used, ty = ty }) = parens $ pretty name <+> pretty "::" <+> pretty ty
+  pretty (Id{ varName = name, usage = Used, idTy = ty }) = parens $ pretty name <+> pretty "::" <+> pretty ty
   pretty (Id{ varName = name, usage = NotUsed }) = pretty "_"
