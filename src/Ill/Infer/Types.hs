@@ -276,6 +276,9 @@ inferPat ty (a :< PLit lit) = do
   let litTy = inferLit lit
   litTy =?= ty
   return ([], Ann a litTy :< PLit lit)
+inferPat ty (a :< Wildcard) = do
+  return ([], Ann a ty :< Wildcard)
+inferPat ty pat = prettyInternal (ty, pat)
 
 instantiate :: Type Name -> UnifyT (Type Name) Check (Type Name)
 instantiate (Forall vars ty) = do

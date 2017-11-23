@@ -23,10 +23,13 @@ data MultiError
   | ErrorInExpression (Expr SourceSpan) (MultiError)
   deriving (Show, Eq)
 
-internalError :: (MonadError MultiError m) => String -> m ()
+prettyInternal :: (MonadError MultiError m, Pretty a) => a -> m b
+prettyInternal = throwError . InternalError . show . pretty
+
+internalError :: (MonadError MultiError m) => String -> m a
 internalError = throwError . InternalError
 
-notImplementedError :: (MonadError MultiError m) => String -> m ()
+notImplementedError :: (MonadError MultiError m) => String -> m a
 notImplementedError = throwError . NotImplementedError
 
 rethrow :: MonadError e m => (e -> e) -> m a -> m a
