@@ -20,7 +20,7 @@ import Ill.Interpret
 import Ill.Parser
 
 import Ill.Syntax hiding (Expression(..))
-import Ill.Syntax.Core
+import Ill.Syntax.Core as Core
 import Ill.Syntax.Pretty
 
 import Prelude hiding (putStrLn, putStr)
@@ -31,7 +31,7 @@ runInterpreter mod = do
   case  compileToCore mod of
     Left err -> putStrLn $ err
     Right (coreMod) -> do
-      let boundConstructors = Desugar.constructors coreMod
+      let boundConstructors = map (\(c, (arity, _)) -> (c, arity)) $ Core.constructors coreMod
 
       env <- Interp.mkEnvForModule boundConstructors (bindings coreMod)
       val <- Interp.eval env (Var "main")

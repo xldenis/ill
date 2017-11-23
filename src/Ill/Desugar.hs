@@ -26,11 +26,6 @@ type Id = Name
   to variables with the name of the contrsuctor.
 -}
 
-data CoreModule = Mod
-  { bindings :: [Bind Var]
-  , constructors :: [(Name, Int)] -- wip: more generally track constructor info
-  } deriving (Show, Eq)
-
 
 declsToCore :: [Decl TypedAnn] -> CoreModule
 declsToCore decls = execState (mapM declToCore' decls) (Mod [] [])
@@ -48,13 +43,17 @@ declToCore' (a :< Value nm [([], exp)]) = do
   unforall _                = []
 
   binder = Id { varName = nm, ty = fromTyAnn a, usage = Used }
-declToCore' (_ :< Data nm _ conses) = do
+declToCore' (_ :< Data nm args conses) = do
   let cons' = map (\cons ->
         case unwrapProduct cons of
-          (TConstructor consNm : args) -> (consNm, length args)
+          (TConstructor consNm : args) -> (consNm, (length args, getConstructorType cons))
         ) conses
   modify $ \m -> m { constructors = cons' ++ constructors m }
-
+  where
+  getConstructorType ty = let
+    (TConstructor tyCons : tys) = unwrapProduct ty
+    retTy = foldl TAp (TConstructor nm) (map TVar args)
+    in generalize $ foldr tFn retTy tys
 declToCore' (_) = pure ()
 
 

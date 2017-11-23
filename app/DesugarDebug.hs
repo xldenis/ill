@@ -1,6 +1,7 @@
 module DesugarDebug where
 
 import Ill.Syntax
+import Ill.Syntax.Core (bindings)
 import Ill.Infer
 import Ill.Infer.Monad
 
@@ -11,8 +12,6 @@ import Control.Monad.Except (runExcept)
 import Control.Monad
 
 import Ill.BindingGroup
-import Ill.Desugar.Trait
-import Ill.Desugar.Cases
 import Ill.Desugar
 
 import Prelude hiding (putStrLn, putStr)
@@ -29,7 +28,7 @@ desugar stage ast = case runTC ast of
     let pipeline = stageToPipeline stage
         desugared = pipeline env typed
 
-    print (map pretty $ traitDictionaries env)
+    -- print (map pretty $ traitDictionaries env)
     putStrLn $ renderIll' (pretty $ Module "t" desugared)
     putStrLn $ pack "\n\nCORE OUTPUT\n\n"
     putStrLn $ renderIll cliRenderArgs (vcat $ map pretty $ bindings $ declsToCore desugared)

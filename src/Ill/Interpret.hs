@@ -1,6 +1,6 @@
 module Ill.Interpret where
 
-import           Ill.Syntax.Core
+import           Ill.Syntax.Core as Core hiding (constructors)
 import           Ill.Syntax hiding (Expression(..))
 import           Ill.Syntax.Pretty ((<+>), hsep)
 
@@ -127,6 +127,7 @@ eval env a@(App _ _) = do
 
   where
 
+  unwindSpineStack (App f (Core.Type _)) stack = unwindSpineStack f stack
   unwindSpineStack (App f a) stack = unwindSpineStack f (a : stack)
   unwindSpineStack a         stack = a : stack
 
@@ -165,4 +166,4 @@ eval env (Let (NonRec nm arg) exp) = do
   update' thunk $ \() -> eval env' arg
 
   eval env' exp
-
+eval env expr = error . show $ pretty expr
