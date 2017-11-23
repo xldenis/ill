@@ -1,4 +1,12 @@
 module Prelude
+  data Maybe a = Just a | Nothing
+
+  data List  a = Cons a (List a) | Nil
+
+  data Tuple a b = T a b
+
+  data Bool = True | False
+
   trait Eq a
     eq  :: a -> a -> Bool
   end
@@ -38,14 +46,6 @@ module Prelude
     max :: a -> a -> a
     min :: a -> a -> a
   end
-
-  data Maybe a = Just a | Nothing
-
-  data List  a = Cons a (List a) | Nil
-
-  data Tuple a b = T a b
-
-  data Bool = True | False
 
   impl Eq Int
     fn eq()
