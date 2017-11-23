@@ -7,6 +7,10 @@ module Prelude
 
   data Bool = True | False
 
+  data Unit = Unit
+
+  data Either a b = Left a | Right b
+
   trait Eq a
     eq  :: a -> a -> Bool
   end
@@ -34,8 +38,10 @@ module Prelude
     minus :: a -> a -> a
   end
 
+  data Ordering = LE | GE | EQ
+
   trait Eq a | Ord a
-    # compare :: a -> a -> Bool
+    compare :: a -> a -> Ordering
 
     lt :: a -> a -> Bool
     gt :: a -> a -> Bool
@@ -47,6 +53,29 @@ module Prelude
     min :: a -> a -> a
   end
 
+  trait Foldable t
+    foldr :: (a -> b -> b) -> b -> t a -> b
+    foldl :: (b -> a -> b) -> b -> t a -> b
+  end
+
+  trait Enum a
+    succ :: a -> a
+    pred :: a -> a
+
+    toEnum :: Int -> a
+    fromEnum :: a -> Int
+  end
+
+  trait Bounded a
+    minBound :: a
+    maxBound :: a
+  end
+
+  trait Functor f | Applicative f
+    pure :: a -> f a
+    ap :: f (a -> b) -> f a -> f b
+  end
+
   impl Eq Int
     fn eq()
       eqInt # primitive function
@@ -54,6 +83,13 @@ module Prelude
   end
 
   impl Ord Int
+    fn compare (a, b)
+      if a < b then LE
+      else if a > b then GE
+      else EQ end
+      end
+    end
+
     fn lt () ltInt end
     fn gt (a, b) gtInt(a, b) end
     fn leq () leqInt end
@@ -150,11 +186,6 @@ module Prelude
     end
   end
 
-  trait Foldable t
-    foldr :: (a -> b -> b) -> b -> t a -> b
-    foldl :: (b -> a -> b) -> b -> t a -> b
-  end
-
   impl Foldable List
     fn foldr(f, z, Cons x xs)
       f(x, foldr(f, z, xs))
@@ -180,6 +211,14 @@ module Prelude
       f(x, z)
     or foldr(f, z, Nothing)
       z
+    end
+  end
+
+  impl Functor (Either a)
+    fn fmap(f, Right b)
+      Right(f(b))
+    or fmap(_, Left e)
+      Left(e)
     end
   end
 
