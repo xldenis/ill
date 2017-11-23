@@ -2,20 +2,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Infer
 import Ill.Parser
 import Ill.Syntax.Pretty
-import DesugarDebug
-import Interpreter
-import Text.Megaparsec
-
 import Ill.Syntax (Module(..))
 import Ill.Parser.Lexer (SourceSpan)
+
+import Text.Megaparsec
 
 import Options.Generic
 
 import qualified Data.Text.Lazy.IO as T (putStrLn)
 import qualified Data.Text.IO as T (readFile)
+
+import Infer
+import DesugarDebug
+import Interpreter
+import CoreDebug
 
 import Paths_ill
 
@@ -25,6 +27,7 @@ data Config
   | Infer String
   | Desugar String String
   | Run String
+  | Core String
   deriving (Generic, Show)
 
 instance ParseRecord Config
@@ -35,6 +38,7 @@ file (Format f) = f
 file (Infer f) = f
 file (Desugar _ f) = f
 file (Run f) = f
+file (Core f) = f
 
 main :: IO ()
 main = do
@@ -59,3 +63,4 @@ handleCommands (Format f) ast = T.putStrLn $ renderIll defaultRenderArgs (pretty
 handleCommands (Infer f)  ast = infer ast
 handleCommands (Desugar stage f) ast = desugar stage ast
 handleCommands (Run f) ast = runInterpreter ast
+handleCommands (Core f) ast = coreDebug ast

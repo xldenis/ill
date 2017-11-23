@@ -46,6 +46,7 @@ library
       Control.Monad.Fresh
       Control.Monad.Unify
       Ill.BindingGroup
+      Ill.CoreLint
       Ill.Desugar
       Ill.Desugar.BinOp
       Ill.Desugar.Cases
@@ -93,6 +94,7 @@ executable ill
     , prettyprinter-ansi-terminal
     , optparse-generic
   other-modules:
+      CoreDebug
       DesugarDebug
       Infer
       Interpreter
