@@ -50,23 +50,20 @@ complex (Forall _ _) = True
 complex (Constrained _ _) = True
 complex _ = False
 
-generalize :: Eq a => Type a -> Type a
+generalize :: Ord a => Type a -> Type a
 generalize f@(Forall _ _) = f
 generalize ty | null fv = ty
-              | otherwise = generalizeWith (freeVariables ty) ty
+              | otherwise = generalizeWith fv ty
   where
   fv = freeVariables ty
 
+generalizeWith :: [a] -> Type a -> Type a
 generalizeWith [] ty = ty
 generalizeWith fv ty = Forall fv ty
 
-generalizeWithout :: Eq a => [a] -> Type a -> Type a
-generalizeWithout vars (Forall boundVars t) = case (nub $ freeVariables t ++ boundVars) \\ vars of
-  [] -> t
-  xs -> Forall xs t
-generalizeWithout vars ty
-  | freeVariables ty \\ vars /= [] = Forall (freeVariables ty \\ vars) ty
-  | otherwise = ty
+generalizeWithout :: Ord a => [a] -> Type a -> Type a
+generalizeWithout vars (Forall boundVars t) = generalizeWith ((nub $ freeVariables t ++ boundVars) \\ vars) t
+generalizeWithout vars ty = generalizeWith (freeVariables ty \\ vars) ty
 
 freeVariables :: Eq t => Type t -> [t]
 freeVariables = nub . freeVariables'
@@ -155,10 +152,16 @@ unwrapN n t = unfoldr' n go t
     (a, Just b') -> a : unfoldr' (n - 1) f b'
     (a, Nothing) -> [a]
 
-applyTypeVars subs (Forall vars ty) = generalizeWithout vars' (replaceTypeVars selectedSubs ty)
+{-
+  This method applies types to the variables of a scheme. It relies on the implicit ordering of
+  the variables in said scheme. Ideally type schemes should be kept in a normalized order.
+
+-}
+applyTypeVars :: Ord a => [Type a] -> Type a -> Type a
+applyTypeVars tys (Forall vars ty) = generalizeWithout vars' (replaceTypeVars subst ty)
   where
-  selectedSubs = filter (\(var, _) -> var `elem` vars) subs
-  vars' = vars `intersect` (map fst subs)
+  subst = zip vars tys
+  vars' = (nub . concat $ map (\(v, t) -> freeVariables t) subst)
 applyTypeVars subs ty = ty
 
 replaceTypeVars :: Eq a => [(a, Type a)] -> Type a -> Type a

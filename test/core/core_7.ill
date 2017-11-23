@@ -4,6 +4,16 @@ module Core7
     foldl :: (b -> a -> b) -> b -> t a -> b
   end
 
+  trait Semigroup a
+    plus :: a -> a -> a
+  end
+
+  impl Semigroup Int
+    fn plus(a, b)
+      plusInt(a, b) # primitive function
+    end
+  end
+
   # The bug here is that there is no inner type lambda for @a
   length :: Foldable t | t a -> Int
   fn length(list)

@@ -1,11 +1,49 @@
 module Core8
+  data List a = Cons a (List a) | Nil
+
   trait Show a
     show :: a -> String
+  end
+
+  trait Semigroup a
+    plus :: a -> a -> a
   end
 
   trait Foldable t
     foldr :: (a -> b -> b) -> b -> t a -> b
     foldl :: (b -> a -> b) -> b -> t a -> b
+  end
+
+  trait Functor f
+    fmap :: (a -> b) -> f a -> f b
+  end
+
+  impl Foldable List
+    fn foldr(f, z, Cons x xs)
+      f(x, foldr(f, z, xs))
+    or foldr(f, z, Nil)
+      z
+    end
+
+    fn foldl(f, z, Cons x xs)
+      foldl(f, f(z, x), xs)
+    or foldl(f, z, Nil)
+      z
+    end
+  end
+
+  impl Functor List
+    fn fmap(f, Cons x xs)
+      Cons(f(x), fmap(f, xs))
+    or fmap(f, Nil)
+      Nil
+    end
+  end
+
+  impl Semigroup String
+    fn plus(a, b)
+      plusStr(a, b) # primitive function
+    end
   end
 
   # The bug here is that foldr doesn't have a @List type application
@@ -15,4 +53,12 @@ module Core8
     end
   end
 
+  intersperse :: a -> List a -> List a
+  fn intersperse(item, Cons el Nil)
+    Cons(el, Nil)
+  or intersperse(item, Cons el l2)
+    Cons(el, Cons(item, intersperse(item, l2)))
+  or intersperse(item, Nil)
+    Nil
+  end
 end

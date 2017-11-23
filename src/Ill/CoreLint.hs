@@ -109,19 +109,29 @@ lintCore ap@(App f t@(Type ty)) = do
   where
   splitForall (Forall [x] ty) = (x, ty)
   splitForall (Forall (x:xs) ty) = (x, Forall xs ty)
-  splitForall ty = error . show . pretty $ (ty, ap)
+  splitForall ty = error . show . vcat $
+    [ pretty "type variable applied to non polymorphic function!"
+    , pretty (ty, ap)
+    ]
 lintCore ap@(App f arg) = do
   fTy <- lintCore f
   argTy <- lintCore arg
 
-  let (a, b) = getArgTy ap fTy
+  (a, b) <- getArgTy ap fTy
   if (isJust $ a `subsume` argTy) then return b
   else throwError $ "app error: " ++ (show $ pretty (fTy, argTy))
   where
-  getArgTy _ (TAp (TAp (TConstructor "->") a) b) = (a, b)
-  getArgTy _ (Arrow a b) = (a, b)
+  getArgTy _ (TAp (TAp (TConstructor "->") a) b) = pure (a, b)
+  getArgTy _ (Arrow a b) = pure (a, b)
   -- getArgTy (Forall _ ty) = getArgTy ty
-  getArgTy argTy ty' = error . show . pretty $ (argTy, ty')
+  getArgTy _ ty' = throwError . show $ vcat $
+    [ pretty "The function has an unresolved polymorphic variable in the application:"
+    , pretty ap
+    , pretty "function:"
+    , pretty f
+    , pretty "function type:"
+    , pretty ty'
+    ]
 
 lintCore c@(Case scrut alts) = do
   scrutTy <- lintCore scrut

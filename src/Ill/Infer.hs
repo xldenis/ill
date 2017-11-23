@@ -31,6 +31,7 @@ import           Ill.Parser.Lexer     (SourceSpan (..))
 import           Ill.Syntax
 import           Ill.Syntax.Type
 import Data.Bitraversable
+import Control.Lens.Plated
 
 type RawDecl = Decl SourceSpan
 
@@ -71,11 +72,18 @@ typeCheck (BoundModules
 
       let generalizedType = generalize t'
       addValue (valueName v) generalizedType
-      return $ (ann { ty = Type generalizedType Nothing }) :< v
+
+      return $ (ann { ty = Type generalizedType Nothing }) :< updateValue (generalizeVars (valueName v) generalizedType) v
 
     return $ ValueBG values
 
     where
+
+    updateValue f (Value nm brs) = Value nm (map (fmap $ transform f) brs)
+
+    generalizeVars target t (a :< Var nm) | nm == target = a { ty = fmapTy (const t) (ty a) } :< Var nm
+    generalizeVars _ _ a = a
+
     generalizeSig (a :< Signature nm ty) = a :< Signature nm (generalize ty)
     generalizeSig decl = decl
 
@@ -146,9 +154,8 @@ typeCheck (BoundModules
     when (not $ null unsatisfiedSupers) . internalError $ "unsatisfied supertraits in instance: " ++ show unsatisfiedSupers
 
     let constraints' = (nm, args) : supers
-        tySubs     = zip (traitVars trait) args
         argVars    = nub . concat $ map freeVariables args
-        sigTys     = map (fmap (generalizeWithout argVars . constrain constraints' . applyTypeVars tySubs)) (methodSigs trait)
+        sigTys     = map (fmap (generalizeWithout argVars . constrain constraints' . applyTypeVars args)) (methodSigs trait)
         signatures = map (uncurry Signature) sigTys
         annotated  = map (\sig -> emptySpan :< sig) signatures
 

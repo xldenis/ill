@@ -96,6 +96,7 @@ import           Ill.Infer.Monad
 import           Ill.Syntax
 import           Ill.Syntax.Pretty (pretty)
 
+import           Debug.Trace
 {-
   1. Handle super classes and superclass accessors
   2. Fix dictionary passing in dictionary definitions
@@ -120,7 +121,7 @@ valFromInst supers nm tys decls = do
       argVars   = nub . concat $ map freeVariables tys
       vars      = traitVars trait
       tyConTy   = mkDictType nm vars superTys memberTys
-      subConTy  = applyTypeVars subst tyConTy
+      subConTy  = applyTypeVars tys tyConTy
       subst     = zip vars tys
   let
     sortedDecls = sortOn valueName decls
@@ -238,15 +239,16 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
       instanceDict <- reader traitDictionaries
       let traitCons   = constraints $ fromJust $ instTyOf v
           instanceTys = fromJust $ traitNm `lookup` traitCons
-          subst       = zip (traitVars entry) instanceTys
           memPolyTy   = generalize . constraintsToFn True . polyTy $ ty a
-          tyAnn       = Type memPolyTy (Just $ applyTypeVars subst memPolyTy)
-          dictAnn     = fmapTyAnn (snd . unconstrained . applyTypeVars subst) a
+          tyAnn       = Type memPolyTy (Just $ applyTypeVars instanceTys memPolyTy)
+          dictAnn     = fmapTyAnn (snd . unconstrained . applyTypeVars instanceTys) a
           dictVal     = dictAnn :< mkDictLookup instanceDict (tyAnn)
+
       return $ dictVal
     Nothing -> pure v
 
   where
+
   fmapTyAnn f ann = ann { ty = ( mapTy f (ty ann)) }
   mapTy f (Type pT iT) = Type (f pT) (f <$> iT)
 

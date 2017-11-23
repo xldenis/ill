@@ -1,8 +1,17 @@
 module Core9
   data List a = Cons a (List a) | Nil
 
-  # partialIx :: Int -> List a -> a
+  trait Group a
+    minus :: a -> a -> a
+  end
 
+  impl Group Int
+    fn minus(a, b)
+      minusInt(a, b)
+    end
+  end
+
+  partialIx :: Int -> List a -> a
   fn partialIx(0, Cons x xs)
     x
   or partialIx(i, Cons x xs)

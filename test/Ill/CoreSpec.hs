@@ -8,8 +8,6 @@ import Test.Hspec
 
 import SpecHelper
 
-import Control.Monad.State (runStateT)
-import Control.Monad.Except (runExcept)
 import Control.Monad.IO.Class
 
 import Ill.Parser
@@ -17,19 +15,56 @@ import Ill.Syntax
 import Ill.Syntax.Core as C hiding (Var)
 import qualified Ill.Syntax.Core as C
 import Ill.Infer
-import Ill.Desugar.Cases
+import Ill.Infer.Monad (execCheck)
+import Ill.Desugar
 import Ill.Syntax.Pretty
 import Ill.BindingGroup
+import Ill.CoreLint
 
 import Data.Text.Lazy.IO as T
 import Data.Maybe
+import Data.Bifunctor
+
+import Control.Arrow
+import Control.Monad
+
+import System.Directory
+import System.FilePath
 
 runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
 
 mkVar nm = Id { varName = nm, C.idTy = tNil, usage = Used }
 
+moduleToCore :: Environment -> [Decl TypedAnn] -> CoreModule
+moduleToCore e = (desugarBinOps >>> desugarTraits e >=> pure . simplifyPatterns) >>> declsToCore
+
+runTC' (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
+
+coreLintSpec path = do
+  parsed <- parseFromFile moduleParser path
+  case parsed of
+    Left e -> expectationFailure $
+      "the parser is expected to succeed, but it failed with:\n" ++
+      showParseError e
+    Right ast -> case runTC' ast of
+      Left err -> expectationFailure . show $ pretty err
+      Right (typed, env) -> do
+        case runLinter (moduleToCore env typed) of
+          Left err -> expectationFailure err
+          Right () -> return ()
+
+-- filesShouldFail :: Show b => FilePath -> Parsec Void Text b -> Spec
+lintCoreInDir dir = do
+  fs <- runIO $ getFilesInDir dir
+
+  describe ("the files in " ++ dir ++ " pass core linter") $ do
+    forM_ fs $ \f -> do
+      it (takeFileName f ++ " succeeds.") $ do
+        coreLintSpec f
+
 spec :: Spec
 spec = do
+  lintCoreInDir "test/core"
   describe "substitution" $ do
     describe "in nested bindings" $ do
       it "respects let statements" $ do
