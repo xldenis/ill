@@ -40,32 +40,26 @@ goalsBySuperTrait dict trait@(n, _) = trait : (superTraitDecl >>= superTraits >>
   superTraitsFor c@(n, _) = goalsBySuperTrait dict c
 
 goalsByInst :: InstanceDict -> Constraint Name -> Maybe [Constraint Name]
-goalsByInst dict (trait, tys) =
+goalsByInst dict cons = snd <$> matchInst dict cons
+
+matchInst :: InstanceDict -> Constraint Name -> Maybe (InstanceEntry, [Constraint Name])
+matchInst dict (trait, tys) =
   asum $ map tryInst' $ lookup trait dict & concat
 
   where
 
-  searchHead = foldl TAp (TConstructor trait) tys
-
-  tryInst' :: TraitInstance -> Maybe [Constraint Name]
-  tryInst' (instTys, cons) = do
+  tryInst' :: InstanceEntry -> Maybe (InstanceEntry, [Constraint Name])
+  tryInst' i@(InstanceEntry instTys cons) = do
     let instHead = foldl TAp (TConstructor trait) instTys
+        searchHead = foldl TAp (TConstructor trait) tys
 
-    subs <- match instHead searchHead
+    subs <- subsume instHead searchHead
 
-    return (map (substituteConstraint subs) cons)
+    return (i, map (substituteConstraint subs) cons)
+    where
 
-  substituteConstraint :: [(Name, Type Name)] -> Constraint Name -> Constraint Name
-  substituteConstraint sub (cons, tys) = (cons, map (replaceTypeVars sub) tys)
-
--- Verify that a type is strictly less general than a second one implements a rough form of <=
-
-match :: Type Name -> Type Name -> Maybe [(Name, Type Name)]
-match (TAp l1 r1) (TAp l2 r2) = (++) <$> match l1 l2 <*> match r1 r2
-match (Arrow l1 r1) (Arrow l2 r2) = (++) <$> match l1 l2 <*> match r1 r2
-match (TVar v) t = pure [(v, t)]
-match (TConstructor t1) (TConstructor t2) | t1 == t2 = pure []
-match _ _ = Nothing
+    substituteConstraint :: [(Name, Type Name)] -> Constraint Name -> Constraint Name
+    substituteConstraint sub (cons, tys) = (cons, map (replaceTypeVars sub) tys)
 
 inHnf :: Constraint Name -> Bool
 inHnf (n, [t]) = hnf t
