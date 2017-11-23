@@ -4,7 +4,7 @@ module Ill.Desugar
 ) where
 
 import Ill.Syntax hiding (Expression(..), ty)
-import Ill.Syntax.Core
+import Ill.Syntax.Core as C
 
 import qualified Ill.Syntax as S
 
@@ -13,7 +13,10 @@ import Ill.Desugar.Cases as X
 import Ill.Desugar.BinOp as X
 
 import Control.Monad.State
-import Debug.Trace
+
+import Data.Maybe
+import Data.List
+
 type Id = Name
 
 {-
@@ -26,16 +29,12 @@ type Id = Name
   to variables with the name of the contrsuctor.
 -}
 
-
 declsToCore :: [Decl TypedAnn] -> CoreModule
 declsToCore decls = execState (mapM declToCore' decls) (Mod [] [])
 
 declToCore' :: Decl TypedAnn -> State CoreModule ()
 declToCore' (a :< Value nm [([], exp)]) = do
-  -- traceShowM (fromTyAnn a)
-  let vars   = unforall (fromTyAnn a)
-      tBinds = map (\var -> TyVar var Star) vars
-      bindExp = foldl (\core binder -> Lambda binder core) (toCore exp) tBinds
+  let bindExp = (toCore exp)
 
   modify $ \m -> m { bindings = NonRec binder bindExp : bindings m }
   where
@@ -56,26 +55,46 @@ declToCore' (_ :< Data nm args conses) = do
     in generalize $ foldr tFn retTy tys
 declToCore' (_) = pure ()
 
+{-
+  Get the type applications needed for a type annotation
+-}
+getTypeApps :: TypedAnn -> [CoreExp]
+getTypeApps t = map (C.Type . snd) subst
+  where
+  subst = case join $ subsume <$> (pure . unForall . polyTy $ S.ty t) <*> ((instTy $ S.ty t)) of
+    Just l -> filter (\(v, _) -> v `elem` boundVars (polyTy $ S.ty t)) l
+    Nothing -> []
+
+  boundVars (Forall vs _) = vs
+  boundVars _ = []
+
+  unForall (Forall _ t) = t
+  unForall t = t
 
 toCore :: Expr TypedAnn -> CoreExp
-toCore (_ :< S.Var n) = Var n
-toCore (_ :< S.Constructor n) = Var n
+toCore var@(a :< S.Var nm) = foldl App (Var nm) (getTypeApps a)
+toCore cons@(a :< S.Constructor nm) = foldl App (Var nm) (getTypeApps a)
 toCore (_ :< S.Case scrut alts) = Case (toCore scrut) (toAlts alts)
 toCore (_ :< S.Assign names exprs) = error "assignments must be desugared in blocks"
-toCore (_ :< S.Apply lam args) = foldl App (toCore lam) (map toCore args)
+toCore (a :< S.Apply lam args) = foldl App (toCore lam) $ (map toCore args) ++ (getTypeApps a)
 toCore (_ :< S.BinOp op left right) = error "binops should have been desugared to assigns"
-
 toCore (_ :< S.If cond left right) = Case (toCore cond)
   [ ConAlt "True" [] (toCore left)
   , ConAlt "False" [] (toCore right)
   ]
-toCore (_ :< S.Lambda bind exp) = let
+toCore (lAnn :< S.Lambda bind exp) = let
   vars = map toVar bind
-  in foldr Lambda (toCore exp) vars
+  tyVars = map toTyVar (boundVars $ fromTyAnn lAnn)
+  in foldr Lambda (toCore exp) (tyVars ++ vars)
   where
   toVar (a :< S.PVar nm) = Id { varName = nm, idTy = fromTyAnn a, usage = Used }
   isVarPat (_ :< S.PVar _) = True
   isVarPat _ = False
+
+  boundVars (Forall vs _) = vs
+  boundVars _ = []
+
+  toTyVar tyvar = TyVar { varName = tyvar, kind = Star }
 toCore (_ :< S.Body exps) = toCore' exps
   where
   toCore' :: [Expr TypedAnn] -> CoreExp
