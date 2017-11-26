@@ -171,7 +171,8 @@ match vars eqns = do
     -- a failure branch should be included allowing the variable branch to be inserted!
 
     let failBranch = ((extract . fst $ head branches) :< Wildcard, updateInstAnn)
-        updateInstAnn (ann :< e) = ann { ty = ((ty ann) { instTy = Just retTy }) } :< e
+        -- this performs a cheap hack to remove the constraints on the match failure
+        updateInstAnn (ann :< e) = ann { ty = ((ty ann) { instTy = Just (snd $ unconstrained retTy) }) } :< e
     return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (fmap ($ fail)) (branches ++ [failBranch]))
 
   matchOneConsPat :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (Pat TypedAnn, MatchResult TypedAnn)

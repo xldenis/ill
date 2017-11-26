@@ -138,10 +138,9 @@ lintCore c@(Case scrut alts) = do
   retTys <- mapM (lintAlt scrutTy) alts
   return $ head retTys
 
-  -- figure out a situation for `failedPattern`
-  -- if all (isJust . subsume (head retTys)) retTys
-  -- then return $ head retTys
-  -- else error "lol: implement alternative linting"
+  if all (isJust . subsume (head retTys)) retTys
+  then return $ head retTys
+  else throwError . show $ pretty "hmmm some alts done have the same types!" <+> pretty retTys
 lintCore l@(Let bind exp) = do
   lintBind bind
   let NonRec b _ = bind
