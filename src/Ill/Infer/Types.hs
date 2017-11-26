@@ -89,7 +89,7 @@ infer' (a :< Lambda pats expr) = do
 infer' (a :< Assign lnames exps) = do
   varTys <- replicateM (length lnames) fresh
   let bound = zip lnames varTys
-  modifyEnv $ \e -> e { names = bound ++ (names e) }
+  addNames bound
 
   exps' <- mapM infer exps
   zipWithM ((=?=) . typeOf) exps' varTys

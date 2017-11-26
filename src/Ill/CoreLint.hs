@@ -2,20 +2,21 @@
 module Ill.CoreLint
 ( runLinter
 ) where
-import Ill.Syntax.Pretty
-import Ill.Syntax.Core
-import Ill.Syntax.Type
-import Ill.Syntax.Literal
+import           Ill.Syntax.Core
+import           Ill.Syntax.Literal
+import           Ill.Syntax.Pretty
+import           Ill.Syntax.Type
 
-import Control.Monad.State
-import Control.Monad.Error
+import           Control.Monad.Error
+import           Control.Monad.State
 
 -- fix this... somehow, primitives are leaking all over the place
-import Ill.Infer.Monad (names, defaultCheckEnv, env)
+import           Ill.Infer.Monad     (defaultCheckEnv, env, names)
 
-import Ill.Desugar
+import           Ill.Desugar
 
-import Data.Maybe
+import qualified Data.Map            as M
+import           Data.Maybe
 
 {-
   Core Linting
@@ -34,8 +35,8 @@ import Data.Maybe
 type LintM m = (MonadState LintEnv m, MonadError String m)
 
 data LintEnv = E
-  { boundNames :: [(String, Type String)]
-  , boundTyVars :: [(String)]
+  { boundNames  :: M.Map String (Type String) -- [(String, Type String)]
+  , boundTyVars :: [String]
   } deriving (Show, Eq)
 
 runLinter :: CoreModule -> Either String ()
@@ -47,25 +48,25 @@ runLinter = flip evalState (E (names $ env defaultCheckEnv) []) . runErrorT . li
   getVar (NonRec v _) = v
 
   bindCons conses action = do
-    let x = map (\(c, (_, ty)) -> (c, ty)) conses
+    let x = M.fromList $ map (\(c, (_, ty)) -> (c, ty)) conses
     orig <- get
-    modify (\s -> s { boundNames = x ++ boundNames orig })
+    modify (\s -> s { boundNames = x `M.union` boundNames orig })
     val <- action
     modify (\s -> s { boundNames = boundNames orig })
     return val
 
 bindNames :: LintM m => [Var] -> m a -> m a
-bindNames vars act = do
+bindNames vars act =
   foldr bindName act vars
 
 bindName :: (LintM m) => Var -> m a -> m a
-bindName v@(Id{}) action = do
+bindName v@Id{} action = do
   orig <- get
-  modify (\s -> s  { boundNames = (varName v, idTy v) : boundNames orig })
+  modify $ \s -> s  { boundNames = M.insert (varName v) (idTy v) (boundNames orig) }
   val <- action
   modify (\s -> s { boundNames = boundNames orig })
   return val
-bindName v@(TyVar{}) action = do
+bindName v@TyVar{} action = do
   orig <- get
   modify (\s -> s  { boundTyVars = varName v : boundTyVars orig })
   val <- action
@@ -77,15 +78,13 @@ lintBind (NonRec b exp) = void $ bindName b (lintCore exp)
 
 lookupName var = do
   names <- gets boundNames
-  case var `lookup` names of
+  case var `M.lookup` names of
     Just x  -> return x
     Nothing -> throwError $ "the name " ++ show var ++ " could not be found."
 
 lookupTyVar var = do
   tyvars <- gets boundTyVars
-  case var `elem` tyvars of
-    True  -> return ()
-    False -> throwError $ "the typevariable " ++ show var ++ " could not be found."
+  if var `elem` tyvars then return () else throwError $ "the typevariable " ++ show var ++ " could not be found."
 
 -- Check the types of the core expression
 lintCore :: LintM m => CoreExp -> m (Type String)
@@ -93,10 +92,10 @@ lintCore l@(Lambda bind exp) = do
   bodyTy <- bindName bind (lintCore exp)
   return $ makeCorrectFunTy bind bodyTy
   where
-  makeCorrectFunTy id@(Id{}) bodyTy    =  idTy bind `tFn` bodyTy
-  makeCorrectFunTy tv@(TyVar{}) bodyTy =  case bodyTy of
+  makeCorrectFunTy id@Id{} bodyTy    =  idTy bind `tFn` bodyTy
+  makeCorrectFunTy tv@TyVar{} bodyTy =  case bodyTy of
     Forall vars ty -> Forall (varName tv : vars) ty
-    ty -> Forall [varName tv] ty
+    ty             -> Forall [varName tv] ty
   -- need to build a type lambda instead of a term lambda
 lintCore (Var var) = lookupName var
 lintCore ap@(App f t@(Type ty)) = do
@@ -118,13 +117,13 @@ lintCore ap@(App f arg) = do
   argTy <- lintCore arg
 
   (a, b) <- getArgTy ap fTy
-  if (isJust $ a `subsume` argTy) then return b
-  else throwError $ "app error: " ++ (show $ pretty (fTy, argTy))
+  if isJust $ a `subsume` argTy then return b
+  else throwError $ "app error: " ++ show (pretty (fTy, argTy))
   where
   getArgTy _ (TAp (TAp (TConstructor "->") a) b) = pure (a, b)
   getArgTy _ (Arrow a b) = pure (a, b)
   -- getArgTy (Forall _ ty) = getArgTy ty
-  getArgTy _ ty' = throwError . show $ vcat $
+  getArgTy _ ty' = throwError . show $ vcat
     [ pretty "The function has an unresolved polymorphic variable in the application:"
     , pretty ap
     , pretty "function:"
@@ -144,8 +143,7 @@ lintCore c@(Case scrut alts) = do
 lintCore l@(Let bind exp) = do
   lintBind bind
   let NonRec b _ = bind
-  t <- bindName b (lintCore exp)
-  return t
+  bindName b (lintCore exp)
 lintCore (Type t) = do
   let vars = freeVariables t
   mapM_ lookupTyVar vars
