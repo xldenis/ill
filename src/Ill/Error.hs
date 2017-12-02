@@ -3,7 +3,7 @@ module Ill.Error
   , module Control.Monad.Except
   ) where
 
-import           Ill.Syntax (Type, Name, Kind, Constraint, Expr, TypedAnn, SourceSpan)
+import           Ill.Syntax (Type, Name, Kind, Constraint, Expr, TypedAnn, SourceSpan, Pat)
 import           Control.Monad.Except
 import           Ill.Syntax.Pretty
 
@@ -21,6 +21,7 @@ data MultiError
   | TypeOccursError (Type Name)
   | MissingTraitImpl [Constraint Name]
   | ErrorInExpression (Expr SourceSpan) (MultiError)
+  | ErrorInPattern (Pat SourceSpan) (MultiError)
   deriving (Show, Eq)
 
 prettyInternal :: (MonadError MultiError m, Pretty a) => a -> m b
@@ -44,5 +45,9 @@ instance Pretty MultiError where
     , pretty location
     , (nest 2 $ pretty error)
     ]
-
+  pretty (ErrorInPattern location error) = vcat $
+    [ pretty "Error in the pattern at" <+> pretty (extract location) <> pretty ":"
+    , pretty location
+    , (nest 2 $ pretty error)
+    ]
   pretty s = pretty $ show s

@@ -35,7 +35,7 @@ import           Data.Maybe
 type LintM m = (MonadState LintEnv m, MonadError String m)
 
 data LintEnv = E
-  { boundNames  :: M.Map String (Type String) -- [(String, Type String)]
+  { boundNames  :: M.Map String (Type String)
   , boundTyVars :: [String]
   } deriving (Show, Eq)
 
@@ -122,7 +122,6 @@ lintCore ap@(App f arg) = do
   where
   getArgTy _ (TAp (TAp (TConstructor "->") a) b) = pure (a, b)
   getArgTy _ (Arrow a b) = pure (a, b)
-  -- getArgTy (Forall _ ty) = getArgTy ty
   getArgTy _ ty' = throwError . show $ vcat
     [ pretty "The function has an unresolved polymorphic variable in the application:"
     , pretty ap

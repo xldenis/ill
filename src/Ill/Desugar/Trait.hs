@@ -89,6 +89,7 @@ import           Data.Foldable     (find, foldl', toList)
 import           Data.List         (intercalate, sortOn, (\\), nub)
 import           Data.Maybe
 import           Data.Semigroup
+import qualified Data.Map as M
 
 import           Ill.Desugar.Cases
 import           Ill.Infer.Entail  as E
@@ -191,15 +192,11 @@ addDictsToVals ann nm eqns = do
   let
     (memberConstraints, memberTy) = unconstrained (fromTyAnn ann)
     fty' = generalize $ constraintsToFn False (unforall $ fromTyAnn ann)
-    instDictNames = instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, GlobalDict $ instanceName i)
+    instDictNames = M.toList instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, GlobalDict $ instanceName i)
     localNameDict = zipWith (\cons ix -> (cons, LocalDict $ "dict" ++ show ix)) memberConstraints [1..]
-    localInstances = map (\(nm, tys) -> case nm `lookup` instanceDicts of
-      Just instances -> (nm, instances ++ [InstanceEntry tys []])
-      Nothing        -> (nm, [InstanceEntry tys []])
-      ) memberConstraints
-    instanceDict = foldr addInstanceToDict instanceDicts localInstances
+    instanceDict = foldr (\(nm, tys) -> M.insertWith (++) nm [InstanceEntry tys [] nm]) instanceDicts memberConstraints
     dictPats = map (\(cons, LocalDict nm) -> SynAnn (uncurry mkProductType cons) :< PVar nm) localNameDict
-    nameDict = instDictNames ++ localNameDict
+    nameDict = toList instDictNames ++ localNameDict
 
   local (\env -> env { traitDictionaries = instanceDict }) $ do
     eqns' <- addDictsToEqns nameDict eqns

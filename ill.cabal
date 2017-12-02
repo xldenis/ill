@@ -93,6 +93,7 @@ executable ill
     , prettyprinter
     , prettyprinter-ansi-terminal
     , optparse-generic
+    , containers
   other-modules:
       CoreDebug
       DesugarDebug

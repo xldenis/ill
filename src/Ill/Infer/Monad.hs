@@ -11,7 +11,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Unify
 
-import           Data.Map (Map, insert, union, fromList, (!?))
+import           Data.Map (Map, insert, union, fromList, (!?), insertWith)
 
 data Environment = Environment
   { names             :: Map Name (Type Name)
@@ -36,11 +36,12 @@ data TraitEntry = TraitEntry
   , methodSigs :: [(Name, Type Name)]
   } deriving (Show, Eq)
 
-type InstanceDict = [(Name, [InstanceEntry])]
+type InstanceDict = Map Name [InstanceEntry] -- [(Name, [InstanceEntry])]
 
 data InstanceEntry = InstanceEntry
   { instTypes       :: [Type Name]
   , instConstraints :: [Constraint Name]
+  , instName        :: Name
   } deriving (Show, Eq)
 
 data CheckState = CheckState
@@ -166,31 +167,18 @@ withTraitInstance :: MonadState CheckState m => Name -> [Constraint Name] -> [Ty
 withTraitInstance trait supers inst action = do
   environment <- env <$> get
 
-  let instDict = case trait `lookup` traitDictionaries environment of
-                  Just instances -> InstanceEntry inst supers : instances
-                  Nothing        -> [InstanceEntry inst supers]
-
-  putEnv $ environment { traitDictionaries = addInstanceToDict (trait, instDict) (traitDictionaries environment) }
+  putEnv $ environment { traitDictionaries = insertWith (++) trait [InstanceEntry inst supers trait] (traitDictionaries environment) }
   a <- action
 
   modifyEnv (\env' -> env' { traitDictionaries = traitDictionaries environment })
 
   return a
 
-addInstanceToDict :: (Name, [InstanceEntry]) -> InstanceDict -> InstanceDict
-addInstanceToDict (k1, v) ((k2, _): xs) | k1 == k2 = (k1, v) : xs
-addInstanceToDict v (x : xs)            = x : addInstanceToDict v xs
-addInstanceToDict v []                  = [v]
-
 addTraitInstance :: Name -> [Constraint Name] -> [Type Name] -> Check ()
 addTraitInstance trait supers inst = do
   env <- env <$> get
 
-  let instDict = case trait `lookup` traitDictionaries env of
-                  Just instances -> InstanceEntry inst supers : instances
-                  Nothing        -> [InstanceEntry inst supers]
-
-  putEnv $ env { traitDictionaries = addInstanceToDict (trait, instDict) (traitDictionaries env) }
+  putEnv $ env { traitDictionaries = insertWith (++) trait [InstanceEntry inst supers trait] (traitDictionaries env) }
 
 addValue :: Name -> Type Name -> Check ()
 addValue name ty = do

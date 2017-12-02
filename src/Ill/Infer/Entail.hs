@@ -6,6 +6,7 @@ import           Data.Foldable
 import           Data.Function
 import           Data.List
 import           Data.Maybe
+import qualified Data.Map as M (lookup)
 
 import           Ill.Syntax          (Name)
 import           Ill.Syntax.Type
@@ -44,12 +45,12 @@ goalsByInst dict cons = snd <$> matchInst dict cons
 
 matchInst :: InstanceDict -> Constraint Name -> Maybe (InstanceEntry, [Constraint Name])
 matchInst dict (trait, tys) =
-  asum $ map tryInst' $ lookup trait dict & concat
+  asum $ map tryInst' $ M.lookup trait dict & concat
 
   where
 
   tryInst' :: InstanceEntry -> Maybe (InstanceEntry, [Constraint Name])
-  tryInst' i@(InstanceEntry instTys cons) = do
+  tryInst' i@(InstanceEntry instTys cons _) = do
     let instHead = foldl TAp (TConstructor trait) instTys
         searchHead = foldl TAp (TConstructor trait) tys
 

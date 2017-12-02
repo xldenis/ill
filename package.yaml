@@ -42,6 +42,7 @@ executables:
     - prettyprinter
     - prettyprinter-ansi-terminal
     - optparse-generic
+    - containers
 tests:
   ill-test:
     main: Spec.hs

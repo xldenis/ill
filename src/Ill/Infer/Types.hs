@@ -250,11 +250,14 @@ inferPats :: [(Type Name, Pat SourceSpan)] -> UnifyT (Type Name) Check ([(Name, 
 inferPats pats = (first concat . unzip) <$> mapM (uncurry inferPat) pats
 
 inferPat :: Type Name -> Pat SourceSpan -> UnifyT (Type Name) Check ([(Name, Type Name)], Pat TypedAnn)
-inferPat ty (a :< PVar n) = do
+inferPat ty pat = rethrow (ErrorInPattern pat) (inferPat' ty pat)
+
+inferPat' :: Type Name -> Pat SourceSpan -> UnifyT (Type Name) Check ([(Name, Type Name)], Pat TypedAnn)
+inferPat' ty (a :< PVar n) = do
   f <- fresh
   ty =?= f
   return ([(n, f)], Ann a f :< PVar n)
-inferPat ty (a :< Destructor n pats) = do
+inferPat' ty (a :< Destructor n pats) = do
   ConstructorEntry { consType = t } <- lookupConstructor n
   freshened <- instantiate t
   (dict, subPats) <- go pats freshened
@@ -263,22 +266,22 @@ inferPat ty (a :< Destructor n pats) = do
   where
   go :: [Pat SourceSpan] -> Type Name -> UnifyT (Type Name) Check ([(Name, Type Name)], Patterns TypedAnn)
   go [] ty' = ty =?= ty' *> pure ([], [])
-  go (pat : pats) (TAp (TAp f a) b) | f == tArrow = do
+  go (pat : pats) (TAp (TAp f a) b) | f == tArrow = rethrow (ErrorInPattern pat) $ do
     (n1, p1) <- inferPat a pat
     (n2, p2) <- go pats b
     pure (n1 ++ n2, p1 : p2)
-  go (pat : pats) (Arrow a b) = do
+  go (pat : pats) (Arrow a b) = rethrow (ErrorInPattern pat) $ do
     (n1, p1) <- inferPat a pat
     (n2, p2) <- go pats b
     pure (n1 ++ n2, p1 : p2)
   go p t = throwError $ InternalError $ (show t) ++ show p
-inferPat ty (a :< PLit lit) = do
+inferPat' ty (a :< PLit lit) = do
   let litTy = inferLit lit
   litTy =?= ty
   return ([], Ann a litTy :< PLit lit)
-inferPat ty (a :< Wildcard) = do
+inferPat' ty (a :< Wildcard) = do
   return ([], Ann a ty :< Wildcard)
-inferPat ty pat = prettyInternal (ty, pat)
+inferPat' ty pat = prettyInternal (ty, pat)
 
 instantiate :: Type Name -> UnifyT (Type Name) Check (Type Name)
 instantiate (Forall vars ty) = do
