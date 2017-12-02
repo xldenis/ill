@@ -1,0 +1,43 @@
+module Parser
+
+  data Parser tokens a = Parser (tokens -> Tuple tokens a)
+
+  impl Functor (Parser tokens)
+    fn fmap (f, Parser p_)
+      Parser(fn (stream) =
+        case p_(stream) of
+          when T toks a: T(toks, f(a))
+        end
+      end)
+    end
+  end
+
+  impl Applicative (Parser tokens)
+    fn pure(a)
+      1
+      Parser(fn(stream) = T(stream, a) end)
+    end
+
+    fn ap(Parser f, Parser a)
+      Parser(fn(stream) =
+        case f(stream) of
+          when T toks f2: case a(toks) of
+            when T toks2 a2: T(toks2, f2(a2))
+          end
+        end
+      end)
+    end
+  end
+
+  impl Monad (Parser tokens)
+    fn bind (Parser a, f)
+      Parser(fn (stream) =
+        case a(stream) of
+          when T toks2 a2: case f(a2) of
+            when Parser b: b(toks2)
+          end
+        end
+      end)
+    end
+  end
+end

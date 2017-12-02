@@ -76,6 +76,10 @@ module Prelude
     ap :: f (a -> b) -> f a -> f b
   end
 
+  trait Applicative m | Monad m
+    bind :: m a -> (a -> m b) -> m b
+  end
+
   impl Eq Int
     fn eq()
       eqInt # primitive function
