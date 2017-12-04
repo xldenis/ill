@@ -194,9 +194,9 @@ addDictsToVals ann nm eqns = do
     fty' = generalize $ constraintsToFn False (unforall $ fromTyAnn ann)
     instDictNames = M.toList instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, GlobalDict $ instanceName i)
     localNameDict = zipWith (\cons ix -> (cons, LocalDict $ "dict" ++ show ix)) memberConstraints [1..]
-    instanceDict = foldr (\(nm, tys) -> M.insertWith (++) nm [InstanceEntry tys [] nm]) instanceDicts memberConstraints
+    instanceDict = foldl (\x (nm, tys) -> M.insertWith (flip (++)) nm [InstanceEntry tys [] nm] x) instanceDicts memberConstraints
     dictPats = map (\(cons, LocalDict nm) -> SynAnn (uncurry mkProductType cons) :< PVar nm) localNameDict
-    nameDict = toList instDictNames ++ localNameDict
+    nameDict = instDictNames ++ localNameDict
 
   local (\env -> env { traitDictionaries = instanceDict }) $ do
     eqns' <- addDictsToEqns nameDict eqns
