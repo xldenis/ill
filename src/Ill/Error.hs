@@ -22,6 +22,7 @@ data MultiError
   | MissingTraitImpl [Constraint Name]
   | ErrorInExpression (Expr SourceSpan) (MultiError)
   | ErrorInPattern (Pat SourceSpan) (MultiError)
+  | ErrorInDecl Name MultiError
   deriving (Show, Eq)
 
 prettyInternal :: (MonadError MultiError m, Pretty a) => a -> m b
@@ -50,4 +51,5 @@ instance Pretty MultiError where
     , pretty location
     , (nest 2 $ pretty error)
     ]
+  pretty (MissingTraitImpl [p]) = pretty "missing trait impl: " <+> pretty p
   pretty s = pretty $ show s

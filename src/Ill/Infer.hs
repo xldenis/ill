@@ -236,7 +236,7 @@ typeDictionary vals = do
   signatureType (_ :< Signature _ t) = t
 
 typeForBindingGroupEl :: RawDecl -> UntypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
-typeForBindingGroupEl (a :< Value name els) dict = do
+typeForBindingGroupEl (a :< Value name els) dict = rethrow (ErrorInDecl name) $ do
   let (pats, _) = unzip els
       numArgs = length $ head pats
   when (any (/= numArgs) $ map length pats) . throwError $ InternalError "branches have different amounts of patterns"
@@ -246,7 +246,7 @@ typeForBindingGroupEl (a :< Value name els) dict = do
 
   x <- forM els $ \(pats, val) -> do
     (patDict, pats') <- inferPats (zip patTys pats)
-    val' <- bindNames (patDict ++ dict) (infer val)
+    val' <- bindNames dict $ bindNames patDict (infer val)
 
     cons <- typeOf val' `constrainedUnification` retTy
     return ((pats', val'), cons)
@@ -260,7 +260,7 @@ typeForBindingGroupEl (a :< Value name els) dict = do
   return $ Ann a (constrain (concat cons') memberType) :< Value name vals'
 
 checkBindingGroupEl :: Type Name -> RawDecl -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
-checkBindingGroupEl ty (a :< Value name els) dict = do
+checkBindingGroupEl ty (a :< Value name els) dict = rethrow (ErrorInDecl name) $ do
   let (pats, _) = unzip els
       numArgs = length $ head pats
 
