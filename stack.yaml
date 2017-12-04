@@ -2,6 +2,14 @@ flags: {}
 extra-package-dbs: []
 packages:
 - '.'
+- location:
+    git: https://github.com/llvm-hs/llvm-irbuilder
+    commit: 8770ae889d67cc8a04193f26ff82af32575daf70
+  extra-dep: true
+- location:
+    git: https://github.com/llvm-hs/llvm-hs-pretty
+    commit: 2a9425fb07ce7df1a450a87d579e7b19cdfa3fdb
+  extra-dep: true
 extra-deps:
 - prettyprinter-1.1
 - prettyprinter-ansi-terminal-1.1

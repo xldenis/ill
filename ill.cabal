@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1040310338c2bd6e315e9f0610df474c1b6d4d3caaca8eecf5fadd757f874f07
+-- hash: 17058dfe83f62d3c5926becb2b0629f35425de439d85dfa336884232ad4769a2
 
 name:           ill
 version:        0.1.0.0
@@ -34,10 +34,15 @@ library
   build-depends:
       base >=4.7 && <5
     , bifunctors
+    , bytestring
     , comonad
     , containers
     , free
+    , irbuilder
     , lens
+    , llvm-hs
+    , llvm-hs-pretty
+    , llvm-hs-pure
     , megaparsec
     , mtl
     , prettyprinter
@@ -48,12 +53,14 @@ library
       Control.Monad.Fresh
       Control.Monad.Unify
       Ill.BindingGroup
+      Ill.Codegen
       Ill.CoreLint
       Ill.Desugar
       Ill.Desugar.Administrative
       Ill.Desugar.BinOp
       Ill.Desugar.Cases
       Ill.Desugar.LambdaLift
+      Ill.Desugar.LambdaLifting
       Ill.Desugar.Trait
       Ill.Error
       Ill.Infer
