@@ -8,6 +8,26 @@ module Ill.Infer
 , CheckState(..)
 ) where
 
+{-
+  Entrypoint for type checker
+
+  This module handles the portions of typechecking related to top level declarations.
+
+  All declarations have been sorted into binding groups already.
+
+  Typechecking is performed in an ordered manner:
+
+  1. Gather all instances in module, bind them as if they are true
+  2. Check data declarations
+  3. Check trait declarations
+  4. Check values, this does not include trait implementations
+  5. Check trait implementations
+  6. Ignore all other kinds of declarations
+
+  When checking a value binding group, first the types of all values are bound before checking
+  each value individually.
+-}
+
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Unify
