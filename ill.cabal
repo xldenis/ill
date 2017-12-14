@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 17058dfe83f62d3c5926becb2b0629f35425de439d85dfa336884232ad4769a2
+-- hash: 811dba2c2dcd2507a60d6dfe2ac62fd8841fa47cc06f1c9f48bfc093c1b01c6a
 
 name:           ill
 version:        0.1.0.0
@@ -38,7 +38,6 @@ library
     , comonad
     , containers
     , free
-    , irbuilder
     , lens
     , llvm-hs
     , llvm-hs-pretty

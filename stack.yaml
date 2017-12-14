@@ -1,18 +1,16 @@
-flags: {}
-extra-package-dbs: []
+resolver: nightly-2017-10-31
+
 packages:
 - '.'
-- location:
-    git: https://github.com/llvm-hs/llvm-irbuilder
-    commit: 8770ae889d67cc8a04193f26ff82af32575daf70
-  extra-dep: true
-- location:
-    git: https://github.com/llvm-hs/llvm-hs-pretty
-    commit: 2a9425fb07ce7df1a450a87d579e7b19cdfa3fdb
-  extra-dep: true
 extra-deps:
-- prettyprinter-1.1
-- prettyprinter-ansi-terminal-1.1
-resolver: nightly-2017-10-31
+- git: https://github.com/xldenis/llvm-hs.git
+  commit: 7c70d9c0ca576da7df9100e0d03d19bb06b7b059
+  subdirs:
+    - llvm-hs-pure
+    - llvm-hs
+- git: https://github.com/llvm-hs/llvm-hs-pretty
+  commit: ae349cce595fd94bdbf56689c2f2463f175db5ac
+
+flags: {}
 ghc-options:
   "$locals": -j #+RTS -A128m -n2m -RTS

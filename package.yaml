@@ -33,7 +33,6 @@ library:
   - llvm-hs
   - llvm-hs-pure
   - llvm-hs-pretty
-  - irbuilder
   - bytestring
   default-extensions: [FlexibleContexts, NoImplicitPrelude]
 executables:
