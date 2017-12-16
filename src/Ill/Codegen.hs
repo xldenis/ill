@@ -4,34 +4,39 @@ module Ill.Codegen where
 import Control.Monad (forM)
 import Data.String
 
-import Ill.Syntax.Core
-import Ill.Syntax.Literal
-import Ill.Syntax.Name
-import Ill.Syntax.Type
+import           Ill.Syntax.Core
+import           Ill.Syntax.Literal
+import           Ill.Syntax.Name
+import           Ill.Syntax.Type
 
-import LLVM.AST.AddrSpace
-import LLVM.IRBuilder
-import LLVM.IRBuilder.Instruction
-import LLVM.IRBuilder.Module
-import LLVM.IRBuilder.Monad
-import LLVM.Pretty
-import qualified Control.Monad as M
+import           LLVM.AST.AddrSpace
+import           LLVM.IRBuilder
+import           LLVM.IRBuilder.Instruction
+import           LLVM.IRBuilder.Module
+import           LLVM.IRBuilder.Monad
+import           LLVM.Pretty
+import           LLVM.AST.Operand
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Type as T
 import qualified LLVM.AST.Typed as T
-import LLVM.AST.Operand
+import qualified Control.Monad as M
 
-import Ill.Prelude hiding (void)
-import Data.Word
+import           Ill.Prelude hiding (void)
+import           Data.Word
+import           Data.Maybe
+import           Data.List (find)
+import Control.Monad.Fix
+
+import Debug.Trace
 
 prettyModule mod = ppllvm $ compileModule mod
 
 insertvalue :: MonadIRBuilder m => Operand -> Operand -> [Word32] -> m Operand
 insertvalue agg el is = emitInstr (T.typeOf agg) $ AST.InsertValue agg el is []
 
-extractvalue :: MonadIRBuilder m => Operand -> [Word32] -> m Operand
-extractvalue agg is = emitInstr (T.typeOf agg) $ AST.ExtractValue agg is []
+extractvalue :: MonadIRBuilder m => T.Type -> Operand -> [Word32] -> m Operand
+extractvalue ty agg is = emitInstr (ty) $ AST.ExtractValue agg is []
 
 malloc :: MonadIRBuilder m => AST.Operand -> m AST.Operand
 malloc size = call (AST.LocalReference mallocTy "malloc") [(size, [])]
@@ -41,7 +46,7 @@ compileModule mod = buildModule "example" $ mdo
   extern "malloc" [T.NamedTypeReference "size_t"] (ptr T.void)
 
   forM (constructors mod) compileConstructor
-  -- forM (filter isLambda $ bindings mod) compileBinding
+  forM (filter isLambda $ bindings mod) compileBinding
   where
   isLambda (NonRec _ Lambda{}) = True
   isLambda _ = False
@@ -73,21 +78,27 @@ ptr x = T.PointerType x (AddrSpace 0)
 
 typeToLlvmType = ptr . typeToLlvmType'
 typeToLlvmType' (TVar nm) = T.NamedTypeReference (fromString nm)
-typeToLlvmType' (Arrow a b) = T.FunctionType (typeToLlvmType' b) [typeToLlvmType' a] False
-typeToLlvmType' (TAp (TAp (TConstructor "->") a) b) = T.FunctionType (typeToLlvmType' b) [typeToLlvmType' a] False
+typeToLlvmType' f@(Arrow _ _) = T.FunctionType (typeToLlvmType (last tys)) (map typeToLlvmType (init tys)) False
+  where tys = unwrapFnType f
+typeToLlvmType' f@(TAp (TAp (TConstructor "->") a) b) = T.FunctionType (typeToLlvmType (last tys)) (map typeToLlvmType (init tys)) False
+  where tys = unwrapFnType f
 typeToLlvmType' (TConstructor nm) = T.NamedTypeReference (fromString nm)
-typeToLlvmType' t = T.void
+typeToLlvmType' ap@(TAp _ _) = let
+  cons : _ = unwrapProduct ap
+  in typeToLlvmType' cons
+typeToLlvmType' (Forall _ t) = typeToLlvmType' t
+typeToLlvmType' t = error $ show t
 
-compileBinding :: MonadModuleBuilder m => Bind Var -> m ()
+compileBinding :: (MonadFix m, MonadModuleBuilder m) => Bind Var -> m ()
 compileBinding (NonRec nm l@(Lambda _ _)) = M.void . function (fromString $ varName nm) args retTy $ \args -> mdo
   block `named` "entry" ; do
-    ret =<< compileBody body
-    -- unreachable
+    let dict = zipWith (\v op -> (fromString $ varName v, op)) argVars args
+    compileBody dict body >>= ret
   pure ()
 
   where
   args = map (\var -> (typeToLlvmType (idTy var), fromString $ varName var)) argVars
-  retTy = T.void
+  retTy = typeToLlvmType $ last $ unwrapFnType $ idTy nm
   (body, argVars) = unwrapLambda l
   unwrapLambda :: Core Var -> (Core Var, [Var])
   unwrapLambda (Lambda b@(Id{}) e) = (b :) <$> unwrapLambda e
@@ -95,12 +106,44 @@ compileBinding (NonRec nm l@(Lambda _ _)) = M.void . function (fromString $ varN
   unwrapLambda e = (e, [])
 -- compileBinding exp = unreachable -- error $ show exp
 
-compileBody :: MonadIRBuilder m => CoreExp -> m AST.Operand
-compileBody (Lit (Double d)) = double d
-compileBody (Lit (Integer i)) = int64 i
--- compileBody (Case scrut alts) = do
---   scrutOp <- compileBody scrut
---   val <- load scrutOp 8
---   tag <- extractvalue val [0]
+compileBody :: (MonadFix m, MonadIRBuilder m) => [(Id, AST.Operand)] -> CoreExp -> m AST.Operand
+compileBody dict (Lit (Double d)) = double d
+compileBody dict (Lit (Integer i)) = int64 i
+compileBody dict (Var v) = pure . fromJust $ v `lookup` dict
+compileBody dict (Case scrut alts) = mdo
+  scrutOp <- compileBody dict scrut
+  val <- load scrutOp 8
+  tag <- extractvalue (T.i64) val [0]
 
-compileBody exp = int64 1
+  switch tag defAlt alts'
+
+  (alts', phis) <- unzip <$> M.zipWithM (compileAlt retBlock val) [1..] (filter isConAlt alts)
+  defAlt <- (compileDefaultAlt retBlock) (fromJust $ find isTrivialAlt alts)
+
+  retBlock <- block `named` "switch_return" ; do
+    phi phis
+  where
+
+  compileDefaultAlt retB (TrivialAlt b) = do
+    blk <- block `named` "default_branch" ; do
+      compileBody dict b
+      br retB
+    pure blk
+
+  compileAlt retB scrut i (ConAlt cons binds b) = do
+    block <- block `named` "branch"
+    scrut' <- bitcast scrut $ T.NamedTypeReference (fromString cons)
+    bindVals <- catMaybes <$> (forM (zip [1..] binds) $ \(ix, v) -> do
+      case usage v of
+        Used -> Just <$> extractvalue (typeToLlvmType (idTy v)) scrut' [ix]
+        NotUsed -> pure Nothing)
+
+    let bindDict = zipWith (\var val -> (fromString $ varName var, val)) binds bindVals
+    val <- compileBody (bindDict ++ dict) b
+    val <- int64 5
+    br retB
+    let tag = C.Int 64 i
+    pure ((tag, block), (val, block))
+    where
+
+compileBody _ exp = int64 1

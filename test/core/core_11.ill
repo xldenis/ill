@@ -1,0 +1,9 @@
+module NaiveFib
+  fn naive_fib(0)
+    0
+  or naive_fib(1)
+    1
+  or naive_fib(n)
+    n + naive_fib(n-1)
+  end
+end

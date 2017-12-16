@@ -1,0 +1,9 @@
+module LiteralInList
+  fn xxx_test(Cons 1 xs)
+    False
+  or xxx_test(Cons a xs)
+    True
+  or xxx_test(a)
+    False
+  end
+end

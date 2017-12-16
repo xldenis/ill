@@ -57,6 +57,15 @@ data Alt b
   | LitAlt Literal (Core b)
   deriving (Show, Eq, Functor, Applicative, Foldable, Traversable, Data)
 
+isTrivialAlt (TrivialAlt _) = True
+isTrivialAlt _ = False
+
+isLitAlt (LitAlt _ _) = True
+isLitAlt _ = False
+
+isConAlt (ConAlt{}) = True
+isConAlt _ = False
+
 type Arg n = Core n
 type CoreExp = Core Var
 

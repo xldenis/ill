@@ -3,11 +3,13 @@ resolver: nightly-2017-10-31
 packages:
 - '.'
 extra-deps:
-- git: https://github.com/xldenis/llvm-hs.git
-  commit: 7c70d9c0ca576da7df9100e0d03d19bb06b7b059
-  subdirs:
-    - llvm-hs-pure
-    - llvm-hs
+# - git: https://github.com/xldenis/llvm-hs.git
+#   commit: 876032275f21429bbcdcb8ed530bc60c9c153b60
+- ../../llvm-hs/llvm-hs/llvm-hs
+- ../../llvm-hs/llvm-hs/llvm-hs-pure
+  # subdirs:
+  #   - llvm-hs-pure
+  #   - llvm-hs
 - git: https://github.com/llvm-hs/llvm-hs-pretty
   commit: ae349cce595fd94bdbf56689c2f2463f175db5ac
 
