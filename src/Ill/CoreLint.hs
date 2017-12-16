@@ -148,16 +148,11 @@ lintCore (Type t) = do
   mapM_ lookupTyVar vars
 
   return t -- validate no unknown tyvars
-lintCore (Lit lit) = return $ lintLit lit
-
-lintLit (RawString _) = tString
-lintLit (EscString _) = tString
-lintLit (Integer _ )  = tInteger
-lintLit (Double _)    = tDouble
+lintCore (Lit lit) = return $ litType lit
 
 lintAlt :: LintM m => Type String -> Alt Var -> m (Type String)
 lintAlt ty (ConAlt i binds exp) = foldl (flip bindName) (lintCore exp) binds
 lintAlt ty (TrivialAlt exp) = lintCore exp
-lintAlt ty (LitAlt lit exp) = if lintLit lit == ty
+lintAlt ty (LitAlt lit exp) = if litType lit == ty
   then lintCore exp
   else throwError "bad lit alt!"

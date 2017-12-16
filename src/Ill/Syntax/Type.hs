@@ -1,10 +1,12 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances, PatternSynonyms, DeriveFunctor, DeriveFoldable #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances, PatternSynonyms, DeriveFunctor, DeriveFoldable, DeriveDataTypeable #-}
 module Ill.Syntax.Type where
 
 import Ill.Syntax.Pretty
 import Control.Monad.Unify (Unknown)
 import Data.Maybe
 import Data.List
+import Ill.Syntax.Name
+import Data.Data
 
 data Type t
   = TVar t
@@ -14,7 +16,7 @@ data Type t
   | Constrained [Constraint t] (Type t)
   | TUnknown Unknown
   | Forall [t] (Type t)
-  deriving (Eq, Show, Functor, Foldable)
+  deriving (Eq, Show, Functor, Foldable, Data)
 
 type Constraint t = (t, [Type t])
 
@@ -59,6 +61,7 @@ generalize ty | null fv = ty
 
 generalizeWith :: [a] -> Type a -> Type a
 generalizeWith [] ty = ty
+generalizeWith fv (Forall fvs ty) = Forall (fv ++ fvs) ty
 generalizeWith fv ty = Forall fv ty
 
 generalizeWithout :: Ord a => [a] -> Type a -> Type a
@@ -158,10 +161,11 @@ unwrapN n t = unfoldr' n go t
 
 -}
 applyTypeVars :: Ord a => [Type a] -> Type a -> Type a
-applyTypeVars tys (Forall vars ty) = generalizeWithout vars' (replaceTypeVars subst ty)
+applyTypeVars tys t@(Forall vars ty) = generalizeWithout vars' (replaceTypeVars subst ty)
   where
+  fvs = freeVariables t
   subst = zip vars tys
-  vars' = (nub . concat $ map (\(v, t) -> freeVariables t) subst)
+  vars' = (nub . concat $ map (\(v, t) -> freeVariables t) subst) ++ fvs
 applyTypeVars subs ty = ty
 
 replaceTypeVars :: Eq a => [(a, Type a)] -> Type a -> Type a
@@ -196,3 +200,18 @@ unwrapProduct ty = reverse $ unfoldr' go ty
   where
   go (TAp f a) = (a, Just f)
   go a         = (a, Nothing)
+
+{-
+  We often need to apply arguments to types whether those arguments are themselves other types
+  (in the case of polymorphic types) or values (in the case of normal functions).
+
+  This function calculates the result of applying a type to a function.
+-}
+
+applyArgumentToType :: Type Name -> Type Name -> Type Name
+applyArgumentToType arg t@(Forall _ _) = applyTypeVars [arg] t
+applyArgumentToType arg (TAp (TAp (TConstructor "->") (TVar n)) b) = replaceTypeVars [(n, arg)] b
+applyArgumentToType arg (Arrow (TVar n) b) = replaceTypeVars [(n, arg)] b
+applyArgumentToType arg (TAp (TAp (TConstructor "->") _) b) = b
+applyArgumentToType arg (Arrow _ b) = b
+

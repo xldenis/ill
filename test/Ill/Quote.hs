@@ -37,12 +37,9 @@ deriving instance (Data a) => Data (Decl a)
 deriving instance (Data a, Data b) => Data (Declaration a b)
 deriving instance (Data a, Data b) => Data (Expression a b)
 deriving instance (Data a) => Data (Expr a)
-deriving instance Data a => Data (S.Type a)
 deriving instance Data a => Data (S.Pat a)
 deriving instance Data a => Data (S.Pattern a)
 deriving instance Data Masks
-deriving instance Data Literal
-
 
 modQ :: QuasiQuoter
 modQ = QuasiQuoter

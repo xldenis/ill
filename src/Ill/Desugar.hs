@@ -11,6 +11,7 @@ import qualified Ill.Syntax as S
 import Ill.Desugar.Trait as X
 import Ill.Desugar.Cases as X
 import Ill.Desugar.BinOp as X
+import Ill.Desugar.Administrative as X
 
 import Control.Monad.State
 

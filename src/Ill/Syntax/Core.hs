@@ -1,13 +1,16 @@
-{-# LANGUAGE DeriveFunctor, DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor, DeriveAnyClass, DeriveTraversable, DeriveFoldable, DeriveDataTypeable #-}
 module Ill.Syntax.Core where
 
-import Ill.Syntax.Pretty
 import Control.Lens.Extras (is)
+import Control.Lens.Plated
 
-import Ill.Syntax.Type
+import Data.Data
+
 import Ill.Syntax.Kind
 import Ill.Syntax.Literal
 import Ill.Syntax.Name
+import Ill.Syntax.Pretty
+import Ill.Syntax.Type
 
 data Core n
   = Lambda n (Core n)
@@ -17,10 +20,20 @@ data Core n
   | Let (Bind n) (Core n)
   | Type (Type Name)
   | Lit Literal
-  deriving (Show, Eq, Functor, Applicative)
+  deriving (Show, Eq, Functor, Applicative, Foldable, Traversable, Data)
 
+instance Data a => Plated (Core a)
+
+-- These are convenience classes for when a specific constraint is wanted
+-- TODO: either expand their use or scrap them altogether
 class HasName n where
   name :: n -> Id
+
+class HasType n where
+  getTy :: n -> Type Name
+
+instance HasType Var where
+  getTy = idTy
 
 instance HasName Var where
   name = varName
@@ -28,25 +41,25 @@ instance HasName Var where
 data Var
   = TyVar { varName :: Id, kind :: Kind }
   | Id { varName :: Id, idTy :: Type Name, usage :: Usage }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Data)
 
 data Usage
   = NotUsed
   | Used
-  deriving (Show, Eq)
+  deriving (Show, Eq, Data)
 
 data Alt b
   = ConAlt Id [b] (Core b)
   | TrivialAlt (Core b)
   | LitAlt Literal (Core b)
-  deriving (Show, Eq, Functor, Applicative)
+  deriving (Show, Eq, Functor, Applicative, Foldable, Traversable, Data)
 
 type Arg n = Core n
 type CoreExp = Core Var
 
 data Bind n
   = NonRec n (Core n)
-  deriving (Show, Eq, Functor, Applicative)
+  deriving (Show, Eq, Functor, Applicative, Foldable, Traversable, Data)
 
 data CoreModule = Mod
   { bindings :: [Bind Var]
@@ -73,7 +86,7 @@ substitute = go []
     subBinder (NonRec n exp) = NonRec n (go bound subst exp)
   go _     _         x                  = x
 
-instance Pretty b => Pretty (Core b) where
+instance (HasType b, Pretty b) => Pretty (Core b) where
   pretty (Lambda binder exp) = nest 2 $ pretty "\\" <> pretty binder <+> pretty "->" <> softline <> pretty exp
   pretty (App func arg)      = parensIf (needsParens func) (pretty func) <> parens (prettyAp arg)
     where needsParens (Var _) = False
@@ -91,14 +104,14 @@ instance Pretty b => Pretty (Core b) where
   pretty (Type ty)           = pretty ty
   pretty (Lit lit)           = pretty lit
 
-instance Pretty b => Pretty (Alt b) where
+instance (HasType b, Pretty b) => Pretty (Alt b) where
   pretty (ConAlt n binders exp) = pretty n <+> hsep (map pretty binders) <+> pretty "->" <+> pretty exp
   pretty (TrivialAlt exp) = pretty "_" <+> pretty "->" <+> pretty exp
   pretty (LitAlt lit exp) = pretty lit <+> pretty "->" <+> pretty exp
-instance Pretty n => Pretty (Bind n) where
-  pretty (NonRec nm exp) = pretty nm <+> pretty "=" <+> pretty exp
+instance (HasType n, Pretty n) => Pretty (Bind n) where
+  pretty (NonRec nm exp) = parens (pretty nm <+> pretty "::" <+> pretty (getTy nm)) <+> pretty "=" <+> pretty exp
 
 instance Pretty Var where
   pretty (TyVar{ varName = name}) = parens $ pretty "@" <> pretty name
-  pretty (Id{ varName = name, usage = Used, idTy = ty }) = parens $ pretty name <+> pretty "::" <+> pretty ty
+  pretty (Id{ varName = name, usage = Used, idTy = ty }) = pretty name
   pretty (Id{ varName = name, usage = NotUsed }) = pretty "_"

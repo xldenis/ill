@@ -24,6 +24,7 @@ import Ill.CoreLint
 import Data.Text.Lazy.IO as T
 import Data.Maybe
 import Data.Bifunctor
+-- import Data.Function
 
 import Control.Arrow
 import Control.Monad
@@ -36,7 +37,7 @@ runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
 mkVar nm = Id { varName = nm, C.idTy = tNil, usage = Used }
 
 moduleToCore :: Environment -> [Decl TypedAnn] -> CoreModule
-moduleToCore e = (desugarBinOps >>> desugarTraits e >=> pure . simplifyPatterns) >>> declsToCore
+moduleToCore e = (desugarBinOps >>> desugarTraits e >=> pure . simplifyPatterns) >>> declsToCore >>> normalize
 
 runTC' (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 
@@ -61,6 +62,7 @@ lintCoreInDir dir = do
     forM_ fs $ \f -> do
       it (takeFileName f ++ " succeeds.") $ do
         coreLintSpec f
+
 
 spec :: Spec
 spec = do

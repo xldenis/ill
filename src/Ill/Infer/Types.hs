@@ -106,7 +106,7 @@ infer' (a :< Constructor nm) = do
 
   return $ TyAnn (Just a) (Type ty $ Just ty') :< Constructor nm
 infer' (a :< Literal l) = do
-  let ty = inferLit l
+  let ty = litType l
   return $ Ann a ty :< Literal l
 
 check :: Type Name -> Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
@@ -168,7 +168,7 @@ check' expected (a :< Apply f args) = do
 
   return $ Ann a (constrain constraints retTy) :< Apply f' args'
 check' expected (a :< Literal lit) = do
-  let ty = inferLit lit
+  let ty = litType lit
   ty =?= expected
   return $ Ann a ty :< Literal lit
 check' expected l@(a :< Lambda pats exp) = do
@@ -241,11 +241,6 @@ constrainedUnification t1 t2 = let
 
 type Alt a = (Patterns a, Expr a)
 
-inferLit (RawString _) = tString
-inferLit (EscString _) = tString
-inferLit (Integer _ )  = tInteger
-inferLit (Double _)    = tDouble
-
 inferPats :: [(Type Name, Pat SourceSpan)] -> UnifyT (Type Name) Check ([(Name, Type Name)], Patterns TypedAnn)
 inferPats pats = (first concat . unzip) <$> mapM (uncurry inferPat) pats
 
@@ -276,7 +271,7 @@ inferPat' ty (a :< Destructor n pats) = do
     pure (n1 ++ n2, p1 : p2)
   go p t = throwError $ InternalError $ (show t) ++ show p
 inferPat' ty (a :< PLit lit) = do
-  let litTy = inferLit lit
+  let litTy = litType lit
   litTy =?= ty
   return ([], Ann a litTy :< PLit lit)
 inferPat' ty (a :< Wildcard) = do

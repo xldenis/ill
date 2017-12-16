@@ -210,9 +210,6 @@ makeVarNames ((_ :< PVar n) : ps) = (:) <$> pure ( n) <*> makeVarNames ps
 makeVarNames (_ : ps) = (:) <$> prefixedName "omg" <*> makeVarNames ps -- generate names
 makeVarNames []            = pure []
 
-prefixedName :: MonadFresh m => String -> m String
-prefixedName pre = (pre ++) . show <$> freshName
-
 groupPatterns :: [Eqn a] -> [[(PatGroup, Eqn a)]]
 groupPatterns alts = groupBy sameGroup (map (\p -> (patGroup $ unwrap (firstPat p), p)) alts)
   where
