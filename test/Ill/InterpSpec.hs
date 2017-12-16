@@ -153,4 +153,4 @@ runInterpreter mod =  case runTC mod of
 
     env <- mkEnvForModule boundConstructors core
 
-    eval env (Var "main")
+    eval env (Var $ Id "main" tNil Used)

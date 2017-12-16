@@ -68,34 +68,39 @@ spec = do
   describe "substitution" $ do
     describe "in nested bindings" $ do
       it "respects let statements" $ do
-        let orig = Let (NonRec (mkVar "a") (Lit $ Integer 1)) (C.Var "b")
-        substitute ("a", C.Var "c") orig `shouldBe` orig
+        let orig = Let (NonRec (mkVar "a") (Lit $ Integer 1)) (C.Var $ mkVar "b")
+        substitute ("a", C.Var $ mkVar "c") orig `shouldBe` orig
       it "respects lambdas" $ do
-        let orig = C.Lambda (mkVar "a") (C.Var "b")
-        substitute ("a", C.Var "c") orig `shouldBe` orig
+        let orig = C.Lambda (mkVar "a") (C.Var $ mkVar "b")
+        substitute ("a", C.Var $ mkVar "c") orig `shouldBe` orig
 
     it "substitutes free variables in binders" $ do
-      let orig = Let (NonRec (mkVar "a") (C.Var $ "free")) (C.Var "b")
-      let subd = Let (NonRec (mkVar "a") (C.Var $ "c"))    (C.Var "b")
-      substitute ("free", C.Var "c") orig `shouldBe` subd
+      let orig = Let (NonRec (mkVar "a") (C.Var $ mkVar "free")) (C.Var $ mkVar "b")
+      let subd = Let (NonRec (mkVar "a") (C.Var $ mkVar "c"))    (C.Var $ mkVar "b")
+      substitute ("free", C.Var $ mkVar "c") orig `shouldBe` subd
     it "substitutes free vars in lambda" $ do
-      let orig = C.Lambda (mkVar "a") (C.Var "b")
-      substitute ("b", C.Var "c") orig `shouldNotBe` orig
+      let orig = C.Lambda (mkVar "a") (C.Var $ mkVar "b")
+      substitute ("b", C.Var $ mkVar "c") orig `shouldNotBe` orig
     it "substitutes free vars in let" $ do
-      let orig = Let (NonRec (mkVar "a") (Lit $ Integer 1)) (C.Var "b")
-      substitute ("b", C.Var "c") orig `shouldNotBe` orig
+      let orig = Let (NonRec (mkVar "a") (Lit $ Integer 1)) (C.Var $ mkVar "b")
+      substitute ("b", C.Var $ mkVar "c") orig `shouldNotBe` orig
     it "substitutes free vars in case" $ do
-      let orig = C.Case (C.Var "bound") [TrivialAlt $ C.Var "free" :: Alt C.Var]
-      let subd = C.Case (C.Var "bound") [TrivialAlt $ C.Var "changed" :: Alt C.Var]
-      substitute ("free", C.Var "changed") orig `shouldBe` subd
+      let boundVar   = C.Var $ Id "bound" (TVar "a") Used
+          boundVar2  = C.Var $ Id "bound2" (TVar "a") Used
+          freeVar    = C.Var $ Id "free" (TVar "a") Used
+          changedVar = C.Var $ Id "changed" (TVar "a") Used
 
-      let orig = C.Case (C.Var "bound") [TrivialAlt $ C.Var "bound2", ConAlt "con" [mkVar "free"] (C.Var "free")]
-      let subd = C.Case (C.Var "bound") [TrivialAlt $ C.Var "bound2", ConAlt "con" [mkVar "free"] (C.Var "free")]
-      substitute ("free", C.Var "changed") orig `shouldBe` subd
+      let orig = C.Case boundVar [TrivialAlt $ freeVar :: Alt C.Var]
+      let subd = C.Case boundVar [TrivialAlt $ changedVar :: Alt C.Var]
+      substitute ("free", changedVar) orig `shouldBe` subd
 
-      let orig = C.Case (C.Var "bound") [TrivialAlt $ C.Var "bound2", ConAlt "con" [mkVar "binder"] (C.Var "free")]
-      let subd = C.Case (C.Var "bound") [TrivialAlt $ C.Var "bound2", ConAlt "con" [mkVar "binder"] (C.Var "changed")]
-      substitute ("free", C.Var "changed") orig `shouldBe` subd
+      let orig = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt "con" [mkVar "free"] (freeVar)]
+      let subd = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt "con" [mkVar "free"] (freeVar)]
+      substitute ("free", changedVar) orig `shouldBe` subd
+
+      let orig = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt "con" [mkVar "binder"] (freeVar)]
+      let subd = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt "con" [mkVar "binder"] (changedVar)]
+      substitute ("free", changedVar) orig `shouldBe` subd
 
 
   describe "desugaring" $ do

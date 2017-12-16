@@ -34,7 +34,7 @@ runInterpreter mod = do
       let boundConstructors = map (\(c, (arity, _)) -> (c, arity)) $ Core.constructors coreMod
 
       env <- Interp.mkEnvForModule boundConstructors (bindings coreMod)
-      val <- Interp.eval env (Var "main")
+      val <- Interp.eval env (Var $ Id "main" undefined Used)
 
       print (Interp.showish val)
 

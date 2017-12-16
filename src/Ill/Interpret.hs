@@ -107,11 +107,12 @@ mkThunk env nm exp = \thunk -> do
   eval (env { names = (nm, thunk') : names env }) exp
 
 eval :: Env -> CoreExp -> IO Value
-eval env (Var n) =
+eval env (Var v) =
   case lookupVar <|> lookupConstructor <|> lookupPrimOp of
     Nothing -> error $ "failed to lookup " ++ n
     Just x -> x
   where
+  n = varName v
   lookupVar = n `lookup` (env & names) >>= return . force
   lookupConstructor = n `lookup` (env & constructors) >>= \arity -> case arity of
     0 -> return . return $ VConstructed n []

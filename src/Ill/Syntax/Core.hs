@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor, DeriveAnyClass #-}
 module Ill.Syntax.Core where
 
 import Ill.Syntax.Pretty
@@ -12,11 +13,11 @@ data Core n
   = Lambda n (Core n)
   | App (Core n) (Arg n)
   | Case (Core n) [Alt n]
-  | Var Id
+  | Var Var
   | Let (Bind n) (Core n)
   | Type (Type Name)
   | Lit Literal
-  deriving (Show, Eq)
+  deriving (Show, Eq, Functor, Applicative)
 
 class HasName n where
   name :: n -> Id
@@ -38,14 +39,14 @@ data Alt b
   = ConAlt Id [b] (Core b)
   | TrivialAlt (Core b)
   | LitAlt Literal (Core b)
-  deriving (Show, Eq)
+  deriving (Show, Eq, Functor, Applicative)
 
 type Arg n = Core n
 type CoreExp = Core Var
 
 data Bind n
   = NonRec n (Core n)
-  deriving (Show, Eq)
+  deriving (Show, Eq, Functor, Applicative)
 
 data CoreModule = Mod
   { bindings :: [Bind Var]
@@ -58,7 +59,7 @@ substitute = go []
   -- Are binders recursive ie: let a = a in a ?
   -- go :: [Id] -> (Id, CoreExp) -> CoreExp -> CoreExp
   go bound (nm, exp) (Var id)
-    | nm == id && not (nm `elem` bound) = exp
+    | nm == varName id && not (nm `elem` bound) = exp
 
   go bound subst     (Lambda n exp)     = Lambda n (go (name n : bound) subst exp)
   go bound subst     (App exp arg)      = App (go bound subst exp) (go bound subst arg)

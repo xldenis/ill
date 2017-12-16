@@ -1,6 +1,8 @@
--- This file has been generated from package.yaml by hpack version 0.17.1.
+-- This file has been generated from package.yaml by hpack version 0.20.0.
 --
 -- see: https://github.com/sol/hpack
+--
+-- hash: e49f58230933ded6f4ee3592386df397b53febbf06e385cf0c0436e5275d7dc6
 
 name:           ill
 version:        0.1.0.0
@@ -30,18 +32,18 @@ library
   default-extensions: FlexibleContexts
   ghc-options: -fwarn-incomplete-uni-patterns -fdiagnostics-color=always
   build-depends:
-      megaparsec
-    , text
-    , base >=4.7 && <5
-    , mtl
-    , free
+      base >=4.7 && <5
+    , bifunctors
     , comonad
+    , containers
+    , free
+    , lens
+    , megaparsec
+    , mtl
     , prettyprinter
     , prettyprinter-ansi-terminal
-    , lens
+    , text
     , unordered-containers
-    , containers
-    , bifunctors
   exposed-modules:
       Control.Monad.Fresh
       Control.Monad.Unify
@@ -77,6 +79,8 @@ library
       Ill.Syntax.Type
       Ill.Syntax.Weeder
       Lib
+  other-modules:
+      Paths_ill
   default-language: Haskell2010
 
 executable ill
@@ -85,20 +89,21 @@ executable ill
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      megaparsec
-    , text
-    , base >=4.7 && <5
-    , mtl
+      base >=4.7 && <5
+    , containers
     , ill
+    , megaparsec
+    , mtl
+    , optparse-generic
     , prettyprinter
     , prettyprinter-ansi-terminal
-    , optparse-generic
-    , containers
+    , text
   other-modules:
       CoreDebug
       DesugarDebug
       Infer
       Interpreter
+      Paths_ill
   default-language: Haskell2010
 
 test-suite ill-test
@@ -108,18 +113,18 @@ test-suite ill-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      megaparsec
-    , text
-    , base >=4.7 && <5
-    , mtl
+      base >=4.7 && <5
+    , comonad
+    , directory
+    , filepath
     , hspec
     , hspec-discover
-    , ill
-    , directory
     , hspec-megaparsec
-    , filepath
-    , comonad
+    , ill
+    , megaparsec
+    , mtl
     , template-haskell
+    , text
   other-modules:
       Ill.CoreSpec
       Ill.InferSpec
@@ -130,4 +135,5 @@ test-suite ill-test
       Ill.ParserSpec
       Ill.Quote
       SpecHelper
+      Paths_ill
   default-language: Haskell2010

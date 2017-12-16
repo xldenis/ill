@@ -97,7 +97,7 @@ lintCore l@(Lambda bind exp) = do
     Forall vars ty -> Forall (varName tv : vars) ty
     ty             -> Forall [varName tv] ty
   -- need to build a type lambda instead of a term lambda
-lintCore (Var var) = lookupName var
+lintCore (Var var) = lookupName (varName var)
 lintCore ap@(App f t@(Type ty)) = do
   lintCore t
   fTy <- lintCore f
