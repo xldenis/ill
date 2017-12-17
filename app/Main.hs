@@ -31,8 +31,10 @@ data Core = Core String
 fileArg = strArgument (metavar "FILE")
 stageArg = strArgument (metavar "STAGE")
 
+globalFlags = flag True False (long "no-default-prelude")
+
 options = do
-  simpleOptions "v0.0.1" "ill: lol" "omg" (pure ()) $ do
+  simpleOptions "v0.0.1" "ill: lol" "omg" (globalFlags) $ do
     addCommand "format" "" format (Format <$> fileArg)
     addCommand "infer"  "" inferC (Infer <$> fileArg)
     addCommand "run"    "" run    (Run <$> fileArg)
@@ -56,9 +58,12 @@ commandWrapper file com parsedPrelude = do
 main :: IO ()
 main = do
   (opts, cmd) <- options
-  preludePath <- getDataFileName "assets/prelude.ill"
-  parsedPrelude <- parseFromFile moduleParser preludePath
 
+  parsedPrelude <- case opts of
+    True -> do
+      preludePath <- getDataFileName "assets/prelude.ill"
+      parseFromFile moduleParser preludePath
+    False -> pure $ pure (Module "Prelude" [])
   cmd parsedPrelude
 
 mergeModules (Module _ ds) (Module n ds2) = Module n (ds ++ ds2)
