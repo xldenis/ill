@@ -11,9 +11,8 @@ module Ill.Desugar.Administrative where
 
   - Variables
   - Literals
-  - Lambdas
-  - Case Expressions
-
+  - Type applications
+  - Type lambdas
   Non atomic terms (eg: applications) must be pulled out and bound in a let-expression.
 
   For example:
@@ -54,8 +53,8 @@ normalize (Mod bindings cons) =
 isAtom (Var v)      = True
 isAtom (Lit l)      = True
 isAtom (Type t)     = True
-isAtom (Case _ _)   = True
-isAtom (Lambda _ _) = True
+isAtom (Case _ _)   = False
+isAtom (Lambda TyVar{} _) = True
 isAtom (App a (Type _)) | isAtom a = True
 isAtom _            = False
 
