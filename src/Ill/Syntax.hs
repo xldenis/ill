@@ -38,6 +38,7 @@ import           Data.List (intersperse, find)
 import           Data.Bifunctor
 import           Data.Bifoldable
 import           Data.Bitraversable
+import           Data.Maybe (isJust)
 
 type Prefix = String
 
@@ -125,7 +126,9 @@ data TypeAnn
   deriving (Show, Eq)
 
 instance Pretty TypeAnn where
-  pretty (Type polyTy instTy) = pretty polyTy <+> pretty "instantiated" <+> pretty instTy
+  pretty (Type polyTy instTy) = pretty polyTy <+> if isJust instTy
+    then pretty "instantiated" <+> pretty instTy
+    else mempty
   pretty (Kind k) = pretty k
   pretty (None)  = mempty
 
