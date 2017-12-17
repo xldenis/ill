@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 056c08889e8490249c37cb502fe102ef221f0a20f892df79170c02112bfc63fa
+-- hash: d7e12735e2cbec1d89edcf489a4e2560c3f1c2b258739b1f2da23345271645e3
 
 name:           ill
 version:        0.1.0.0
@@ -95,7 +95,7 @@ executable ill
     , ill
     , megaparsec
     , mtl
-    , optparse-generic
+    , optparse-simple
     , prettyprinter
     , prettyprinter-ansi-terminal
     , text
@@ -116,6 +116,7 @@ test-suite ill-test
   build-depends:
       base >=4.7 && <5
     , comonad
+    , containers
     , directory
     , filepath
     , hspec
@@ -124,6 +125,8 @@ test-suite ill-test
     , ill
     , megaparsec
     , mtl
+    , prettyprinter
+    , prettyprinter-ansi-terminal
     , template-haskell
     , text
   other-modules:

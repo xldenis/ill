@@ -14,6 +14,10 @@ dependencies:
 - text
 - base >=4.7 && <5
 - mtl
+- prettyprinter
+- prettyprinter-ansi-terminal
+- containers
+
 library:
   ghc-options:
   - -fwarn-incomplete-uni-patterns
@@ -22,11 +26,8 @@ library:
   dependencies:
   - free
   - comonad
-  - prettyprinter
-  - prettyprinter-ansi-terminal
   - lens
   - unordered-containers
-  - containers
   - bifunctors
   default-extensions: FlexibleContexts
 executables:
@@ -38,11 +39,8 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - ill
-    - prettyprinter
-    - prettyprinter-ansi-terminal
-    - optparse-generic
-    - containers
+      - ill
+      - optparse-simple
 tests:
   ill-test:
     main: Spec.hs

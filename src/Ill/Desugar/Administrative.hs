@@ -39,7 +39,6 @@ import           Control.Monad.Reader
 import           Ill.Syntax.Core
 
 import           Control.Lens.Plated
-import           Debug.Trace
 import           Ill.Syntax.Literal
 import           Ill.Syntax.Name
 import           Ill.Syntax.Pretty
