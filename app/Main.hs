@@ -9,8 +9,6 @@ import Ill.Parser.Lexer (SourceSpan)
 
 import Text.Megaparsec
 
-import Options.Generic
-
 import qualified Data.Text.Lazy.IO as T (putStrLn)
 import qualified Data.Text.IO as T (readFile)
 
@@ -19,48 +17,48 @@ import DesugarDebug
 import Interpreter
 import CoreDebug
 
+import Options.Applicative.Simple
+
 import Paths_ill
 
-data Config
-  = Build String
-  | Format String
-  | Infer String
-  | Desugar String String
-  | Run String
-  | Core String
-  deriving (Generic, Show)
+data Build = Build String
+data Format = Format String
+data Infer = Infer String
+data Desugar = Desugar String String
+data Run = Run String
+data Core = Core String
 
-instance ParseRecord Config
+fileArg = strArgument (metavar "FILE")
+stageArg = strArgument (metavar "STAGE")
 
+options = do
+  simpleOptions "v0.0.1" "ill: lol" "omg" (pure ()) $ do
+    addCommand "format" "" format (Format <$> fileArg)
+    addCommand "infer"  "" inferC (Infer <$> fileArg)
+    addCommand "run"    "" run    (Run <$> fileArg)
+    addCommand "core"   "" core   (Core <$> fileArg)
+    addCommand "desugar" "" desugarC (Desugar <$> stageArg <*> fileArg)
 
-file (Build f) = f
-file (Format f) = f
-file (Infer f) = f
-file (Desugar _ f) = f
-file (Run f) = f
-file (Core f) = f
+format (Format f) = commandWrapper f (T.putStrLn . renderIll defaultRenderArgs . pretty)
+inferC (Infer f)  = commandWrapper f (infer)
+run    (Run f)    = commandWrapper f (runInterpreter)
+core   (Core f)   = commandWrapper f (coreDebug)
+desugarC (Desugar s f) = commandWrapper f (desugar s)
+
+commandWrapper file com parsedPrelude = do
+  stream <- T.readFile file
+  let parsed = runParser illParser (file) stream
+  let joined = (,) <$> parsedPrelude <*> parsed
+  case joined of
+    Left err -> putStrLn $ parseErrorPretty' stream err
+    Right (prelude, ast) -> com (mergeModules prelude ast)
 
 main :: IO ()
 main = do
-  config <- getRecord "Ill Compiler" :: IO Config
+  (opts, cmd) <- options
   preludePath <- getDataFileName "assets/prelude.ill"
   parsedPrelude <- parseFromFile moduleParser preludePath
 
-  stream <- T.readFile (file config)
-  let parsed = runParser illParser (file config) stream
-
-  let joined = (,) <$> parsedPrelude <*> parsed
-
-  case joined of
-    Left err -> putStrLn $ parseErrorPretty' stream err
-    Right (prelude, ast) -> handleCommands config (mergeModules prelude ast)
+  cmd parsedPrelude
 
 mergeModules (Module _ ds) (Module n ds2) = Module n (ds ++ ds2)
-
-handleCommands :: Config -> Module SourceSpan -> IO ()
-handleCommands (Build f)  ast = putStrLn "build is not implemented yet, use run to interpret code"
-handleCommands (Format f) ast = T.putStrLn $ renderIll defaultRenderArgs (pretty ast)
-handleCommands (Infer f)  ast = infer ast
-handleCommands (Desugar stage f) ast = desugar stage ast
-handleCommands (Run f) ast = runInterpreter ast
-handleCommands (Core f) ast = coreDebug ast
