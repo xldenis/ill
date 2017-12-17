@@ -30,6 +30,9 @@ import Control.Monad.Fix
 
 import Debug.Trace
 
+{-
+  init doesnt work
+-}
 prettyModule mod = ppllvm $ compileModule mod
 
 insertvalue :: MonadIRBuilder m => Operand -> Operand -> [Word32] -> m Operand
@@ -109,7 +112,11 @@ compileBinding (NonRec nm l@(Lambda _ _)) = M.void . function (fromString $ varN
 compileBody :: (MonadFix m, MonadIRBuilder m) => [(Id, AST.Operand)] -> CoreExp -> m AST.Operand
 compileBody dict (Lit (Double d)) = double d
 compileBody dict (Lit (Integer i)) = int64 i
-compileBody dict (Var v) = pure . fromJust $ v `lookup` dict
+compileBody dict (Var v) = pure . fromJust $ varName v `lookup` dict
+compileBody dict (Let (NonRec v e) exp) = do -- figure out how to handle recursive let bindings
+  cE <- compileBody dict e
+
+  compileBody ((varName v, cE) : dict) exp
 compileBody dict (Case scrut alts) = mdo
   scrutOp <- compileBody dict scrut
   val <- load scrutOp 8
@@ -123,7 +130,6 @@ compileBody dict (Case scrut alts) = mdo
   retBlock <- block `named` "switch_return" ; do
     phi phis
   where
-
   compileDefaultAlt retB (TrivialAlt b) = do
     blk <- block `named` "default_branch" ; do
       compileBody dict b
@@ -139,7 +145,7 @@ compileBody dict (Case scrut alts) = mdo
         NotUsed -> pure Nothing)
 
     let bindDict = zipWith (\var val -> (fromString $ varName var, val)) binds bindVals
-    val <- compileBody (bindDict ++ dict) b
+    compileBody (bindDict ++ dict) b
     val <- int64 5
     br retB
     let tag = C.Int 64 i

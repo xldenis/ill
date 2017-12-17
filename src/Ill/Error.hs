@@ -54,5 +54,10 @@ instance Pretty MultiError where
     , pretty location
     , (nest 2 $ pretty error)
     ]
+  pretty (ErrorInDecl name error) = vcat $
+    [ pretty "Error in the decl " <+> pretty name <> pretty ":"
+    -- , pretty location
+    , (nest 2 $ pretty error)
+    ]
   pretty (MissingTraitImpl [p]) = pretty "missing trait impl: " <+> pretty p
   pretty s = pretty $ show s
