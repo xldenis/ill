@@ -3,6 +3,9 @@
 module Ill.Infer.Kind
 ( kindsOfAll
 ) where
+
+import Ill.Prelude
+
 import           Control.Monad.Except
 import           Control.Monad.Trans
 import           Control.Monad.Unify

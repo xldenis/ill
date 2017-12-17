@@ -1,4 +1,7 @@
 module Ill.Infer.Entail where
+
+import           Ill.Prelude
+
 import           Control.Monad.State
 import           Control.Monad.Unify
 

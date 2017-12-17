@@ -5,6 +5,8 @@ module Ill.Syntax.Pretty
 , intersperse
 ) where
 
+import Ill.Prelude
+
 import Data.Text.Lazy hiding (intersperse)
 import Data.Text.Prettyprint.Doc.Render.Text
 

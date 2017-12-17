@@ -6,6 +6,9 @@ module Ill.Parser
 , parseErrorPretty'
 , runParser
 ) where
+
+import           Ill.Prelude
+
 import           Control.Applicative    ((<*))
 
 import           Data.List              (intercalate)

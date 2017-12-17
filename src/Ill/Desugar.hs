@@ -3,6 +3,8 @@ module Ill.Desugar
 , module X
 ) where
 
+import           Ill.Prelude
+
 import Ill.Syntax hiding (Expression(..), ty)
 import Ill.Syntax.Core as C
 

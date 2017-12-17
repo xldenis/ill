@@ -18,6 +18,8 @@ module Ill.Syntax
 , extract
 ) where
 
+import           Ill.Prelude
+
 import           Control.Comonad.Cofree
 import           Control.Comonad
 import           Control.Lens.TH

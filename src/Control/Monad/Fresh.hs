@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, ImplicitPrelude #-}
 module Control.Monad.Fresh where
 
 import Control.Monad.State

@@ -7,6 +7,8 @@ module Ill.Infer.Types
 , inferPats
 ) where
 
+import           Ill.Prelude
+
 import           Control.Monad.Unify
 import           Control.Comonad (extract)
 import           Control.Monad.State (get)

@@ -28,6 +28,8 @@ module Ill.Infer
   each value individually.
 -}
 
+import           Ill.Prelude
+
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Unify

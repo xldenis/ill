@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances, PatternSynonyms, DeriveFunctor, DeriveFoldable, DeriveDataTypeable #-}
 module Ill.Syntax.Type where
 
+import Ill.Prelude
+
 import Ill.Syntax.Pretty
 import Control.Monad.Unify (Unknown)
 import Data.Maybe

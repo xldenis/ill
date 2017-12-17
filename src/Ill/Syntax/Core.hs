@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveFunctor, DeriveAnyClass, DeriveTraversable, DeriveFoldable, DeriveDataTypeable #-}
 module Ill.Syntax.Core where
 
+import           Ill.Prelude
+
 import Control.Lens.Extras (is)
 import Control.Lens.Plated
 

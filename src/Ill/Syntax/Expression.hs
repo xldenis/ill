@@ -5,6 +5,9 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Ill.Syntax.Expression where
+
+import Ill.Prelude
+
 import           Control.Lens.TH
 
 import           Control.Comonad.Cofree

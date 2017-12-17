@@ -1,5 +1,7 @@
 module Ill.Desugar.BinOp where
 
+import           Ill.Prelude
+
 import           Control.Lens      hiding ((:<))
 import Control.Lens.Plated
 

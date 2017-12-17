@@ -1,5 +1,7 @@
 module Ill.BindingGroup where
 
+import           Ill.Prelude
+
 import           Ill.Syntax.Expression
 import           Ill.Syntax.Pattern
 

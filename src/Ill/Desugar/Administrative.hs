@@ -34,6 +34,8 @@ module Ill.Desugar.Administrative where
     - hunch says yes
 -}
 
+import           Ill.Prelude
+
 import           Control.Monad.Fresh
 import           Control.Monad.Reader
 import           Ill.Syntax.Core

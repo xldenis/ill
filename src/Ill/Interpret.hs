@@ -1,5 +1,7 @@
 module Ill.Interpret where
 
+import           Ill.Prelude
+
 import           Ill.Syntax.Core as Core hiding (constructors)
 import           Ill.Syntax hiding (Expression(..))
 import           Ill.Syntax.Pretty ((<+>), hsep)

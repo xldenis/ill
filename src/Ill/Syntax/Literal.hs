@@ -1,5 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module Ill.Syntax.Literal where
+
+import Ill.Prelude
+
 import Ill.Syntax.Pretty
 import Data.Data
 

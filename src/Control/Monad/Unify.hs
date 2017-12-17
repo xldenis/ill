@@ -20,6 +20,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ImplicitPrelude #-}
 
 module Control.Monad.Unify where
 

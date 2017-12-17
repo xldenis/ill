@@ -6,6 +6,8 @@ module Ill.Parser.Lexer
 , pack, unpack, Text
 ) where
 
+import           Ill.Prelude
+
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Char
 import Text.Megaparsec

@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Ill.Parser.Expression where
 
+import           Ill.Prelude
+
 import Ill.Parser.Lexer
 import Ill.Parser.Pattern
 import Ill.Parser.Literal

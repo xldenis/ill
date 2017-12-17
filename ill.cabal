@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d7e12735e2cbec1d89edcf489a4e2560c3f1c2b258739b1f2da23345271645e3
+-- hash: 0af512376d7117ed3c165c768c1bdb01a3a8f37cf135c1ce7a9e370818c81593
 
 name:           ill
 version:        0.1.0.0
@@ -29,7 +29,7 @@ source-repository head
 library
   hs-source-dirs:
       src
-  default-extensions: FlexibleContexts
+  default-extensions: FlexibleContexts NoImplicitPrelude
   ghc-options: -fwarn-incomplete-uni-patterns -fdiagnostics-color=always
   build-depends:
       base >=4.7 && <5
@@ -81,6 +81,7 @@ library
       Ill.Syntax.Weeder
       Lib
   other-modules:
+      Ill.Prelude
       Paths_ill
   default-language: Haskell2010
 

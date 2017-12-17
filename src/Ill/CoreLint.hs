@@ -2,6 +2,9 @@
 module Ill.CoreLint
 ( runLinter
 ) where
+
+import           Ill.Prelude
+
 import           Ill.Syntax.Core
 import           Ill.Syntax.Literal
 import           Ill.Syntax.Pretty

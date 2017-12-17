@@ -1,5 +1,7 @@
 module Ill.Parser.Literal where
 
+import           Ill.Prelude
+
 import Ill.Syntax.Literal
 import Ill.Parser.Lexer
 

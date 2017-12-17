@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable, DeriveFoldable #-}
 module Ill.Syntax.Pattern where
 
+import Ill.Prelude
+
 import Ill.Syntax.Pretty
 import Ill.Syntax.Literal
 

@@ -79,6 +79,7 @@ data B b = MkB (A b) String
 The rest of the desugaring proceeds as usual
 -}
 
+import           Ill.Prelude
 
 import           Control.Lens      hiding ((:<))
 import           Control.Monad.Reader

@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Ill.Parser.Declaration (declaration) where
 
+import           Ill.Prelude
+
 import Control.Monad (when)
 
 import Data.List (intercalate)

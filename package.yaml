@@ -23,13 +23,14 @@ library:
   - -fwarn-incomplete-uni-patterns
   - -fdiagnostics-color=always
   source-dirs: src
+  other-modules: [Ill.Prelude, Paths_ill]
   dependencies:
   - free
   - comonad
   - lens
   - unordered-containers
   - bifunctors
-  default-extensions: FlexibleContexts
+  default-extensions: [FlexibleContexts, NoImplicitPrelude]
 executables:
   ill:
     main: Main.hs

@@ -1,9 +1,12 @@
 {-# LANGUAGE OverloadedStrings, DeriveDataTypeable #-}
 module Ill.Syntax.Kind where
 
+import Ill.Prelude
+
 import Control.Monad.Unify (Unknown)
 import Ill.Syntax.Pretty
 import Data.Data
+
 data Kind
   = Star
   | KFn Kind Kind

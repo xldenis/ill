@@ -3,6 +3,8 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 module Ill.Infer.Monad where
 
+import           Ill.Prelude
+
 import           Ill.Error
 import           Ill.Parser.Lexer     (SourceSpan (..))
 import           Ill.Syntax

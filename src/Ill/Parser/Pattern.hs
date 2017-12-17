@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Ill.Parser.Pattern (pattern) where
 
+import Ill.Prelude
+
 import Ill.Syntax
 import Ill.Parser.Lexer
 import Ill.Parser.Literal

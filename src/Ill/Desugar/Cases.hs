@@ -1,5 +1,6 @@
 module Ill.Desugar.Cases where
 
+import           Ill.Prelude
 
 import           Control.Comonad
 import           Control.Comonad.Cofree

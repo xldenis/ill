@@ -3,11 +3,14 @@ module Ill.Error
   , module Control.Monad.Except
   ) where
 
+import           Ill.Prelude
+
 import           Ill.Syntax (Type, Name, Kind, Constraint, Expr, TypedAnn, SourceSpan, Pat)
 import           Control.Monad.Except
 import           Ill.Syntax.Pretty
 
 import Control.Comonad (extract)
+
 data MultiError
   = UnificationError (Type Name) (Type Name)
   | InternalError String
