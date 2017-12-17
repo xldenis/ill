@@ -83,12 +83,8 @@ import           Ill.Prelude
 
 import           Control.Lens      hiding ((:<))
 import           Control.Monad.Reader
-import           Control.Comonad
 
 import           Data.Bifunctor
-import           Data.Foldable     (find, foldl', toList)
-import           Data.List         (intercalate, sortOn, (\\), nub)
-import           Data.Maybe
 import           Data.Semigroup
 import qualified Data.Map as M
 

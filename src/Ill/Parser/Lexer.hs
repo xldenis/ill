@@ -13,8 +13,6 @@ import Text.Megaparsec.Char
 import Text.Megaparsec
 
 import Control.Comonad.Cofree
-import Control.Applicative ((<*), empty)
-import Control.Monad (void)
 
 import Data.Text (Text, unpack, pack)
 

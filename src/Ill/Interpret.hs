@@ -8,13 +8,8 @@ import           Ill.Syntax.Pretty ((<+>), hsep)
 
 import           Control.Monad.Except
 import           Control.Monad.State
-import           Control.Applicative
 
-import           Data.Foldable
-import           Data.Function
 import           Data.IORef
-import           Data.List (find)
-import           Data.Maybe
 
 type Thunk = () -> IO Value
 

@@ -10,13 +10,11 @@ import           Ill.Syntax.Literal
 import           Ill.Syntax.Pretty
 import           Ill.Syntax.Type
 
-import           Control.Monad.Error
+import           Control.Monad.Except
 import           Control.Monad.State
 
 -- fix this... somehow, primitives are leaking all over the place
 import           Ill.Infer.Monad     (defaultCheckEnv, env, names)
-
-import           Ill.Desugar
 
 import qualified Data.Map            as M
 import           Data.Maybe
@@ -43,7 +41,7 @@ data LintEnv = E
   } deriving (Show, Eq)
 
 runLinter :: CoreModule -> Either String ()
-runLinter = flip evalState (E (names $ env defaultCheckEnv) []) . runErrorT . lintModule
+runLinter = flip evalState (E (names $ env defaultCheckEnv) []) . runExceptT . lintModule
   where
   lintModule mod = bindNames (map getVar $ bindings mod) $
     bindCons (constructors mod) (mapM_ lintBind (bindings mod))

@@ -12,10 +12,9 @@ import           Control.Monad.Fresh
 import           Control.Monad.Identity
 import           Control.Monad.State
 
-import           Data.Function
-import           Data.List
+import           Data.List (groupBy)
+
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (catMaybes)
 
 import           Ill.Syntax
 

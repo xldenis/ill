@@ -36,11 +36,9 @@ import           Ill.Syntax.Pretty
 
 import           Text.Megaparsec (SourcePos(..), unPos)
 
-import           Data.List (intersperse, find)
 import           Data.Bifunctor
 import           Data.Bifoldable
 import           Data.Bitraversable
-import           Data.Maybe (isJust)
 
 type Prefix = String
 
@@ -200,7 +198,7 @@ instance Pretty1 (Declaration a) where
           headBranch    = pretty "fn" <+> pretty name <+> branch (head cases)
           otherBranch b = pretty "or" <+> pretty name <+> branch b
   liftPretty pretty' (Signature func tp) = pretty func <+> pretty "::" <+> pretty tp
-  liftPretty pretty' (Import qual msk name alias) = pretty "import" <-> when (const $ pretty "qualified") qual mempty
+  liftPretty pretty' (Import qual msk name alias) = pretty "import" <-> conditionally (const $ pretty "qualified") qual mempty
     <-> pretty name <-> prettyJust alias <-> prettyMask msk
       where prettyJust (Just alias') = pretty "as" <+> pretty alias'
             prettyJust  Nothing     = mempty

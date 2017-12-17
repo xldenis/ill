@@ -5,8 +5,6 @@ import Ill.Prelude
 
 import Ill.Syntax.Pretty
 import Control.Monad.Unify (Unknown)
-import Data.Maybe
-import Data.List
 import Ill.Syntax.Name
 import Data.Data
 

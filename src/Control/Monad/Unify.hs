@@ -24,7 +24,6 @@
 
 module Control.Monad.Unify where
 
-import Data.Maybe
 import Data.Monoid
 
 import Control.Applicative

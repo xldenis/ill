@@ -9,16 +9,11 @@ module Ill.Parser
 
 import           Ill.Prelude
 
-import           Control.Applicative    ((<*))
-
-import           Data.List              (intercalate)
-
 import           Text.Megaparsec
 
 import           Ill.Syntax
 
 import           Ill.Parser.Declaration
-import           Ill.Parser.Expression
 import           Ill.Parser.Lexer
 
 import qualified Data.Text.IO as T (readFile)

@@ -9,8 +9,6 @@ import Ill.Parser.Literal
 
 import Text.Megaparsec
 
-import Control.Applicative ((<|>))
-
 pattern :: Parser (Pat SourceSpan)
 pattern = (parens pattern) <|> wildcard <|> destructor <|> pLit <|> var
 

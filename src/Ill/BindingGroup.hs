@@ -8,14 +8,11 @@ import           Ill.Syntax.Pattern
 import           Ill.Syntax
 import Ill.Error
 
-import           Control.Comonad.Cofree
-import           Control.Monad (liftM2)
 import           Control.Monad.Error.Class
 
 import           Data.Set                  (Set, insert, notMember, singleton)
 import           Data.Graph
 import           Data.List                 (intersect, groupBy, sortOn)
-import           Data.Maybe
 
 type Ident = String
 

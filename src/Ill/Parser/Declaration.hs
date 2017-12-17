@@ -3,11 +3,6 @@ module Ill.Parser.Declaration (declaration) where
 
 import           Ill.Prelude
 
-import Control.Monad (when)
-
-import Data.List (intercalate)
-import Data.Maybe
-
 import Text.Megaparsec
 
 import Ill.Syntax

@@ -20,8 +20,6 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 
-import Control.Monad (join)
-
 data Expression p a
   = Apply a [a]
   | BinOp a a a

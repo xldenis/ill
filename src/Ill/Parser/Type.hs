@@ -3,8 +3,6 @@ module Ill.Parser.Type where
 
 import           Ill.Prelude
 
-import Control.Applicative
-
 import Text.Megaparsec
 import Text.Megaparsec.Expr
 

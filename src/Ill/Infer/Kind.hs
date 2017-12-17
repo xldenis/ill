@@ -14,11 +14,9 @@ import           Ill.Error
 import qualified Data.HashMap.Strict  as H
 
 
-import           Control.Monad
 import           Ill.Infer.Monad
 import           Ill.Syntax           (Kind (..), Name, Type (..))
 
-import           Data.Maybe
 
 instance Partial Kind where
   unknown = KUnknown

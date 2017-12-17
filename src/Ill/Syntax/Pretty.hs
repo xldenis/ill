@@ -12,7 +12,6 @@ import Data.Text.Prettyprint.Doc.Render.Text
 
 import Data.Text.Prettyprint.Doc hiding (width)
 import Data.Text.Prettyprint.Doc.Internal (Doc(..), PageWidth(..))
-import Data.List (intersperse)
 
 -- Use this from upstream when released
 class Pretty1 f where
@@ -22,10 +21,10 @@ class Pretty1 f where
         -> Doc ann
 
 parensIf :: Bool -> Doc a -> Doc a
-parensIf = when parens
+parensIf = conditionally parens
 
-when :: (Doc a -> Doc a) -> Bool -> Doc a -> Doc a
-when t c doc = if c then t doc else doc
+conditionally :: (Doc a -> Doc a) -> Bool -> Doc a -> Doc a
+conditionally t c doc = if c then t doc else doc
 
 data RenderArgs = RenderArgs {ribbon :: Double, width :: Int}
 

@@ -3,12 +3,7 @@ module Ill.Infer.Entail where
 import           Ill.Prelude
 
 import           Control.Monad.State
-import           Control.Monad.Unify
 
-import           Data.Foldable
-import           Data.Function
-import           Data.List
-import           Data.Maybe
 import qualified Data.Map as M (lookup)
 
 import           Ill.Syntax          (Name)

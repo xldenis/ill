@@ -34,10 +34,8 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Unify
 
-import           Data.Coerce
 import           Data.List
 import           Data.Map             as M (union)
-import           Data.Maybe
 
 import           Text.Megaparsec      (initialPos)
 

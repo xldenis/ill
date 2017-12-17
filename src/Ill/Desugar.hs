@@ -17,9 +17,6 @@ import Ill.Desugar.Administrative as X
 
 import Control.Monad.State
 
-import Data.Maybe
-import Data.List
-
 type Id = Name
 
 {-

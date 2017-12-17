@@ -12,13 +12,10 @@ import Text.Megaparsec
 import Text.Megaparsec.Expr
 
 import Control.Comonad.Cofree
-import Control.Comonad
 import Control.Monad (when)
 
 import Control.Lens.Extras
 import Control.Lens ((^?))
-import Data.Function ((&))
-import Data.Maybe
 import Data.Text (Text, unpack)
 
 expression :: Parser (Expr SourceSpan)

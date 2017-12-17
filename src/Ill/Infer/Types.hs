@@ -14,8 +14,6 @@ import           Control.Comonad (extract)
 import           Control.Monad.State (get)
 
 import qualified Data.HashMap.Strict as H
-import           Data.List
-import           Data.Maybe
 import           Data.Bifunctor
 
 import           Ill.Infer.Monad
