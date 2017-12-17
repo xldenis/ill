@@ -7,8 +7,6 @@ import Ill.Syntax.Pretty
 import Ill.Syntax (Module(..))
 import Ill.Parser.Lexer (SourceSpan)
 
-import Text.Megaparsec
-
 import qualified Data.Text.Lazy.IO as T (putStrLn)
 import qualified Data.Text.IO as T (readFile)
 
@@ -26,10 +24,11 @@ data Format = Format String
 data Infer = Infer String
 data Desugar = Desugar String String
 data Run = Run String
-data Core = Core String
+data Core = Core String (Maybe String)
 
 fileArg = strArgument (metavar "FILE")
 stageArg = strArgument (metavar "STAGE")
+filterArg = optional $ strOption (long "filter" <> metavar "FILTER")
 
 globalFlags = flag True False (long "no-default-prelude")
 
@@ -38,13 +37,13 @@ options = do
     addCommand "format" "" format (Format <$> fileArg)
     addCommand "infer"  "" inferC (Infer <$> fileArg)
     addCommand "run"    "" run    (Run <$> fileArg)
-    addCommand "core"   "" core   (Core <$> fileArg)
+    addCommand "core"   "" core   (Core <$> fileArg <*> filterArg)
     addCommand "desugar" "" desugarC (Desugar <$> stageArg <*> fileArg)
 
 format (Format f) = commandWrapper f (T.putStrLn . renderIll defaultRenderArgs . pretty)
 inferC (Infer f)  = commandWrapper f (infer)
 run    (Run f)    = commandWrapper f (runInterpreter)
-core   (Core f)   = commandWrapper f (coreDebug)
+core   (Core f filter) = commandWrapper f (coreDebug filter)
 desugarC (Desugar s f) = commandWrapper f (desugar s)
 
 commandWrapper file com parsedPrelude = do

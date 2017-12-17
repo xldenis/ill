@@ -3,6 +3,8 @@ module Ill.Parser
 ( module Ill.Parser
 , parse
 , parseErrorPretty
+, parseErrorPretty'
+, runParser
 ) where
 import           Control.Applicative    ((<*))
 
