@@ -26,19 +26,30 @@ data Desugar = Desugar String String
 data Run = Run String
 data Core = Core String (Maybe String)
 
-fileArg = strArgument (metavar "FILE")
+fileArg = strArgument (metavar "FILE" <> help "location of source file")
 stageArg = strArgument (metavar "STAGE")
-filterArg = optional $ strOption (long "filter" <> metavar "FILTER")
+filterArg = optional . strOption $ long "filter" <> metavar "FILTER" <> short 'f'
+  <> help "only print the binding that exactly matches the filter provided"
 
-globalFlags = flag True False (long "no-default-prelude")
+globalFlags = flag True False (long "no-default-prelude" <> help "Disable the implicit prelude module")
 
 options = do
   simpleOptions "v0.0.1" "ill: lol" "omg" (globalFlags) $ do
-    addCommand "format" "" format (Format <$> fileArg)
-    addCommand "infer"  "" inferC (Infer <$> fileArg)
-    addCommand "run"    "" run    (Run <$> fileArg)
-    addCommand "core"   "" core   (Core <$> fileArg <*> filterArg)
-    addCommand "desugar" "" desugarC (Desugar <$> stageArg <*> fileArg)
+    addCommand "format"
+      "prettyprint the module at a given location"
+      format (Format <$> fileArg)
+    addCommand "infer"
+      "run the typechecker and output information about methods and traits"
+      inferC (Infer <$> fileArg)
+    addCommand "run"
+      "execute the main function in a module using a lazy interpreter"
+      run    (Run <$> fileArg)
+    addCommand "core"
+      "generate core bindings for a module"
+      core   (Core <$> fileArg <*> filterArg)
+    addCommand "desugar"
+      "view the desugaring pipeline up to a given stage"
+      desugarC (Desugar <$> stageArg <*> fileArg)
 
 format (Format f) = commandWrapper f (T.putStrLn . renderIll defaultRenderArgs . pretty)
 inferC (Infer f)  = commandWrapper f (infer)
