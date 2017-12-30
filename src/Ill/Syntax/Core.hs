@@ -66,7 +66,10 @@ data Bind n
 data CoreModule = Mod
   { bindings :: [Bind Var]
   , constructors :: [(Name, (Int, Type Name))] -- wip: more generally track constructor info
+  , primitives :: [Id]
   } deriving (Show, Eq)
+
+emptyModule = Mod [] [] ["failedPattern"]
 
 substitute :: HasName n => (Id, Core n) -> Core n -> Core n
 substitute = go []
@@ -82,6 +85,7 @@ substitute = go []
     where
     goAlt (TrivialAlt exp)   = TrivialAlt (go bound subst exp)
     goAlt (ConAlt id bs exp) = ConAlt id bs (go (map name bs ++ bound) subst exp)
+    goAlt (LitAlt lit exp)   = LitAlt lit (go bound subst exp)
   go bound subst     (Let bind exp)     = Let (subBinder bind) (go (boundNames bind : bound) subst exp)
     where
     boundNames (NonRec n _)  = name n

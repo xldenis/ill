@@ -30,7 +30,7 @@ type Id = Name
 -}
 
 declsToCore :: [Decl TypedAnn] -> CoreModule
-declsToCore decls = execState (mapM declToCore' decls) (Mod [] [])
+declsToCore decls = execState (mapM declToCore' decls) (emptyModule)
 
 declToCore' :: Decl TypedAnn -> State CoreModule ()
 declToCore' (a :< Value nm [([], exp)]) = do

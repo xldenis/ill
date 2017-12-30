@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, RecordWildCards #-}
 module Ill.Desugar.Administrative where
 
 {-
@@ -47,8 +47,8 @@ import           Ill.Syntax.Pretty
 import           Ill.Syntax.Type
 
 normalize :: CoreModule -> CoreModule
-normalize (Mod bindings cons) =
-  Mod (evalFresh 0 $ forM bindings bindToANF) cons
+normalize m@(Mod{..}) =
+  m { bindings = (evalFresh 0 $ forM bindings bindToANF) }
   where bindToANF (NonRec x e) = NonRec x <$> (transformM toANF e)
 
 isAtom (Var v)      = True
