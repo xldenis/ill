@@ -75,7 +75,12 @@ bindName v@TyVar{} action = do
   return val
 
 lintBind :: (LintM m) => Bind Var -> m ()
-lintBind (NonRec b exp) = void $ bindName b (lintCore exp)
+lintBind (NonRec b exp) = do
+  ty <- bindName b (lintCore exp)
+
+  case (idTy b) == ty of
+    True -> pure ()
+    False -> throwError $ "the type of binding " ++ show (pretty ty) ++ " did not match expected type " ++ show (pretty $ idTy b)
 
 lookupName var = do
   names <- gets boundNames
