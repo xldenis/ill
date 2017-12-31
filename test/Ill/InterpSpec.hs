@@ -148,7 +148,7 @@ runInterpreter mod =  case runTC mod of
     let desugaringPipe = (desugarTraits e . desugarBinOps) >=> pure . simplifyPatterns
         desugared = desugaringPipe typed
 
-    let (Mod core coreConstructors) = declsToCore desugared
+    let (Mod core coreConstructors _) = declsToCore desugared
     let boundConstructors = map (\(c, (arity, _)) -> (c, arity)) $ coreConstructors
 
     env <- mkEnvForModule boundConstructors core

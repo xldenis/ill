@@ -14,20 +14,27 @@ import Ill.Desugar.Trait as X
 import Ill.Desugar.Cases as X
 import Ill.Desugar.BinOp as X
 import Ill.Desugar.Administrative as X
+import Ill.Desugar.LambdaLift as X
 
 import Control.Monad.State
+
+import Ill.Infer.Monad (Environment)
 
 type Id = Name
 
 {-
-  Syntax definition for core lambda calculus representation
-
   At this point all top level bindings should have cases pushed in,
   traits should have been desugared.
 
   Data constructors are still kept as implicit bindings
   to variables with the name of the contrsuctor.
 -}
+
+defaultPipeline :: Environment -> [Decl TypedAnn] -> [Decl TypedAnn]
+defaultPipeline env = desugarTraits env . desugarBinOps >=> pure . simplifyPatterns
+
+compileCore :: [Decl TypedAnn] -> CoreModule
+compileCore desugared = declsToCore desugared & normalize . liftModule
 
 declsToCore :: [Decl TypedAnn] -> CoreModule
 declsToCore decls = execState (mapM declToCore' decls) (emptyModule)

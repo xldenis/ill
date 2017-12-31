@@ -37,7 +37,7 @@ runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
 mkVar nm = Id { varName = nm, C.idTy = tNil, usage = Used }
 
 moduleToCore :: Environment -> [Decl TypedAnn] -> CoreModule
-moduleToCore e = (desugarBinOps >>> desugarTraits e >=> pure . simplifyPatterns) >>> declsToCore >>> normalize
+moduleToCore e = (desugarBinOps >>> desugarTraits e >=> pure . simplifyPatterns) >>> declsToCore >>> normalize >>> liftModule
 
 runTC' (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 

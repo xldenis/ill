@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0af512376d7117ed3c165c768c1bdb01a3a8f37cf135c1ce7a9e370818c81593
+-- hash: 1040310338c2bd6e315e9f0610df474c1b6d4d3caaca8eecf5fadd757f874f07
 
 name:           ill
 version:        0.1.0.0
@@ -53,6 +53,7 @@ library
       Ill.Desugar.Administrative
       Ill.Desugar.BinOp
       Ill.Desugar.Cases
+      Ill.Desugar.LambdaLift
       Ill.Desugar.Trait
       Ill.Error
       Ill.Infer

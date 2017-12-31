@@ -44,18 +44,9 @@ unCheck c = execCheck c
 
 prettyType a = renderIll defaultRenderArgs (pretty $ a)
 
-desugaringPipeline :: Environment -> [Decl TypedAnn] -> [Decl TypedAnn]
-desugaringPipeline env = desugarTraits env . desugarBinOps >=> pure . simplifyPatterns
-
-getConstructorArities (_ :< Data nm _ conses) = map (\cons ->
-  case unwrapProduct cons of
-    (TConstructor consNm : args) -> (consNm, length args)
-  ) conses
-getConstructorArities _ = []
-
 compileToCore mod =  do
   case runTC mod of
     Right (typed, e) -> let
-      desugared = desugaringPipeline e typed
-      in Right (declsToCore desugared)
+      desugared = defaultPipeline e typed
+      in Right (compileCore desugared)
     Left err -> Left $ prettyType err

@@ -18,6 +18,7 @@ import Ill.Infer.Monad
 import Ill.Syntax
 import Ill.Syntax.Core
 import Ill.Syntax.Pretty
+
 import Data.List as L (find)
 import Data.Maybe (maybeToList)
 
@@ -27,8 +28,8 @@ coreDebug :: Maybe String -> Module SourceSpan -> IO ()
 coreDebug filter ast = case runTC ast of
   Left err -> putStrLn $ prettyType err
   Right (typed, env) -> do
-    let desugared = pipeline env typed
-        core = declsToCore desugared & normalize
+    let desugared = defaultPipeline env typed
+        core = compileCore desugared
         binds = filterBindings filter (bindings core)
 
     putStrLn $ pack "\n\nCORE OUTPUT\n\n"
@@ -40,7 +41,7 @@ coreDebug filter ast = case runTC ast of
         putStrLn $ pack "omgyesss: passed core lint!"
 
   where
-  cliRenderArgs = defaultRenderArgs { width = 50 }
+  cliRenderArgs = defaultRenderArgs { width = 90 }
   pipeline e = desugarBinOps >>> desugarTraits e >=> pure . simplifyPatterns
 
 runTC (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env

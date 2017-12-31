@@ -1,0 +1,25 @@
+module LambdaLifting
+  fn test_lambda_lifting()
+    x = 1
+    # in the following lambda, x is a free variable (not bound directly by the lambda)
+    # this means that when we lift the lambda definition out of the function we should also
+    # add a wrapping lambda to capture x
+
+    lam = fn (y) =
+      x + y
+    end
+    lam(10)
+  end
+
+  fn test_lift_add3()
+    c = 1
+
+    fn(a) =
+      d = 2
+
+      fn (b) =
+        a + b + c + d
+      end
+    end
+  end
+end
