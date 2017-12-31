@@ -78,20 +78,3 @@ toANF v@(Var id)    = pure v
 toANF l@(Let b exp) = pure l
 toANF t@(Type _)    = pure t
 toANF l@(Lit  _)    = pure l
-
-{-
-  Calculates the type of a core term. Assumes the core term is valid.
--}
-getTyOf :: CoreExp -> Type Name
-getTyOf b@(App f a) = getTyOf a `applyArgumentToType` getTyOf f
-getTyOf (Case _ alts) = altTyOf $ head alts
-  where altTyOf (TrivialAlt e) = getTyOf e
-        altTyOf (LitAlt _ e)   = getTyOf e
-        altTyOf (ConAlt _ _ e) = getTyOf e
-getTyOf (Lambda b@(Id{}) exp) = (idTy b) `tFn` getTyOf exp
-getTyOf (Lambda b@(TyVar{}) exp) = generalizeWith [varName b] $ getTyOf exp
-getTyOf (Let _ e) = getTyOf e
-getTyOf (Var v) = idTy v
-getTyOf (Type t) = t
-getTyOf (Lit l) = litType l
-getTyOf v = error $ show v

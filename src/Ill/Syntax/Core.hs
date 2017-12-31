@@ -14,6 +14,7 @@ import Ill.Syntax.Name
 import Ill.Syntax.Pretty
 import Ill.Syntax.Type
 
+-- Look into using recursion schemes to simplify tons of codebase
 data Core n
   = Lambda n (Core n)
   | App (Core n) (Arg n)
@@ -69,7 +70,7 @@ data CoreModule = Mod
   , primitives :: [Id]
   } deriving (Show, Eq)
 
-emptyModule = Mod [] [] ["failedPattern"]
+emptyModule = Mod [] [] ["failedPattern", "plusInt", "minusInt", "multInt", "divInt", "eqInt", "ltInt", "gtInt", "leqInt", "geqInt", "maxInt", "minInt", "plusStr", "showInt"]
 
 substitute :: HasName n => (Id, Core n) -> Core n -> Core n
 substitute = go []
@@ -92,20 +93,41 @@ substitute = go []
     subBinder (NonRec n exp) = NonRec n (go bound subst exp)
   go _     _         x                  = x
 
+{-
+  Calculates the type of a core term. Assumes the core term is valid.
+-}
+getTyOf :: CoreExp -> Type Name
+getTyOf b@(App f a) = getTyOf a `applyArgumentToType` getTyOf f
+getTyOf (Case _ alts) = altTyOf $ head alts
+  where altTyOf (TrivialAlt e) = getTyOf e
+        altTyOf (LitAlt _ e)   = getTyOf e
+        altTyOf (ConAlt _ _ e) = getTyOf e
+getTyOf (Lambda b@(Id{}) exp) = (idTy b) `tFn` getTyOf exp
+getTyOf (Lambda b@(TyVar{}) exp) = generalizeWith [varName b] $ getTyOf exp
+getTyOf (Let _ e) = getTyOf e
+getTyOf (Var v) = idTy v
+getTyOf (Type t) = t
+getTyOf (Lit l) = litType l
+getTyOf v = error $ show v
+
 instance (HasType b, Pretty b) => Pretty (Core b) where
   pretty (Lambda binder exp) = nest 2 $ pretty "\\" <> pretty binder <+> pretty "->" <> softline <> pretty exp
-  pretty (App func arg)      = parensIf (needsParens func) (pretty func) <> parens (prettyAp arg)
+  pretty a@(App _ _)    = nest 2 $ parensIf (needsParens f) (pretty f) <> softline' <> (argify (map prettyAp args))
     where needsParens (Var _) = False
           needsParens (App _ _) = False
           needsParens _       = True
           prettyAp (Type ty) = pretty "@" <+> pretty ty
           prettyAp app       = pretty app
+          unwrapApp (App f a) acc = unwrapApp f (a : acc)
+          unwrapApp (f) acc = f : acc
+          argify = tupled -- parens . concatWith (surround $ pretty ", ")
+          (f : args) = unwrapApp a []
   pretty (Case scrut alts)   =
     pretty "case" <+> pretty scrut <+> pretty "of" <+>
     braces (nest 2 (hardline <> prettiedAlts) <> hardline)
     where prettiedAlts = vsep' $ map pretty alts
   pretty (Var id)            = pretty id
-  pretty l@(Let _ _)    = group . align $ pretty "let" <+> (align $ vcat (map pretty binds)) <> softline <>
+  pretty l@(Let _ _)    = group . align $ pretty "let" <+> (align $ vcat (map (group . pretty) binds)) <> line <>
                           pretty "in" <+> pretty inner
     where go (Let b exp) = fmap (b :) $ go exp
           go a = (a, [])
@@ -115,9 +137,9 @@ instance (HasType b, Pretty b) => Pretty (Core b) where
   pretty (Lit lit)           = pretty lit
 
 instance (HasType b, Pretty b) => Pretty (Alt b) where
-  pretty (ConAlt n binders exp) = pretty n <+> hsep (map pretty binders) <+> pretty "->" <+> pretty exp
-  pretty (TrivialAlt exp) = pretty "_" <+> pretty "->" <+> pretty exp
-  pretty (LitAlt lit exp) = pretty lit <+> pretty "->" <+> pretty exp
+  pretty (ConAlt n binders exp) = pretty n <+> hsep (map pretty binders) <+> pretty "->" <> softline <> pretty exp
+  pretty (TrivialAlt exp) = pretty "_" <+> pretty "->" <> softline <> pretty exp
+  pretty (LitAlt lit exp) = pretty lit <+> pretty "->" <> softline <> pretty exp
 instance (HasType n, Pretty n) => Pretty (Bind n) where
   pretty (NonRec nm exp) = parens (pretty nm <+> pretty "::" <+> pretty (getTy nm)) <+> pretty "=" <+> pretty exp
 
