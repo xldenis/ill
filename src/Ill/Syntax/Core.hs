@@ -127,7 +127,7 @@ instance (HasType b, Pretty b) => Pretty (Core b) where
     braces (nest 2 (hardline <> prettiedAlts) <> hardline)
     where prettiedAlts = vsep' $ map pretty alts
   pretty (Var id)            = pretty id
-  pretty l@(Let _ _)    = group . align $ pretty "let" <+> (align $ vcat (map (group . pretty) binds)) <> line <>
+  pretty l@(Let _ _)    = group . align $ pretty "let" <+> (align $ concatWith (\x y -> x <> hardline <> y) (map pretty binds)) <> line <>
                           pretty "in" <+> pretty inner
     where go (Let b exp) = fmap (b :) $ go exp
           go a = (a, [])
