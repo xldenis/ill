@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 811dba2c2dcd2507a60d6dfe2ac62fd8841fa47cc06f1c9f48bfc093c1b01c6a
+-- hash: f82953f29495cd14fb467e98540f8f350def8741828ba6477207705ec2827e96
 
 name:           ill
 version:        0.1.0.0
@@ -53,6 +53,7 @@ library
       Control.Monad.Unify
       Ill.BindingGroup
       Ill.Codegen
+      Ill.Codegen.IR
       Ill.CoreLint
       Ill.Desugar
       Ill.Desugar.Administrative

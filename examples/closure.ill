@@ -1,0 +1,24 @@
+module ClosureExample
+
+  fn main ()
+    lambda = fn (x, y) =
+      x + y
+    end
+
+    lambda2 = fn (x, y, z) =
+      x + y + z
+    end
+    a = lambda(5)
+    a2 = lambda2(5, 6)
+
+    b = (if x > 2
+      then a
+      else a2
+      end)(4)
+    c = lambda(3,10) # 13
+  end
+
+  fn x (f, a)
+    f(a)
+  end
+end
