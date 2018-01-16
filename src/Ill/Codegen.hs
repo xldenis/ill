@@ -109,11 +109,11 @@ compileConstructor (nm, (_, ty)) = do
       ret memPtr
   where
   consTy = T.NamedTypeReference $ fromString nm
-  funArgs = zip llvmArgTy' (repeat (fromString "a"))
   consSize = C.GetElementPtr False (C.Null $ ptr $ consTy) [C.Int 32 1]
   llvmArgTys = T.i64 : llvmArgTy'
   llvmArgTy' = map typeToLlvmType argTys
   argTys = init (unwrapFnType ty)
+  funArgs = zip llvmArgTy' (repeat (fromString "a"))
 
 ptr x = T.PointerType x (AddrSpace 0)
 
@@ -131,13 +131,17 @@ typeToLlvmType' (Forall _ t) = typeToLlvmType' t
 typeToLlvmType' t = error $ show t
 
 type CodegenM m = (MonadFix m, MonadIRBuilder m, MonadReader CodegenState m)
-type ModuleM m = (MonadFix m, MonadModuleBuilder m, MonadReader CodegenState m)
+type ModuleM  m = (MonadFix m, MonadModuleBuilder m, MonadReader CodegenState m)
 
 compileBinding :: ModuleM m => Bind Var -> m ()
-compileBinding (NonRec nm l@(Lambda _ _)) = M.void . function (fromString $ varName nm) args retTy $ \args -> mdo
-  block `named` "entry" ; do
-    let dict = zipWith (\v op -> (fromString $ varName v, op)) argVars args
-    local (updateVars (dict ++)) $ compileBody body >>= ret
+compileBinding (NonRec nm l@(Lambda _ _)) = do
+  when (length argVars > 0) $ void $ mkClosureCall nm
+
+  function (fromString $ varName nm) args retTy $ \args -> mdo
+    block `named` "entry" ; do
+      let dict = zipWith (\v op -> (fromString $ varName v, op)) argVars args
+      local (updateVars (dict ++)) $ compileBody body >>= ret
+
   pure ()
 
   where
@@ -190,7 +194,6 @@ compileBody (Case scrut alts) = mdo
       compileBody b
       br retB
     pure blk
-
   compileAlt retB scrut i (ConAlt cons binds b) = do
     block <- block `named` "branch"
     scrut' <- bitcast scrut $ T.NamedTypeReference (fromString cons)
@@ -220,17 +223,66 @@ compileCall (Var func, args) = do
   globalDefs <- reader arities
 
   case varName func `lookup` globalDefs of
-    Just arity | arity == length args -> knownCall arity func args
-               | arity <  length args -> mkInt =<< int64 (-98) -- take first arity args and then do uknnown call
-               | arity >  length args -> mkInt =<< int64 (-99) -- mkClosure arity func args
-    Nothing -> mkInt =<< int64 (-96) -- unknownCall func args
+    Just arity
+      | arity == length args -> knownCall arity func args
+      | arity <  length args -> mkInt =<< int64 (-98) -- take first arity args and then do uknnown call
+      | arity >  length args -> do
+        op <- buildClosure func
+        args <- mapM compileBody args
+
+        unknownCall op args
+
+        mkInt =<< int64 (-99) -- mkClosure arity func args
+    Nothing -> mkInt =<< int64 (-95) -- unknownCall func args
 
 knownCall arity i@(Id{}) args = do
   args' <- mapM compileBody args
   f' <- compileBody (Var i)
-  traceShowM (f')
   call f' (map (\arg -> (arg, [])) args')
 
-unknownCall = undefined
+unknownCall closure args = do
+  traceShowM (T.typeOf closure)
+  let (T.PointerType (T.StructureType _ ls) _) = T.typeOf closure
 
-mkClosure = undefined
+  forM (zip args $ reverse [1..length ls]) $ \(args, ix) -> do
+    insertvalue closure args [fromIntegral ix]
+  unreachable
+
+buildClosure :: CodegenM m => Var -> m Operand
+buildClosure i@(Id{}) = do
+  voidPtr <- malloc (ConstantOperand consSize)
+  memPtr <- bitcast voidPtr (closureTy)
+  val <- load memPtr 8
+  let name = AST.ConstantOperand $ C.GlobalReference closureFuncTy (fromString $ "callClosure" ++ varName i)
+  insertvalue val name [0]
+  return memPtr
+  where
+  consSize = C.GetElementPtr False (C.Null $ closureTy) [C.Int 32 1]
+
+  closureFuncTy = T.FunctionType llvmRetTy [closureTy] False
+  closureTy  = ptr $ T.StructureType False (typeToLlvmType (idTy i) : llvmArgTy')
+  llvmArgTy' = map typeToLlvmType argTys
+  llvmRetTy  = typeToLlvmType retTy
+  retTy  = last unwrapped
+  argTys = init unwrapped
+  unwrapped = unwrapFnType (idTy i)
+
+mkClosureCall i@(Id{}) = function (fromString $ "callClosure" ++ varName i) [(closureTy, "closure")] llvmRetTy $ \[closure] -> mdo
+  block `named` "entry" ; do
+    args <- forM (zip [1..] llvmArgTy') $ \(i, _) -> do
+      gep closure $ int32 i
+
+    func <- gep closure (int32 0 ++ int32 0 ++ int32 0)
+
+    traceShowM (T.typeOf closure)
+    traceShowM (idTy i)
+    retCall <- call func (map (\arg -> (arg, [])) $ reverse args)
+
+    ret retCall
+  where
+  closureTy  = ptr $ T.StructureType False (typeToLlvmType (idTy i) : llvmArgTy')
+  llvmArgTy' = map typeToLlvmType argTys
+  llvmRetTy  = typeToLlvmType retTy
+  retTy  = last unwrapped
+  argTys = init unwrapped
+  unwrapped = unwrapFnType (idTy i)
