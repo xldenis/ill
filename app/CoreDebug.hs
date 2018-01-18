@@ -45,7 +45,6 @@ coreDebug filter ast = case runTC ast of
 
   where
   cliRenderArgs = defaultRenderArgs { width = 90 }
-  pipeline e = desugarBinOps >>> desugarTraits e >=> pure . simplifyPatterns
 
 runTC (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 prettyType a = renderIll defaultRenderArgs (pretty $ a)

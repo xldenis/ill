@@ -14,6 +14,7 @@ import Infer
 import DesugarDebug
 import Interpreter
 import CoreDebug
+import CodegenDebug
 
 import Options.Applicative.Simple
 
@@ -25,6 +26,7 @@ data Infer = Infer String
 data Desugar = Desugar String String
 data Run = Run String
 data Core = Core String (Maybe String)
+data Codegen = Codegen String
 
 fileArg = strArgument (metavar "FILE" <> help "location of source file")
 stageArg = strArgument (metavar "STAGE")
@@ -50,7 +52,11 @@ options = do
     addCommand "desugar"
       "view the desugaring pipeline up to a given stage"
       desugarC (Desugar <$> stageArg <*> fileArg)
+    addCommand "codegen"
+      "run the code generator and prettyprint llvm ir"
+      codegenC (Codegen <$> fileArg)
 
+codegenC (Codegen f) = commandWrapper f (codegen)
 format (Format f) = commandWrapper f (T.putStrLn . renderIll defaultRenderArgs . pretty)
 inferC (Infer f)  = commandWrapper f (infer)
 run    (Run f)    = commandWrapper f (runInterpreter)

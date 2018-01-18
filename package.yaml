@@ -46,6 +46,8 @@ executables:
     dependencies:
       - ill
       - optparse-simple
+      - llvm-hs
+      - bytestring
 tests:
   ill-test:
     main: Spec.hs

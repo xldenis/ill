@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c2ac3f5ea4fa9f80a009c8b2aff72ba9698a89740e0baf491d86fe273193812d
+-- hash: 1fa304160ebb7bcfc49a34079156cd2d50840aba00f660bae40ea43c3f9017ea
 
 name:           ill
 version:        0.1.0.0
@@ -100,8 +100,10 @@ executable ill
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , containers
     , ill
+    , llvm-hs
     , megaparsec
     , mtl
     , optparse-simple
@@ -109,6 +111,7 @@ executable ill
     , prettyprinter-ansi-terminal
     , text
   other-modules:
+      CodegenDebug
       CoreDebug
       DesugarDebug
       Infer
