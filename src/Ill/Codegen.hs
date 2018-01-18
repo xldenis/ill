@@ -49,14 +49,14 @@ malloc size = call (AST.LocalReference mallocTy "malloc") [(size, [])]
   where mallocTy = T.FunctionType (ptr T.void) [T.i32] False
 
 data CodegenState = CS
-  { vars :: [(Id, AST.Operand)]
-  , globalInfo :: [(Id, BindingInfo)]
+  { globalInfo :: [(Id, BindingInfo)]
+  , localInfo :: [(Id, AST.Operand)]
   } deriving (Show, Eq)
 
-updateVars f (CS v c) = CS (f v) c
+updateLocals f (CS c l) = CS c (f l)
 
 compileModule :: CoreModule -> AST.Module
-compileModule mod =  buildModule "example" . (flip runReaderT (CS nameMap infoMap)) $ mdo
+compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [])) $ mdo
   extern "malloc" [T.NamedTypeReference "size_t"] (ptr T.void)
 
   defMkDouble
@@ -68,10 +68,7 @@ compileModule mod =  buildModule "example" . (flip runReaderT (CS nameMap infoMa
   isLambda (NonRec _ Lambda{}) = True
   isLambda _ = False
 
-  infoMap = map collectBindingInfo (bindings mod)
-
-  nameMap = map nameTuple (bindings mod) ++ map (\(nm, (_, t)) -> (nm, ConstantOperand $ C.GlobalReference (typeToLlvmType' t) (fromString nm))) (constructors mod)
-  nameTuple (NonRec v _) = (varName v, ConstantOperand $ C.GlobalReference (typeToLlvmType' (idTy v)) (fromString $ varName v))
+  infoMap = map collectBindingInfo (bindings mod) ++ map collectConstructorInfo (constructors mod)
 
 data BindingInfo = Info
   { arity :: Int
@@ -79,6 +76,16 @@ data BindingInfo = Info
   , retTy :: T.Type
   , operand :: AST.Operand
   } deriving (Show, Eq)
+
+collectConstructorInfo :: (Name, (Int, Type Name)) -> (Id, BindingInfo)
+collectConstructorInfo (nm, (arity, ty)) = let
+  tys = unwrapFnType ty
+  args = map llvmArgType $ init tys
+  ret  = llvmArgType $ last tys
+
+  op = ConstantOperand $ C.GlobalReference (T.FunctionType ret args False) (fromString nm)
+
+  in (nm, Info arity args ret op)
 
 collectBindingInfo :: Bind Var -> (Id, BindingInfo)
 collectBindingInfo (NonRec v b) = let
@@ -191,7 +198,7 @@ compileBinding (NonRec nm l@(Lambda _ _)) = do
   function (fromString $ varName nm) args retTy $ \args -> mdo
     block `named` "entry" ; do
       let dict = zipWith (\v op -> (fromString $ varName v, op)) argVars args
-      local (updateVars (dict ++)) $ compileBody body >>= ret
+      local (updateLocals (dict ++)) $ compileBody body >>= ret
 
   pure ()
 
@@ -210,7 +217,7 @@ compileBody :: CodegenM m => CoreExp -> m AST.Operand
 compileBody (Lit (Double d)) = mkDouble =<< double d -- BOX IT
 compileBody (Lit (Integer i)) = mkInt =<< int64 i
 compileBody (Var v) = do
-  dict <- reader vars
+  dict <- reader localInfo
 
   globalDefs <- reader globalInfo
 
@@ -224,7 +231,7 @@ compileBody (Var v) = do
 compileBody (Let (NonRec v e) exp) = do -- figure out how to handle recursive let bindings
   cE <- compileBody e
 
-  local (updateVars ((varName v, cE) :)) $ compileBody exp
+  local (updateLocals ((varName v, cE) :)) $ compileBody exp
 compileBody (Case scrut alts) = mdo
   scrutOp <- compileBody scrut
   val <- load scrutOp 8
@@ -262,7 +269,7 @@ compileBody (Case scrut alts) = mdo
     let bindDict = zipWith (\var val -> (fromString $ varName var, val)) binds bindVals
     let tag = C.Int 64 i
 
-    local (updateVars (bindDict ++)) $ compileBody b
+    local (updateLocals (bindDict ++)) $ compileBody b
     val <- int64 5
     br retB
     pure ((tag, block), (val, block))
@@ -308,8 +315,9 @@ compileCall (Var func, args) = do
 
 knownCall arity i@(Id{}) args = do
   args' <- mapM compileBody args
-  dict <- reader vars
-  let f' = fromJust $ varName i `lookup` dict
+  dict <- reader globalInfo
+
+  let f' = operand . fromJust $ varName i `lookup` dict
   traceShowM (ppll $ T.typeOf f')
   call f' (map (\arg -> (arg, [])) args')
 
