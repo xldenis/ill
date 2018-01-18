@@ -31,6 +31,7 @@ import           Control.Monad.Reader
 
 import Debug.Trace
 
+import qualified Ill.Syntax.Builtins as Builtins
 import Data.Text.Lazy (pack)
 
 {-
@@ -58,7 +59,7 @@ updateLocals f (CS c l) = CS c (f l)
 compileModule :: CoreModule -> AST.Module
 compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [])) $ mdo
   extern "malloc" [T.NamedTypeReference "size_t"] (ptr T.void)
-
+  extern "gtInt" [ptr $ T.NamedTypeReference "Int", ptr $ T.NamedTypeReference "Int"] (ptr $ T.NamedTypeReference "Bool")
   defMkDouble
   defMkInt
 
@@ -68,7 +69,10 @@ compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [])) $
   isLambda (NonRec _ Lambda{}) = True
   isLambda _ = False
 
-  infoMap = map collectBindingInfo (bindings mod) ++ map collectConstructorInfo (constructors mod)
+  infoMap =
+    map collectBindingInfo (bindings mod) ++
+    map collectConstructorInfo (constructors mod) ++
+    builtinInfo
 
 data BindingInfo = Info
   { arity :: Int
@@ -76,6 +80,17 @@ data BindingInfo = Info
   , retTy :: T.Type
   , operand :: AST.Operand
   } deriving (Show, Eq)
+
+builtinInfo :: [(Id, BindingInfo)]
+builtinInfo = map go Builtins.primitives
+  where
+  go (nm, ty) = let
+    arity = length args
+    tys = unwrapFnType ty
+    args = map llvmArgType $ init tys
+    ret = llvmArgType $ last tys
+    op  = ConstantOperand $ C.GlobalReference (T.FunctionType ret args False) (fromString nm)
+    in (nm, Info arity args ret op)
 
 collectConstructorInfo :: (Name, (Int, Type Name)) -> (Id, BindingInfo)
 collectConstructorInfo (nm, (arity, ty)) = let
@@ -291,15 +306,10 @@ compileCall (Var func, args) = do
       | arity == length args -> knownCall arity func args
       | arity <  length args -> do
         let (args', ukArgs) = splitAt arity args
-        traceShowM "omg4"
 
         closePtr <- knownCall arity func args'
         cArgs <- mapM compileBody args
 
-        traceShowM func
-        traceShowM (args)
-        traceShowM (ppll $ T.typeOf closePtr)
-        traceShowM arity
         unknownCall closePtr cArgs
       | arity >  length args -> do
         op <- buildClosure func
@@ -318,12 +328,9 @@ knownCall arity i@(Id{}) args = do
   dict <- reader globalInfo
 
   let f' = operand . fromJust $ varName i `lookup` dict
-  traceShowM (ppll $ T.typeOf f')
   call f' (map (\arg -> (arg, [])) args')
 
 unknownCall closurePtr args = do
-  traceShowM closurePtr
-
   let (T.PointerType (T.StructureType _ ls) _) = T.typeOf closurePtr
 
   closure <- load closurePtr 8
@@ -335,7 +342,7 @@ unknownCall closurePtr args = do
   store closurePtr 8 updated
 
   if (length ls == length args) then do
-    voidPtr <- gep closure (int32 0 ++ int32 0)
+    voidPtr <- extractvalue (ptr T.void) closure ([0])
     fPtr <- bitcast voidPtr (ptr $ T.FunctionType (ptr $ T.void) [T.typeOf closurePtr] False)
     call fPtr [(closurePtr, [])]
   else pure closurePtr
