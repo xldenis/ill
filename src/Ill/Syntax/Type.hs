@@ -35,6 +35,8 @@ instance Pretty (Type String) where
 tArrow :: Type String
 tArrow = TConstructor "->"
 
+infixr 9 `tFn`
+
 tFn :: Type a -> Type a -> Type a
 tFn = Arrow
 
