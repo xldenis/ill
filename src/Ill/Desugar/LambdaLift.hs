@@ -6,6 +6,7 @@ import           Ill.Syntax.Core
 import           Ill.Syntax.Kind
 import           Ill.Syntax.Name
 import           Ill.Syntax.Type
+import           Ill.Syntax.Builtins
 
 import           Control.Monad.Fresh
 import           Control.Monad.Reader
@@ -40,7 +41,7 @@ liftModule :: CoreModule -> CoreModule
 liftModule m@Mod{..} = m { bindings = evalMonadStack $ mapM liftGlobal bindings }
   where
   evalMonadStack = uncurry (++) . evalFresh 0 . runWriterT . flip evalStateT (Lifted bindNames [])
-  bindNames = map (\(NonRec v _) -> varName v) bindings ++ primitives ++ consNames
+  bindNames = map (\(NonRec v _) -> varName v) bindings ++ (map fst primitives) ++ consNames
   consNames = map fst constructors
 
 liftBinding (NonRec nm exp) = do

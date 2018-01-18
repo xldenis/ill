@@ -65,6 +65,8 @@ compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [])) $
 
   forM (constructors mod) compileConstructor
   forM (filter isLambda $ bindings mod) compileBinding
+
+  forM (types mod) $ \nm -> typedef (fromString nm) Nothing
   where
   isLambda (NonRec _ Lambda{}) = True
   isLambda _ = False
@@ -153,31 +155,6 @@ compileConstructor (nm, (_, ty)) = do
   funArgs = zip llvmArgTy' (repeat (fromString "a"))
 
 ptr x = T.PointerType x (AddrSpace 0)
-
-typeToLlvmType = ptr . typeToLlvmType'
-typeToLlvmType' (TVar nm) = T.NamedTypeReference (fromString nm)
-typeToLlvmType' f@(Arrow _ _) =
-  T.FunctionType llvmRetTy llvmArgTy' False
-  where
-  llvmArgTy' = map llvmArgType argTys
-  llvmRetTy  = llvmArgType retTy
-  retTy  = last unwrapped
-  argTys = init unwrapped
-  unwrapped = unwrapFnType f
-typeToLlvmType' f@(TAp (TAp (TConstructor "->") a) b) =
-  T.FunctionType llvmRetTy llvmArgTy' False
-  where
-  llvmArgTy' = map llvmArgType argTys
-  llvmRetTy  = llvmArgType retTy
-  retTy  = last unwrapped
-  argTys = init unwrapped
-  unwrapped = unwrapFnType f
-typeToLlvmType' (TConstructor nm) = T.NamedTypeReference (fromString nm)
-typeToLlvmType' ap@(TAp _ _) = let
-  cons : _ = unwrapProduct ap
-  in typeToLlvmType' cons
-typeToLlvmType' (Forall _ t) = typeToLlvmType' t
-typeToLlvmType' t = error $ show t
 
 llvmArgType (TVar nm) = ptr $ T.NamedTypeReference (fromString nm)
 llvmArgType (TConstructor nm) = ptr $ T.NamedTypeReference (fromString nm)
@@ -278,7 +255,7 @@ compileBody (Case scrut alts) = mdo
     scrut' <- bitcast scrut $ T.NamedTypeReference (fromString cons)
     bindVals <- catMaybes <$> (forM (zip [1..] binds) $ \(ix, v) -> do
       case usage v of
-        Used -> Just <$> extractvalue (typeToLlvmType (idTy v)) scrut' [ix]
+        Used -> Just <$> extractvalue (llvmArgType (idTy v)) scrut' [ix]
         NotUsed -> pure Nothing)
 
     let bindDict = zipWith (\var val -> (fromString $ varName var, val)) binds bindVals

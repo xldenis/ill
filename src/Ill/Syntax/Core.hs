@@ -76,10 +76,10 @@ data Bind n
 data CoreModule = Mod
   { bindings :: [Bind Var]
   , constructors :: [(Name, (Int, Type Name))] -- wip: more generally track constructor info
-  , primitives :: [Id]
+  , types :: [Id]
   } deriving (Show, Eq)
 
-emptyModule = Mod [] [] ["failedPattern", "plusInt", "minusInt", "multInt", "divInt", "eqInt", "ltInt", "gtInt", "leqInt", "geqInt", "maxInt", "minInt", "plusStr", "showInt"]
+emptyModule = Mod [] [] []
 
 substitute :: HasName n => (Id, Core n) -> Core n -> Core n
 substitute = go []

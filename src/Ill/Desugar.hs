@@ -54,7 +54,7 @@ declToCore' (_ :< Data nm args conses) = do
         case unwrapProduct cons of
           (TConstructor consNm : args) -> (consNm, (length args, getConstructorType cons))
         ) conses
-  modify $ \m -> m { constructors = cons' ++ constructors m }
+  modify $ \m -> m { constructors = cons' ++ constructors m, types = nm : types m }
   where
   getConstructorType ty = let
     (TConstructor tyCons : tys) = unwrapProduct ty
