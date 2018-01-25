@@ -1,4 +1,4 @@
-{-# LANGUAGE RecursiveDo, OverloadedStrings, ConstraintKinds #-}
+{-# LANGUAGE RecursiveDo, OverloadedStrings, ConstraintKinds, ScopedTypeVariables #-}
 module Ill.Codegen where
 
 import Control.Monad (forM)
@@ -250,7 +250,7 @@ unwrapLambda (Lambda _ e) = unwrapLambda e
 unwrapLambda e = (e, [])
 -- compileBinding exp = unreachable -- error $ show exp
 
-compileBody :: CodegenM m => CoreExp -> m AST.Operand
+compileBody :: forall m . CodegenM m => CoreExp -> m AST.Operand
 compileBody (Lit (Double d)) = mkDouble =<< double d -- BOX IT
 compileBody (Lit (Integer i)) = mkInt =<< int64 i
 compileBody (Var v) = do
@@ -258,7 +258,7 @@ compileBody (Var v) = do
   globalDefs <- reader globalInfo
 
   case varName v `lookup` globalDefs of
-    Just i | arity i == 0 -> knownCall 0 v []
+    Just i | arity i == 0 -> knownCall i v []
     Just _ -> buildClosure v
     Nothing ->
       pure . nameAssert dict $ varName v `lookup` dict
@@ -296,13 +296,18 @@ compileBody (Case scrut alts) = mdo
       compileBody b
       br retB
     pure blk
+
+  compileAlt :: AST.Name -> Operand -> Integer -> Alt Var -> m ((C.Constant, AST.Name), (Operand, AST.Name))
   compileAlt retB scrut i c@(ConAlt cons binds b) = do
     block <- block `named` "branch"
     scrutPtr <- bitcast scrut $ ptr $ T.NamedTypeReference (fromString cons)
     scrut' <- load scrutPtr 8
-    bindVals <- catMaybes <$> (forM (zip [1..] binds) $ \(ix, v) -> do
+
+    (Info _ argTys _ _) <- reader (\s -> fromJust $ cons `lookup` globalInfo s)
+
+    bindVals <- catMaybes <$> (forM (zip3 [1..] binds argTys) $ \(ix, v, ty) -> do
       case usage v of
-        Used -> Just . (,) (varName v) <$> extractvalue (llvmArgType (idTy v)) scrut' [ix]
+        Used -> Just . (,) (varName v) <$> extractvalue (ty) scrut' [ix]
         NotUsed -> pure Nothing)
 
     let bindDict = bindVals
@@ -325,11 +330,11 @@ compileCall (Var func, args) = do
   case varName func `lookup` globalDefs of
     Just i@(Info arity _ _ _)
       | arity == length args -> do
-        knownCall arity func args
+        knownCall i func args
       | arity <  length args -> do
         let (args', ukArgs) = splitAt arity args
 
-        closePtr <- knownCall arity func args'
+        closePtr <- knownCall i func args'
         cArgs <- mapM compileBody ukArgs
 
         let retTy = llvmArgType $ last $ unwrapN (length args) (idTy func)
@@ -350,19 +355,17 @@ compileCall (Var func, args) = do
 
       closurePtr <- unknownCall closePtr args
       bitcast closurePtr retTy
-knownCall arity i@(Id{}) args = do
+
+knownCall (Info arity argTys _ _) i@(Id{}) args = do
   args' <- mapM compileBody args
   dict <- reader globalInfo
 
   let f' = operand . fromJust $ varName i `lookup` dict
 
-  let (T.PointerType (T.FunctionType _ argTys _) _) = T.typeOf f'
-
   args'' <- forM (zip args' argTys) $ \(arg, ty) -> do
     if T.typeOf arg == ty
     then pure arg
     else bitcast arg ty
-
 
   call f' (map (\arg -> (arg, [])) args'')
 
