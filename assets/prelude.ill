@@ -7,7 +7,7 @@ module Prelude
 
   data Bool = True | False
 
-  data Unit = Unit
+  data Unit = MkUnit
 
   data Either a b = Left a | Right b
 

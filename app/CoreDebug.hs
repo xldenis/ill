@@ -24,8 +24,6 @@ import Data.Maybe (maybeToList)
 
 import Prelude hiding (putStrLn, putStr)
 
-import Ill.Codegen
-
 coreDebug :: Maybe String -> Module SourceSpan -> IO ()
 coreDebug filter ast = case runTC ast of
   Left err -> putStrLn $ prettyType err
@@ -41,7 +39,6 @@ coreDebug filter ast = case runTC ast of
       Left err -> putStrLn $ pack err
       Right () -> do
         putStrLn $ pack "omgyesss: passed core lint!"
-    putStrLn $ prettyModule core
 
   where
   cliRenderArgs = defaultRenderArgs { width = 90 }
