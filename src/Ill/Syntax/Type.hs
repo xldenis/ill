@@ -177,8 +177,8 @@ replaceTypeVars subs (TAp f a) = TAp (replaceTypeVars subs f) (replaceTypeVars s
 replaceTypeVars subs (Constrained cs a) = Constrained cs' (replaceTypeVars subs a)
   where cs' = map (fmap $ map (replaceTypeVars subs)) cs
 replaceTypeVars subs f@(Forall vars ty)
-  | not (null intersection) = replaceTypeVars (filter (\(n, _) -> not $ n `elem` intersection) subs) f
-  | otherwise = Forall vars (replaceTypeVars subs ty)
+  -- | not (null intersection) = replaceTypeVars (filter (\(n, _) -> not $ n `elem` intersection) subs) f
+  | otherwise = generalizeWith (vars \\ keys) (replaceTypeVars subs ty)
   where
   keys = map fst subs
   intersection = keys `intersect` vars

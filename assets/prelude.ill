@@ -81,8 +81,8 @@ module Prelude
   end
 
   impl Eq Int
-    fn eq()
-      eqInt # primitive function
+    fn eq(a, b)
+      eqInt(a, b) # primitive function
     end
   end
 
@@ -94,12 +94,12 @@ module Prelude
       end
     end
 
-    fn lt () ltInt end
+    fn lt (a, b) ltInt(a, b) end
     fn gt (a, b) gtInt(a, b) end
-    fn leq () leqInt end
-    fn geq () geqInt end
-    fn max () maxInt end
-    fn min () minInt end
+    fn leq (a, b) leqInt(a, b) end
+    fn geq (a, b) geqInt(a, b) end
+    fn max (a, b) if geqInt(a,b) then a else b end end
+    fn min (a, b) if leqInt(a,b) then a else b end end
   end
 
   impl Semigroup Int

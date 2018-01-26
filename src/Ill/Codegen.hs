@@ -11,9 +11,6 @@ import           Ill.Syntax.Type
 
 import           LLVM.AST.AddrSpace
 import           LLVM.IRBuilder
-import           LLVM.IRBuilder.Instruction
-import           LLVM.IRBuilder.Module
-import           LLVM.IRBuilder.Monad
 import           LLVM.Pretty
 import           LLVM.AST.Operand
 import qualified LLVM.AST as AST
@@ -25,6 +22,7 @@ import qualified LLVM.AST.IntegerPredicate as AST
 import           Ill.Prelude hiding (void)
 import           Data.Word
 import           Data.Maybe
+import           Data.Char
 import           Data.List (find)
 import           Control.Monad.Fix
 import           Control.Monad.Reader
@@ -61,17 +59,33 @@ data CodegenState = CS
 
 updateLocals f (CS c l) = CS c (f l)
 
+
+primInt = ptr $ T.NamedTypeReference "Int"
+primBool = ptr $ T.NamedTypeReference "Bool"
+primStr  = ptr $ T.NamedTypeReference "String"
+
 compileModule :: CoreModule -> AST.Module
 compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [])) $ mdo
   extern "malloc" [T.i64] (ptr T.i8)
-  extern "gtInt" [ptr $ T.NamedTypeReference "Int", ptr $ T.NamedTypeReference "Int"] (ptr $ T.NamedTypeReference "Bool")
-  typedef "String" Nothing
+  extern "ltInt" [primInt, primInt] primBool
+  extern "gtInt" [primInt, primInt] primBool
+  extern "eqInt" [primInt, primInt] primBool
+  extern "geqInt" [primInt, primInt] primBool
+  extern "leqInt" [primInt, primInt] primBool
+  extern "minusInt" [primInt, primInt] primInt
+  extern "plusInt" [primInt, primInt] primInt
+  extern "plusStr" [primStr, primStr] primStr
+  extern "showInt" [primInt] primStr
+
+  typedef "String" (Just $ T.StructureType False [T.i64, T.ArrayType 1 T.i32])
+
   defMkDouble
   defMkInt
   apply1
+
   forM (types mod) $ \nm -> typedef (fromString nm) $ Just $ T.StructureType False [T.i64]
   forM (constructors mod) compileConstructor
-  forM (filter isLambda $ bindings mod) compileBinding
+  forM (bindings mod) compileBinding
 
   where
   isLambda (NonRec _ Lambda{}) = True
@@ -176,14 +190,13 @@ apply1 = do
       retVal <- bitcast closurePtr (ptr $ T.i8)
       ret retVal
 
-
 compileConstructor :: MonadModuleBuilder m => (Name, (Int, Type Name)) -> m ()
 compileConstructor (nm, (_, ty)) = do
   typedef (fromString nm) (Just $ T.StructureType False llvmArgTys)
 
   M.void $ function (fromString $ nm) funArgs (retTy) $ \args -> do
     block `named` "entryC" ; do
-      voidPtr <- malloc (ConstantOperand consSize)
+      voidPtr <- malloc (sizeofType $ ptr consTy)
       memPtr <- bitcast voidPtr (ptr consTy)
       val <- load memPtr 8
       header <- int64 0
@@ -195,7 +208,6 @@ compileConstructor (nm, (_, ty)) = do
       ret retPtr
   where
   consTy = T.NamedTypeReference $ fromString nm
-  consSize = C.PtrToInt (C.GetElementPtr False (C.Null $ ptr consTy) [C.Int 32 1]) (T.i64)
   llvmArgTys = T.i64 : llvmArgTy'
   llvmArgTy' = map llvmArgType argTys
   argTys = init unwrapped
@@ -229,13 +241,15 @@ type CodegenM m = (MonadFix m, MonadIRBuilder m,     MonadReader CodegenState m)
 type ModuleM  m = (MonadFix m, MonadModuleBuilder m, MonadReader CodegenState m)
 
 compileBinding :: ModuleM m => Bind Var -> m ()
-compileBinding (NonRec nm l@(Lambda _ _)) = do
-  when (length argVars > 1) $ void $ mkClosureCall (length argVars) nm
+compileBinding (NonRec nm l) = do
+  when (length argVars > 0) $ void $ mkClosureCall (length argVars) nm
 
   function (fromString $ varName nm) args retTy $ \args -> mdo
     block `named` "entry" ; do
       let dict = zipWith (\v op -> (fromString $ varName v, op)) argVars args
-      local (updateLocals (dict ++)) $ compileBody body >>= ret
+      local (updateLocals (dict ++)) $ do
+        retVal <- compileBody body
+        bitcast retVal retTy >>= ret
 
   pure ()
 
@@ -248,18 +262,28 @@ unwrapLambda :: Core Var -> (Core Var, [Var])
 unwrapLambda (Lambda b@(Id{}) e) = (b :) <$> unwrapLambda e
 unwrapLambda (Lambda _ e) = unwrapLambda e
 unwrapLambda e = (e, [])
--- compileBinding exp = unreachable -- error $ show exp
 
 compileBody :: forall m . CodegenM m => CoreExp -> m AST.Operand
 compileBody (Lit (Double d)) = mkDouble =<< double d -- BOX IT
 compileBody (Lit (Integer i)) = mkInt =<< int64 i
+compileBody (Lit (RawString i)) = do
+  let charOrds = map fromEnum i
+  let chars = map (C.Int 32 . fromIntegral) charOrds
+
+  str <- struct Nothing False $ [C.Int 64 . fromIntegral $ length i, C.Array T.i32 chars]
+
+  voidPtr <- malloc (sizeofType . ptr $ T.typeOf str)
+  memPtr <- bitcast voidPtr (ptr $ T.typeOf str)
+  store memPtr 8 str
+
+  bitcast memPtr (ptr $ T.NamedTypeReference "String")
 compileBody (Var v) = do
   dict <- reader localInfo
   globalDefs <- reader globalInfo
 
   case varName v `lookup` globalDefs of
     Just i | arity i == 0 -> knownCall i v []
-    Just _ -> buildClosure v
+    Just i -> buildClosure i v
     Nothing ->
       pure . nameAssert dict $ varName v `lookup` dict
   where
@@ -291,6 +315,10 @@ compileBody (Case scrut alts) = mdo
       br retB
     pure blk
 
+  compileDefaultAlt retB (TrivialAlt (App (Var v) _)) | varName v == "failedPattern" = do
+    blk <- block `named` "trivial_branch" ; do
+      unreachable
+    pure blk
   compileDefaultAlt retB (TrivialAlt b) = do
     blk <- block `named` "trivial_branch" ; do
       compileBody b
@@ -316,13 +344,25 @@ compileBody (Case scrut alts) = mdo
     br retB
     pure ((tag, block), (val, block))
 
-compileBody a@(App _ _) = compileCall (unwrapApp a [])
+compileBody a@(App _ _) = do
+  let (Var f, args) = extractTyApp a []
+      unwrapped = extractApp a []
+      vars = varsInType (idTy f) \\ freeVariables (idTy f)
+      appliedType = replaceTypeVars (zip vars args) (idTy f)
+      appRetTy = llvmArgType . last $ unwrapN (length $ snd unwrapped) appliedType
+  c <- compileCall unwrapped
+  bitcast c appRetTy
 compileBody exp = mkInt =<< int64 (-97)
 
-unwrapApp :: Core Var -> [CoreExp] -> (Core Var, [CoreExp])
-unwrapApp (App f (Type _)) acc = unwrapApp f (acc)
-unwrapApp (App f e)        acc = unwrapApp f (e : acc)
-unwrapApp e acc = (e, acc)
+extractTyApp :: Core Var -> [Type Name] -> (Core Var, [Type Name])
+extractTyApp (App f (Type t)) acc = extractTyApp f (t : acc)
+extractTyApp (App f e)        acc = extractTyApp f (acc)
+extractTyApp e acc = (e, acc)
+
+extractApp :: Core Var -> [CoreExp] -> (Core Var, [CoreExp])
+extractApp (App f (Type _)) acc = extractApp f (acc)
+extractApp (App f e)        acc = extractApp f (e : acc)
+extractApp e acc = (e, acc)
 
 compileCall (c, []) = compileBody c
 compileCall (Var func, args) = do
@@ -331,18 +371,18 @@ compileCall (Var func, args) = do
     Just i@(Info arity _ _ _)
       | arity == length args -> do
         knownCall i func args
-      | arity <  length args -> do
+      | arity < length args -> do
         let (args', ukArgs) = splitAt arity args
 
         closePtr <- knownCall i func args'
         cArgs <- mapM compileBody ukArgs
-
         let retTy = llvmArgType $ last $ unwrapN (length args) (idTy func)
         closurePtr <- unknownCall closePtr cArgs
+
         bitcast closurePtr retTy
 
       | arity >  length args -> do
-        op <- buildClosure func
+        op <- buildClosure i func
         args <- mapM compileBody args
 
         closurePtr <- unknownCall op args
@@ -372,8 +412,7 @@ knownCall (Info arity argTys _ _) i@(Id{}) args = do
 unknownCall closurePtr args = do
   let (T.PointerType (T.StructureType _ ls) _) = T.typeOf closurePtr
 
-
-  let fTy = T.FunctionType (ptr T.i8) [ptr $ T.StructureType False (ptr T.i8 : T.i8 : [ptr T.i8]), ptr T.i8] False
+  let fTy = T.FunctionType (ptr T.i8) [closureType] False
   foldM (\clos arg -> do
     clos' <- if T.typeOf clos == ptr T.i8
       then bitcast clos closureType
@@ -396,10 +435,12 @@ unknownCall closurePtr args = do
   store the fully arity in order to determine the offset for the next argument we wish to store.
 -}
 
-buildClosure :: CodegenM m => Var -> m Operand
-buildClosure i@(Id{}) = do
-  voidPtr <- malloc (ConstantOperand consSize)
-  memPtr <- bitcast voidPtr closureTy
+sizeofType ty = ConstantOperand $ C.PtrToInt (C.GetElementPtr False (C.Null ty) [C.Int 32 1]) T.i64
+
+buildClosure :: CodegenM m => BindingInfo -> Var -> m Operand
+buildClosure (Info _ argTys retTy _) i@(Id{}) = do
+  voidPtr <- malloc $ sizeofType closureType
+  memPtr <- bitcast voidPtr closureType
   val <- load memPtr 8
   let name = AST.ConstantOperand $ C.GlobalReference closureFuncTy (fromString $ "callClosure" ++ varName i)
 
@@ -411,18 +452,10 @@ buildClosure i@(Id{}) = do
   store memPtr 8 val''
   return memPtr
   where
-  consSize = C.PtrToInt (C.GetElementPtr False (C.Null $ closureTy) [C.Int 32 1]) T.i64
-
-  closureFuncTy = ptr $ T.FunctionType llvmRetTy [closureTy] False
-  closureTy  = closureType
-  llvmArgTy' = reverse $ map llvmArgType argTys
-  llvmRetTy  = llvmArgType retTy
-  retTy  = last unwrapped
-  argTys = init unwrapped
-  unwrapped = unwrapFnType (idTy i)
+  closureFuncTy = ptr $ T.FunctionType retTy [closureType] False
 
 mkClosureCall :: ModuleM m => Int -> Var -> m Operand
-mkClosureCall arity i@(Id{}) = function (fromString $ "callClosure" ++ varName i) [(closureTy, "closure")] llvmRetTy $ \[closure] -> mdo
+mkClosureCall arity i@(Id{}) = function (fromString $ "callClosure" ++ varName i) [(closureType, "closure")] llvmRetTy $ \[closure] -> mdo
   block `named` "entry" ; do
     args <- forM (zip [1..] llvmArgTy') $ \(i, ty) -> do
       argPtr <- gep closure $ int32 0 ++ int32 2 ++ int32 i
@@ -434,11 +467,6 @@ mkClosureCall arity i@(Id{}) = function (fromString $ "callClosure" ++ varName i
 
     ret retCall
   where
-
-  closureFuncTy = T.FunctionType llvmRetTy [closureTy] False
-  closureTy  = closureType
-  llvmArgTy' = reverse $ map llvmArgType argTys
-  llvmRetTy  = llvmArgType retTy
-  retTy  = last unwrapped
-  argTys = init unwrapped
+  llvmArgTy' = reverse $ map llvmArgType (init unwrapped)
+  llvmRetTy  = llvmArgType (last unwrapped)
   unwrapped = unwrapN arity (idTy i)
