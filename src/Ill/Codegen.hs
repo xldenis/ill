@@ -26,7 +26,7 @@ import           Data.Char
 import           Data.List (find)
 import           Control.Monad.Fix
 import           Control.Monad.Reader
-
+import           Control.Monad.State (gets)
 import Ill.Syntax.Pretty
 
 import Debug.Trace
@@ -302,32 +302,36 @@ compileBody (Case scrut alts) = mdo
   switch tag defAlt alts'
 
   (alts', phis) <- unzip <$> M.zipWithM (compileAlt retBlock scrutOp) [1..] (filter isConAlt alts)
-  defAlt <- fromJust $ (compileDefaultAlt retBlock) <$> (find isTrivialAlt alts) <|> pure (defaultBranch retBlock)
+  (defAlt, maybeBody) <- fromJust $ (compileDefaultAlt retBlock) <$> (find isTrivialAlt alts) <|> pure (defaultBranch retBlock)
 
   retBlock <- block `named` "switch_return" ; do
-    phi phis
+    phi $ maybeToList maybeBody ++ phis
   where
   fromJust' (Just x) = x
   fromJust' _ = error (show alts)
 
   defaultBranch retB = do
     blk <- block `named` "default_branch" ; do
-      br retB
-    pure blk
+      unreachable
+    pure (blk, Nothing)
 
   compileDefaultAlt retB (TrivialAlt (App (Var v) _)) | varName v == "failedPattern" = do
     blk <- block `named` "trivial_branch" ; do
       unreachable
-    pure blk
+    pure (blk, Nothing)
   compileDefaultAlt retB (TrivialAlt b) = do
     blk <- block `named` "trivial_branch" ; do
-      compileBody b
+      body <- compileBody b
       br retB
-    pure blk
+
+      mbb <- liftIRState $ gets builderBlock
+
+      let label = partialBlockName $ fromJust mbb
+      pure (blk, Just (body, label))
 
   compileAlt :: AST.Name -> Operand -> Integer -> Alt Var -> m ((C.Constant, AST.Name), (Operand, AST.Name))
   compileAlt retB scrut i c@(ConAlt cons binds b) = do
-    block <- block `named` "branch"
+    block <- block `named` (fromString $ "branch" ++ cons)
     scrutPtr <- bitcast scrut $ ptr $ T.NamedTypeReference (fromString cons)
     scrut' <- load scrutPtr 8
 
@@ -335,14 +339,19 @@ compileBody (Case scrut alts) = mdo
 
     bindVals <- catMaybes <$> (forM (zip3 [1..] binds argTys) $ \(ix, v, ty) -> do
       case usage v of
-        Used -> Just . (,) (varName v) <$> extractvalue (ty) scrut' [ix]
+        Used -> do
+          field <- extractvalue (ty) scrut' [ix]
+          return $ Just (varName v, field)
         NotUsed -> pure Nothing)
 
-    let bindDict = bindVals
     let tag = C.Int 64 i
-    val <- local (updateLocals (bindDict ++)) $ compileBody b
-    br retB
-    pure ((tag, block), (val, block))
+    val <- local (updateLocals (bindVals ++)) $ compileBody b
+    mbb <- liftIRState $ gets builderBlock
+
+    let label = partialBlockName $ fromJust mbb
+
+    br retB -- here is the problem... we may have generated intermediate blocks so we need to get the correct label
+    pure ((tag, block), (val, label))
 
 compileBody a@(App _ _) = do
   let (Var f, args) = extractTyApp a []
