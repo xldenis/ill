@@ -17,6 +17,7 @@ import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Type as T
 import qualified LLVM.AST.Typed as T
+
 import qualified Control.Monad as M
 import qualified LLVM.AST.IntegerPredicate as AST
 import           Ill.Prelude hiding (void)
@@ -49,8 +50,9 @@ byte :: Applicative f => Integer -> f Operand
 byte = pure . ConstantOperand . C.Int 8
 
 malloc :: MonadIRBuilder m => AST.Operand -> m AST.Operand
-malloc size = call ( ConstantOperand $ C.GlobalReference mallocTy "malloc") [(size, [])]
-  where mallocTy = T.FunctionType (ptr T.i8) [T.i64] False
+malloc size = do
+  call (ConstantOperand $ C.GlobalReference mallocTy "malloc") [(size, [])]
+  where mallocTy = ptr $ T.FunctionType (ptr T.i8) [T.i64] False
 
 data CodegenState = CS
   { globalInfo :: [(Id, BindingInfo)]
@@ -111,7 +113,7 @@ builtinInfo = map go Builtins.primitives
     tys = unwrapFnType ty
     args = map llvmArgType $ init tys
     ret = llvmArgType $ last tys
-    op  = ConstantOperand $ C.GlobalReference (T.FunctionType ret args False) (fromString nm)
+    op  = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString nm)
     in (nm, Info arity args ret op)
 
 collectConstructorInfo :: (Name, (Int, Type Name)) -> (Id, BindingInfo)
@@ -120,7 +122,7 @@ collectConstructorInfo (nm, (arity, ty)) = let
   args = map llvmArgType $ init tys
   ret  = llvmArgType $ last tys
 
-  op = ConstantOperand $ C.GlobalReference (T.FunctionType ret args False) (fromString nm)
+  op = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString nm)
 
   in (nm, Info arity args ret op)
 
@@ -130,9 +132,10 @@ collectBindingInfo (NonRec v b) = let
   tys   = unwrapN arity (idTy v)
   args  = map llvmArgType $ init tys
   ret   = llvmArgType $ last tys
-  op    = ConstantOperand $ C.GlobalReference (T.FunctionType ret args False) (fromString $ varName v)
+  op    = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString $ varName v)
   in (varName v, Info arity args ret op)
 
+defMkDouble :: ModuleM m => m Operand
 defMkDouble = do
   let dType = ptr $ T.NamedTypeReference (fromString "Double")
   typedef (fromString "Double") (Just $ T.StructureType False [T.i64, T.double])
@@ -146,8 +149,9 @@ defMkDouble = do
       ret iPtr
 
 mkDouble d = call (AST.LocalReference mkDoubleTy "mkDouble") [(d, [])]
-  where mkDoubleTy = T.FunctionType (ptr $ T.NamedTypeReference (fromString "Double")) [T.double] False
+  where mkDoubleTy = ptr $ T.FunctionType (ptr $ T.NamedTypeReference (fromString "Double")) [T.double] False
 
+defMkInt :: ModuleM m => m Operand
 defMkInt = do
   let iType = ptr $ T.NamedTypeReference (fromString "Int")
   typedef (fromString "Int") (Just $ T.StructureType False [T.i64, T.i64])
@@ -161,10 +165,11 @@ defMkInt = do
       ret iPtr
 
 mkInt d = call (AST.ConstantOperand $ C.GlobalReference mkIntTy "mkInt") [(d, [])]
-  where mkIntTy = T.FunctionType (ptr $ T.NamedTypeReference (fromString "Int")) [T.i64] False
+  where mkIntTy = ptr $ T.FunctionType (ptr $ T.NamedTypeReference (fromString "Int")) [T.i64] False
 
 closureType = ptr $ T.StructureType False (ptr T.i8 : T.i8 : [T.ArrayType 1 $ ptr T.i8])
 
+apply1 :: ModuleM m => m Operand
 apply1 = do
   function "apply1" [(closureType , "closure"), (ptr T.i8, "argPtr")] (ptr T.i8) $ \[closurePtr, argPtr] -> do
     block `named` "entry"
@@ -184,7 +189,7 @@ apply1 = do
       retVal <- call fPtr [(closurePtr, [])]
       ret retVal
     block `named` "default"; do
-      arity' <- sub remainingArity =<< int64 1
+      arity' <- sub remainingArity =<< int32 1
       closureArgPtr <- gep closurePtr $ int32 0 ++ int32 2 ++ [arity']
       store closureArgPtr 8 argPtr
       retVal <- bitcast closurePtr (ptr $ T.i8)
@@ -421,7 +426,7 @@ knownCall (Info arity argTys _ _) i@(Id{}) args = do
 unknownCall closurePtr args = do
   let (T.PointerType (T.StructureType _ ls) _) = T.typeOf closurePtr
 
-  let fTy = T.FunctionType (ptr T.i8) [closureType] False
+  let fTy = ptr $ T.FunctionType (ptr T.i8) [closureType, ptr $ T.i8] False
   foldM (\clos arg -> do
     clos' <- if T.typeOf clos == ptr T.i8
       then bitcast clos closureType
@@ -471,7 +476,7 @@ mkClosureCall arity i@(Id{}) = function (fromString $ "callClosure" ++ varName i
       ptr' <- bitcast argPtr (ptr ty)
       load ptr' 8
 
-    let func = AST.ConstantOperand $ C.GlobalReference (T.FunctionType llvmRetTy llvmArgTy' False) (fromString $ varName i)
+    let func = AST.ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType llvmRetTy (reverse llvmArgTy') False) (fromString $ varName i)
     retCall <- call func (map (\arg -> (arg, [])) $ reverse args)
 
     ret retCall
