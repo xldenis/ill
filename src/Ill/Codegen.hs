@@ -28,7 +28,9 @@ import           Data.List (find)
 import           Control.Monad.Fix
 import           Control.Monad.Reader
 import           Control.Monad.State (gets)
-import Ill.Syntax.Pretty
+import           Ill.Syntax.Pretty
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BS8
 
 import Debug.Trace
 
@@ -61,7 +63,6 @@ data CodegenState = CS
 
 updateLocals f (CS c l) = CS c (f l)
 
-
 primInt = ptr $ T.NamedTypeReference "Int"
 primBool = ptr $ T.NamedTypeReference "Bool"
 primStr  = ptr $ T.NamedTypeReference "String"
@@ -79,7 +80,7 @@ compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [])) $
   extern "plusStr" [primStr, primStr] primStr
   extern "showInt" [primInt] primStr
 
-  typedef "String" (Just $ T.StructureType False [T.i64, T.ArrayType 1 T.i32])
+  typedef "String" (Just $ T.StructureType False [T.i64, ptr $ T.i8])
 
   defMkDouble
   defMkInt
@@ -246,6 +247,7 @@ type CodegenM m = (MonadFix m, MonadIRBuilder m,     MonadReader CodegenState m)
 type ModuleM  m = (MonadFix m, MonadModuleBuilder m, MonadReader CodegenState m)
 
 compileBinding :: ModuleM m => Bind Var -> m ()
+compileBinding (NonRec v l) | varName v == "main" = compileBinding (NonRec (v { varName = "module_main" }) l)
 compileBinding (NonRec nm l) = do
   when (length argVars > 0) $ void $ mkClosureCall (length argVars) nm
 
@@ -269,17 +271,24 @@ unwrapLambda (Lambda _ e) = unwrapLambda e
 unwrapLambda e = (e, [])
 
 compileBody :: forall m . CodegenM m => CoreExp -> m AST.Operand
-compileBody (Lit (Double d)) = mkDouble =<< double d -- BOX IT
+compileBody (Lit (Double d)) = mkDouble =<< double d
 compileBody (Lit (Integer i)) = mkInt =<< int64 i
 compileBody (Lit (RawString i)) = do
-  let charOrds = map fromEnum i
-  let chars = map (C.Int 32 . fromIntegral) charOrds
+  let charOrds = (BS.unpack $ BS8.pack i) ++ [0]
+  let chars = map (C.Int 8 . fromIntegral) charOrds
+  arr <- array chars
 
-  str <- struct Nothing False $ [C.Int 64 . fromIntegral $ length i, C.Array T.i32 chars]
+  voidPtr <- malloc =<< (int64 . fromIntegral $ length chars)
+  arrPtr  <- bitcast voidPtr (ptr $ T.typeOf arr)
+  store arrPtr 8 arr
 
-  voidPtr <- malloc (sizeofType . ptr $ T.typeOf str)
-  memPtr <- bitcast voidPtr (ptr $ T.typeOf str)
-  store memPtr 8 str
+  str <- struct Nothing False $ [C.Int 64 . fromIntegral $ length i, C.Null (ptr $ T.i8)]
+  charPtr <- bitcast arrPtr (ptr $ T.i8)
+  fullStruct <- insertvalue str charPtr [1]
+
+  voidPtr <- malloc (sizeofType . ptr $ T.typeOf fullStruct)
+  memPtr <- bitcast voidPtr (ptr $ T.typeOf fullStruct)
+  store memPtr 8 fullStruct
 
   bitcast memPtr (ptr $ T.NamedTypeReference "String")
 compileBody (Var v) = do

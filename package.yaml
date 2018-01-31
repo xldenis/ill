@@ -67,3 +67,5 @@ tests:
     - template-haskell
 data-files:
 - assets/prelude.ill
+- assets/builtins.ll
+- assets/rts.ll

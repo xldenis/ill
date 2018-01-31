@@ -1,0 +1,7 @@
+module SimpleCodegen
+  data Bool = True | False
+
+  fn main()
+    'hello world'
+  end
+end
