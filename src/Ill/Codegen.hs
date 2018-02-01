@@ -158,7 +158,7 @@ defMkInt = do
   typedef (fromString "Int") (Just $ T.StructureType False [T.i64, T.i64])
   function "mkInt" [(T.i64, "d")] (iType) $ \[d] -> do
     block `named` "entry" ; do
-      memPtr <- malloc =<< (int64 $ 8 + 8)
+      memPtr <- malloc (sizeofType primInt)
       iPtr <- bitcast memPtr iType
       i <- load iPtr 8
       i' <- insertvalue i d [1]

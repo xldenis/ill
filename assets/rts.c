@@ -5,24 +5,33 @@
 
 #include "rts.h"
 
-String* showInt(int x)
+String* showInt(Int* x)
 {
-    int num_chars = snprintf(NULL, 0, "%d", x) + 1;
-    String* buffer = (String*)(malloc(num_chars));
+    int num_chars = snprintf(NULL, 0, "%lld", x->val) + 1;
+    String* str = mkString(num_chars);
+    snprintf(str->data, num_chars, "%lld", x->val);
 
-    snprintf(buffer->data, num_chars, "%d", x);
-    buffer->string_length = num_chars;
-    return buffer; // caller is expected to invoke free() on this buffer to release memory
+    return str; // caller is expected to invoke free() on this buffer to release memory
+}
+
+String* mkString(size_t length)
+{
+    String* strPtr = (String*)(malloc(sizeof(String)));
+    char* buffer = malloc(length);
+
+    strPtr->string_length = length;
+    strPtr->data = buffer;
+
+    return strPtr;
 }
 
 String* plusStr(String* a, String* b)
 {
-    int num_chars = a->string_length + b-> string_length;
-    String* buffer = (String*)(malloc(num_chars));
+    int num_chars = a->string_length + b->string_length;
+    String* str = mkString(num_chars);
 
-    snprintf(buffer->data, num_chars, "%s%s", a->data, b->data);
-    buffer->string_length = num_chars;
-    return buffer;
+    snprintf(str->data, num_chars, "%s%s", a->data, b->data);
+    return str;
 }
 
 extern String* module_main();
