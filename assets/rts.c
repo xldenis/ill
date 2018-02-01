@@ -39,7 +39,6 @@ extern String* module_main();
 int main()
 {
     String* returnVal = module_main();
-
     printf("%s\n", returnVal->data);
 
     return 0;

@@ -40,7 +40,7 @@ codegen ast = case runTC ast of
         withModuleFromLLVMAssembly ctx (File path) $ \builtins -> do
           withModuleFromLLVMAssembly ctx (File cPath) $ \cBuiltins -> do
             withPassManager defaultCuratedPassSetSpec $ \pm -> do
-              -- runPassManager pm mod
+              runPassManager pm mod
               linkModules mod builtins
               linkModules mod cBuiltins
               writeLLVMAssemblyToFile (File "example.ll") mod

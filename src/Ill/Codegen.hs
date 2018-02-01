@@ -176,9 +176,9 @@ apply1 = do
     block `named` "entry"
 
     arityPtr <- gep closurePtr $ int32 0 ++ int32 1
-    arity <- load argPtr 8
+    arity <- load arityPtr 8
     remainingArity <- zext arity T.i32
-    cond <- icmp AST.EQ remainingArity (ConstantOperand $ C.Int 32 0)
+    cond <- icmp AST.EQ remainingArity (ConstantOperand $ C.Int 32 1)
     condBr cond "Arity 1" "default"
 
     block `named` "Arity 1"; do
@@ -480,7 +480,7 @@ buildClosure (Info _ argTys retTy _) i@(Id{}) = do
 mkClosureCall :: ModuleM m => Int -> Var -> m Operand
 mkClosureCall arity i@(Id{}) = function (fromString $ "callClosure" ++ varName i) [(closureType, "closure")] llvmRetTy $ \[closure] -> mdo
   block `named` "entry" ; do
-    args <- forM (zip [1..] llvmArgTy') $ \(i, ty) -> do
+    args <- forM (zip [0..] llvmArgTy') $ \(i, ty) -> do
       argPtr <- gep closure $ int32 0 ++ int32 2 ++ int32 i
       ptr' <- bitcast argPtr (ptr ty)
       load ptr' 8
