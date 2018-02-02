@@ -1,0 +1,10 @@
+module Codegen3
+
+  fn main ()
+    list = Cons(1, Cons(2, Nil))
+
+    mapped = fmap(fn (x) = x + 1 end, list)
+
+    show(mapped)
+  end
+end

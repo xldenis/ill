@@ -17,7 +17,7 @@ String* showInt(Int* x)
 String* mkString(size_t length)
 {
     String* strPtr = (String*)(malloc(sizeof(String)));
-    char* buffer = malloc(length);
+    char* buffer = malloc((length + 1) * sizeof(char));
 
     strPtr->string_length = length;
     strPtr->data = buffer;
@@ -29,8 +29,7 @@ String* plusStr(String* a, String* b)
 {
     int num_chars = a->string_length + b->string_length;
     String* str = mkString(num_chars);
-
-    snprintf(str->data, num_chars, "%s%s", a->data, b->data);
+    snprintf(str->data, num_chars + 1, "%s%s", a->data, b->data);
     return str;
 }
 

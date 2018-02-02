@@ -61,7 +61,9 @@ entry:
   %0 = bitcast i8* %call to %struct.String*
   store %struct.String* %0, %struct.String** %strPtr, align 8
   %1 = load i64, i64* %length.addr, align 8
-  %call1 = call i8* @malloc(i64 %1) #4
+  %add = add i64 %1, 1
+  %mul = mul i64 %add, 1
+  %call1 = call i8* @malloc(i64 %mul) #4
   store i8* %call1, i8** %buffer, align 8
   %2 = load i64, i64* %length.addr, align 8
   %3 = load %struct.String*, %struct.String** %strPtr, align 8
@@ -104,18 +106,19 @@ entry:
   %data = getelementptr inbounds %struct.String, %struct.String* %5, i32 0, i32 1
   %6 = load i8*, i8** %data, align 8
   %7 = load i32, i32* %num_chars, align 4
-  %conv3 = sext i32 %7 to i64
+  %add3 = add nsw i32 %7, 1
+  %conv4 = sext i32 %add3 to i64
   %8 = load %struct.String*, %struct.String** %str, align 8
-  %data4 = getelementptr inbounds %struct.String, %struct.String* %8, i32 0, i32 1
-  %9 = load i8*, i8** %data4, align 8
+  %data5 = getelementptr inbounds %struct.String, %struct.String* %8, i32 0, i32 1
+  %9 = load i8*, i8** %data5, align 8
   %10 = call i64 @llvm.objectsize.i64.p0i8(i8* %9, i1 false, i1 true)
   %11 = load %struct.String*, %struct.String** %a.addr, align 8
-  %data5 = getelementptr inbounds %struct.String, %struct.String* %11, i32 0, i32 1
-  %12 = load i8*, i8** %data5, align 8
+  %data6 = getelementptr inbounds %struct.String, %struct.String* %11, i32 0, i32 1
+  %12 = load i8*, i8** %data6, align 8
   %13 = load %struct.String*, %struct.String** %b.addr, align 8
-  %data6 = getelementptr inbounds %struct.String, %struct.String* %13, i32 0, i32 1
-  %14 = load i8*, i8** %data6, align 8
-  %call7 = call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* %6, i64 %conv3, i32 0, i64 %10, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.1, i32 0, i32 0), i8* %12, i8* %14)
+  %data7 = getelementptr inbounds %struct.String, %struct.String* %13, i32 0, i32 1
+  %14 = load i8*, i8** %data7, align 8
+  %call8 = call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* %6, i64 %conv4, i32 0, i64 %10, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.1, i32 0, i32 0), i8* %12, i8* %14)
   %15 = load %struct.String*, %struct.String** %str, align 8
   ret %struct.String* %15
 }

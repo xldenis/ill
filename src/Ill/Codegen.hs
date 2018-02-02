@@ -177,8 +177,7 @@ apply1 = do
 
     arityPtr <- gep closurePtr $ int32 0 ++ int32 1
     arity <- load arityPtr 8
-    remainingArity <- zext arity T.i32
-    cond <- icmp AST.EQ remainingArity (ConstantOperand $ C.Int 32 1)
+    cond <- icmp AST.EQ arity (ConstantOperand $ C.Int 8 1)
     condBr cond "Arity 1" "default"
 
     block `named` "Arity 1"; do
@@ -190,9 +189,13 @@ apply1 = do
       retVal <- call fPtr [(closurePtr, [])]
       ret retVal
     block `named` "default"; do
-      arity' <- sub remainingArity =<< int32 1
+      arity' <- sub arity =<< byte 1
       closureArgPtr <- gep closurePtr $ int32 0 ++ int32 2 ++ [arity']
       store closureArgPtr 8 argPtr
+
+      arityPtr <- gep closurePtr $ int32 0 ++ int32 1
+
+      store arityPtr 8 arity'
       retVal <- bitcast closurePtr (ptr $ T.i8)
       ret retVal
 

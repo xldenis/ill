@@ -1,0 +1,10 @@
+module MoreComplex
+
+  fn main ()
+    f(1)
+  end
+
+  fn f(a)
+    show(a)
+  end
+end

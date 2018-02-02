@@ -1,6 +1,6 @@
 module SimpleCodegen
   fn main()
-    # 'hello world'
-    show(1)
+    'hello' + 'world'
+    # show(1)
   end
 end
