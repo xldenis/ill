@@ -236,7 +236,7 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
           memPolyTy   = generalize . constraintsToFn True . polyTy $ ty a
           tyAnn       = Type memPolyTy (Just $ applyTypeVars instanceTys memPolyTy)
           dictAnn     = fmapTyAnn (snd . unconstrained . applyTypeVars instanceTys) a
-          dictVal     = dictAnn :< mkDictLookup instanceDict (tyAnn)
+          dictVal     = dictAnn :< mkDictLookup instanceDict (tyAnn) (traitNm, instanceTys)
 
       return $ dictVal
     Nothing -> pure v
@@ -246,8 +246,8 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
   fmapTyAnn f ann = ann { ty = ( mapTy f (ty ann)) }
   mapTy f (Type pT iT) = Type (f pT) (f <$> iT)
 
-  mkDictLookup :: InstanceDict -> TypeAnn -> Expression TypedAnn (Expr TypedAnn)
-  mkDictLookup id ty = Apply (TyAnn Nothing ty :< Var nm) (map (mkDictVal id) (constraints . fromJust $ instTyOf v))
+  mkDictLookup :: InstanceDict -> TypeAnn -> Constraint Name -> Expression TypedAnn (Expr TypedAnn)
+  mkDictLookup id ty c = Apply (TyAnn Nothing ty :< Var nm) [mkDictVal id c]
 
   mkDictVal :: InstanceDict -> Constraint Name -> Expr TypedAnn
   mkDictVal id traitCons = case findInst traitCons id dicts of
@@ -264,7 +264,7 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
         subTraits -> SynAnn (uncurry mkProductType traitCons) :< Apply (dictAnn :< Var dict) (map (mkDictVal id) subTraits)
 
     Nothing -> error $ "couldnt find a dict for "
-      ++ show (pretty traitCons)
+      ++ show (pretty traitCons) ++ "\n"
       ++ show (id)
       ++ show (findInst traitCons id dicts)
     where

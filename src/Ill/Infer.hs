@@ -53,6 +53,8 @@ import           Ill.Syntax.Type
 import Data.Bitraversable
 import Control.Lens.Plated
 
+import Debug.Trace
+
 type RawDecl = Decl SourceSpan
 
 {-
@@ -115,8 +117,6 @@ typeCheck (BoundModules
       tyVars = varsInType ty'
       (constraints, ty') = unconstrained ty
       fvInConstraints = nub $ concatMap ((concatMap freeVariables) . snd ) constraints
-
-    substituteOneType sub ty = varIfUnknown $ sub $? ty
 
     simplify' (Constrained cons t) = do
       cons' <- reduce cons
@@ -233,7 +233,7 @@ substituteAnn sub = \ann -> do
   pure $ ann { ty = Type subbedPoly subbedInst }
 
 substituteOneType :: Substitution (Type Name) -> Type Name -> Type Name
-substituteOneType sub ty = varIfUnknown $ sub $? ty
+substituteOneType sub ty = varIfUnknown . flattenConstraints $ sub $? ty
 
 type TypedDict   = [(Name, Type Name)]
 type UntypedDict = [(Name, Type Name)]
@@ -313,9 +313,12 @@ checkBindingGroupEl ty (a :< Value name els) dict = rethrow (ErrorInDecl name) $
   validateConstraints :: [Constraint Name] -> [Constraint Name] -> UnifyT (Type Name) Check ()
   validateConstraints given inferred = do
     sub <- unifyCurrentSubstitution <$> UnifyT get
-    let subbed = map (subCons sub) inferred
+    let subbed = concatMap (subCons sub) inferred
 
     UnifyT . lift $ checkSufficientConstraints given subbed
 
 
-  subCons sub (n, tys) = (n, map (sub $?) tys)
+  subCons sub (n, tys) = let
+    subbed = map (sub $?) tys
+    (consLists, baseTys) = unzip $ map unconstrained subbed
+    in map (\t -> (n, [t])) baseTys ++ concat consLists
