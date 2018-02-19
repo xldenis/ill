@@ -210,7 +210,7 @@ compileConstructor (nm, (_, ty, tag)) = do
       val <- load memPtr 8
       header <- int64 (fromIntegral tag)
       headerVal <- insertvalue val header [0]
-      built <- M.foldM (\prev (ix, arg) -> insertvalue prev arg [ix]) val (zip [1..] args)
+      built <- M.foldM (\prev (ix, arg) -> insertvalue prev arg [ix]) headerVal (zip [1..] args)
 
       store memPtr 8 built
       retPtr <- bitcast memPtr retTy
@@ -318,7 +318,7 @@ compileBody (Case scrut alts) = mdo
 
   switch tag defAlt alts'
 
-  (alts', phis) <- unzip <$> M.zipWithM (compileAlt retBlock scrutOp) [1..] (filter isConAlt alts)
+  (alts', phis) <- unzip <$> M.zipWithM (compileAlt retBlock scrutOp) [0..] (filter isConAlt alts)
   (defAlt, maybeBody) <- fromJust $ (compileDefaultAlt retBlock) <$> (find isTrivialAlt alts) <|> pure (defaultBranch retBlock)
 
   retBlock <- block `named` "switch_return" ; do
