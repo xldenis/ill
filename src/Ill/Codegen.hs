@@ -117,8 +117,8 @@ builtinInfo = map go Builtins.primitives
     op  = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString nm)
     in (nm, Info arity args ret op)
 
-collectConstructorInfo :: (Name, (Int, Type Name)) -> (Id, BindingInfo)
-collectConstructorInfo (nm, (arity, ty)) = let
+collectConstructorInfo :: (Name, (Int, Type Name, Int)) -> (Id, BindingInfo)
+collectConstructorInfo (nm, (arity, ty, _)) = let
   tys = unwrapFnType ty
   args = map llvmArgType $ init tys
   ret  = llvmArgType $ last tys
@@ -199,8 +199,8 @@ apply1 = do
       retVal <- bitcast closurePtr (ptr $ T.i8)
       ret retVal
 
-compileConstructor :: MonadModuleBuilder m => (Name, (Int, Type Name)) -> m ()
-compileConstructor (nm, (_, ty)) = do
+compileConstructor :: MonadModuleBuilder m => (Name, (Int, Type Name, Int)) -> m ()
+compileConstructor (nm, (_, ty, tag)) = do
   typedef (fromString nm) (Just $ T.StructureType False llvmArgTys)
 
   M.void $ function (fromString $ nm) funArgs (retTy) $ \args -> do
@@ -208,7 +208,7 @@ compileConstructor (nm, (_, ty)) = do
       voidPtr <- malloc (sizeofType $ ptr consTy)
       memPtr <- bitcast voidPtr (ptr consTy)
       val <- load memPtr 8
-      header <- int64 0
+      header <- int64 (fromIntegral tag)
       headerVal <- insertvalue val header [0]
       built <- M.foldM (\prev (ix, arg) -> insertvalue prev arg [ix]) val (zip [1..] args)
 

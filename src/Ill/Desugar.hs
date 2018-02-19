@@ -50,10 +50,10 @@ declToCore' (a :< Value nm [([], exp)]) = do
 
   binder = Id { varName = nm, idTy = fromTyAnn a, usage = Used }
 declToCore' (_ :< Data nm args conses) = do
-  let cons' = map (\cons ->
+  let cons' = map (\(tag, cons) ->
         case unwrapProduct cons of
-          (TConstructor consNm : args) -> (consNm, (length args, getConstructorType cons))
-        ) conses
+          (TConstructor consNm : args) -> (consNm, (length args, getConstructorType cons, tag))
+        ) (zip [0..] conses)
   modify $ \m -> m { constructors = cons' ++ constructors m, types = nm : types m }
   where
   getConstructorType ty = let

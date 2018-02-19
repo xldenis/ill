@@ -49,7 +49,7 @@ runLinter = flip evalState (E (names $ env defaultCheckEnv) []) . runExceptT . l
   getVar (NonRec v _) = v
 
   bindCons conses action = do
-    let x = M.fromList $ map (\(c, (_, ty)) -> (c, ty)) conses
+    let x = M.fromList $ map (\(c, (_, ty, _)) -> (c, ty)) conses
     orig <- get
     modify (\s -> s { boundNames = x `M.union` boundNames orig })
     val <- action

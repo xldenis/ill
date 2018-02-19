@@ -75,7 +75,7 @@ data Bind n
 
 data CoreModule = Mod
   { bindings :: [Bind Var]
-  , constructors :: [(Name, (Int, Type Name))] -- wip: more generally track constructor info
+  , constructors :: [(Name, (Int, Type Name, Int))] -- wip: more generally track constructor info
   , types :: [Id]
   } deriving (Show, Eq)
 
@@ -105,8 +105,9 @@ substitute = go []
 {-
   Calculates the type of a core term. Assumes the core term is valid.
 -}
+
 getTyOf :: CoreExp -> Type Name
-getTyOf b@(App f a) = getTyOf a `applyArgumentToType` getTyOf f
+getTyOf b@(App f a) = applyArgumentToType (getTyOf a) (getTyOf f) (pretty (f, a))
 getTyOf (Case _ alts) = altTyOf $ head alts
   where altTyOf (TrivialAlt e) = getTyOf e
         altTyOf (LitAlt _ e)   = getTyOf e
