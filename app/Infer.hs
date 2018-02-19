@@ -56,7 +56,7 @@ prettyTraitInfo (nm, TraitEntry supers args mems) =
 prettyTraitInsts (insts) = vsep insts'
   where insts' = map (pretty . instHead) (nub insts)
         instHead :: InstanceEntry -> Type Name
-        instHead inst = constrain (instConstraints inst) (Prelude.foldl TAp (TConstructor (instName inst)) (instTypes inst))
+        instHead inst = constrain (instConstraints inst) (TAp (TConstructor (instName inst)) (instType inst))
 
 instanceMap id = M.foldrWithKey accTyInstances mempty id
   where accTyInstances traitNm insts acc = Prelude.foldr (\x -> insertInstanceForType traitNm x) acc insts
@@ -64,5 +64,5 @@ instanceMap id = M.foldrWithKey accTyInstances mempty id
 insertInstanceForType :: String -> InstanceEntry -> M.Map String [InstanceEntry] -> M.Map String [InstanceEntry]
 insertInstanceForType traitNm inst acc = let
   -- this is partial
-  TConstructor tyName = Prelude.head $ unwrapProduct (Prelude.head $ instTypes inst)
+  TConstructor tyName = Prelude.head $ unwrapProduct (instType inst)
   in M.insertWith (++) tyName [inst] acc

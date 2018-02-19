@@ -35,14 +35,14 @@ data ConstructorEntry = ConstructorEntry
 
 data TraitEntry = TraitEntry
   { superTraits :: [Constraint Name]
-  , traitVars :: [Name]
+  , traitVar  :: Name
   , methodSigs :: [(Name, Type Name)]
   } deriving (Show, Eq)
 
 type InstanceDict = Map Name [InstanceEntry] -- [(Name, [InstanceEntry])]
 
 data InstanceEntry = InstanceEntry
-  { instTypes       :: [Type Name]
+  { instType        :: Type Name
   , instConstraints :: [Constraint Name]
   , instName        :: Name
   } deriving (Show, Eq)
@@ -133,18 +133,18 @@ modifyEnv f = modify $ \st -> st { env = f (env st) }
 
 addTrait :: MonadState CheckState m => Name -- class name
   -> [Constraint Name] -- super classes
-  -> [Name] -- variables of class
+  -> Name -- variables of class
   -> [(Name, Type Name)]  -- name and type of member sigs
   -> m ()
-addTrait name supers args members = do
+addTrait name supers arg members = do
   let qualifiedMembers = map (fmap (generalize . qualifyType)) members
-  modifyEnv $ \e -> e { traits = (name, TraitEntry supers args qualifiedMembers) : traits e }
+  modifyEnv $ \e -> e { traits = (name, TraitEntry supers arg qualifiedMembers) : traits e }
   modifyEnv $ \e -> e { names = (fromList qualifiedMembers) `union` names e }
   where
   qualifyType t = Constrained fullConstraints t
-  fullConstraints = (name, map TVar args) : supers
+  fullConstraints = (name, TVar arg) : supers
 
-withTraitInstance :: MonadState CheckState m => Name -> [Constraint Name] -> [Type Name] -> m a -> m a
+withTraitInstance :: MonadState CheckState m => Name -> [Constraint Name] -> Type Name -> m a -> m a
 withTraitInstance trait supers inst action = do
   environment <- env <$> get
 
@@ -155,7 +155,7 @@ withTraitInstance trait supers inst action = do
 
   return a
 
-addTraitInstance :: Name -> [Constraint Name] -> [Type Name] -> Check ()
+addTraitInstance :: Name -> [Constraint Name] -> Type Name -> Check ()
 addTraitInstance trait supers inst = do
   env <- env <$> get
 

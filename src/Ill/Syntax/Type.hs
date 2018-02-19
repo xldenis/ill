@@ -18,7 +18,7 @@ data Type t
   | Forall [t] (Type t)
   deriving (Eq, Show, Functor, Foldable, Data)
 
-type Constraint t = (t, [Type t])
+type Constraint t = (t, Type t)
 
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
@@ -28,7 +28,7 @@ instance Pretty (Type String) where
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> pretty "->" <+> (pretty to)
   pretty (Constrained trts tp) = alternative (map prettyCons trts) <+> pretty tp
     where alternative = encloseSep mempty (mempty <+> pretty '|') (pretty ", ")
-          prettyCons (nm, ts) = pretty nm <+> hsep (map pretty ts)
+          prettyCons (nm, ty) = pretty nm <+> (pretty ty)
   pretty (TUnknown u) = pretty "unknown" <+> pretty (show u)
   pretty (Forall vars ty) = pretty "forall" <+> hsep (map pretty vars) <+> pretty "." <+> pretty ty
 
@@ -80,15 +80,14 @@ freeVariables = nub . freeVariables'
   freeVariables' (Constrained cons ty) = consVars cons ++ freeVariables' ty
     where
     consVars = concat . map consVar
-    consVar (_, vars) = concat $ map freeVariables' vars
+    consVar (_, var) = freeVariables' var
   freeVariables' (TUnknown u) = []
   freeVariables' (Forall tyvars ty) = freeVariables ty \\ tyvars
 
 varIfUnknown :: Type String -> Type String
 varIfUnknown (TAp l r) = TAp (varIfUnknown l) (varIfUnknown r)
 varIfUnknown (Arrow l r) = Arrow (varIfUnknown l) (varIfUnknown r)
-varIfUnknown (Constrained ts t') = Constrained (map varIfUnknown' ts) (varIfUnknown t')
-  where varIfUnknown' (a, ts) = (a, map varIfUnknown ts)
+varIfUnknown (Constrained ts t') = Constrained (map (fmap varIfUnknown) ts) (varIfUnknown t')
 varIfUnknown (TUnknown u) = TVar toName
   where toName = "a" ++ show u
 varIfUnknown (Forall vars ty) = Forall vars (varIfUnknown ty)
@@ -100,7 +99,7 @@ varsInType = nub . varsInType'
   varsInType' (TAp l r) = varsInType' l ++ varsInType' r
   varsInType' (Arrow l r) = varsInType' l ++ varsInType' r
   varsInType' (Constrained ts t') = concatMap varsInType'' ts ++ varsInType' t'
-    where varsInType'' (n, ts') = concatMap varsInType' ts'
+    where varsInType'' (n, ty) = varsInType' ty
   varsInType' (TVar t) = [t]
   varsInType' (Forall vars t) = vars ++ varsInType' t
   varsInType' a = []
@@ -109,8 +108,8 @@ unconstrained :: Type a -> ([Constraint a], Type a)
 unconstrained (Constrained cons t) = (concatMap unconstrainedConstraints cons, t)
   where
   unconstrainedConstraints (n, c) = let
-    (cs', tys) = unzip $ map unconstrained c
-    in map (\t -> (n, [t])) tys ++ concat cs'
+    (cs', ty) = unconstrained c
+    in (n, ty) : cs'
 
 unconstrained (Forall vars ty) = let
   (cons, ty') = unconstrained ty
@@ -180,7 +179,7 @@ replaceTypeVars subs (TVar n) = fromMaybe (TVar n) (n `lookup` subs)
 replaceTypeVars subs (Arrow l r) = Arrow (replaceTypeVars subs l) (replaceTypeVars subs r)
 replaceTypeVars subs (TAp f a) = TAp (replaceTypeVars subs f) (replaceTypeVars subs a)
 replaceTypeVars subs (Constrained cs a) = Constrained cs' (replaceTypeVars subs a)
-  where cs' = map (fmap $ map (replaceTypeVars subs)) cs
+  where cs' = map (fmap (replaceTypeVars subs)) cs
 replaceTypeVars subs f@(Forall vars ty)
   --  not (null intersection) = replaceTypeVars (filter (\(n, _) -> not $ n `elem` intersection) subs) f
   | otherwise = generalizeWith (vars \\ keys) (replaceTypeVars subs ty)

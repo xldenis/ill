@@ -4,14 +4,14 @@ import Ill.Syntax.Type
 import Ill.Prelude
 
 builtins = primitives ++
-  [ ("==", generalize $ constrain [("Eq", [TVar "a"])] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , ("<=", generalize $ constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , (">=", generalize $ constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , ("<", generalize $ constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , (">", generalize $ constrain [("Ord", [TVar "a"])] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , ("+", generalize $ constrain [("Semigroup", [TVar "a"])] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
-  , ("-", generalize $ constrain [("Group", [TVar "a"])] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
-  , ("*", generalize $ constrain [("MultSemigroup", [TVar "a"])] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
+  [ ("==", generalize $ constrain [("Eq", TVar "a")]   $ TVar "a" `tFn` TVar "a" `tFn` tBool)
+  , ("<=", generalize $ constrain [("Ord", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
+  , (">=", generalize $ constrain [("Ord", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
+  , ("<",  generalize $ constrain [("Ord", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
+  , (">",  generalize $ constrain [("Ord", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
+  , ("+",  generalize $ constrain [("Semigroup", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
+  , ("-",  generalize $ constrain [("Group", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
+  , ("*",  generalize $ constrain [("MultSemigroup", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
   ]
 
 primitives =

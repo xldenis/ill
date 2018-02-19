@@ -195,15 +195,14 @@ instance Partial (Type a) where
   unknowns (TAp l r)         = unknowns l ++ unknowns r
   unknowns (Arrow l r)       = unknowns l ++ unknowns r
   unknowns (Constrained ts t) = concatMap unknowns' ts ++ unknowns t
-    where unknowns' (nm, ts) = concatMap unknowns ts
+    where unknowns' (nm, ts) = unknowns ts
   unknowns (TUnknown u)      = [u]
   unknowns (Forall _ ty)     = unknowns ty
   unknowns _                 = []
 
   ($?) sub (TAp l r)         = TAp (sub $? l) (sub $? r)
   ($?) sub (Arrow l r)       = Arrow (sub $? l) (sub $? r)
-  ($?) sub (Constrained ts t) = Constrained (map sub' ts) (sub $? t)
-    where sub' (nm, ts) = (nm, map (sub $?) ts)
+  ($?) sub (Constrained ts t) = Constrained (map (fmap (sub $?)) ts) (sub $? t)
   ($?) sub t@(TUnknown u)    = fromMaybe t $ H.lookup u (runSubstitution sub)
   ($?) sub (Forall vars ty)  = Forall vars $ sub $? ty
   ($?) sub other             = other

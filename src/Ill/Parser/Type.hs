@@ -30,7 +30,7 @@ typeProduct = do
   return $ foldl TAp f as
 
 trait :: Parser (Constraint String)
-trait =  (,) <$> upperIdent <*> some typeExp
+trait =  (,) <$> upperIdent <*> typeExp
 
 constraintP :: Parser [Constraint Name]
 constraintP = try $ trait `sepBy1` symbol "," <* symbol "|"

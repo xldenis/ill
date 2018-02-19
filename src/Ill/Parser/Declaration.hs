@@ -41,10 +41,10 @@ traitDeclaration = label "trait declaration" . withLoc $ do
   symbol "trait"
   supers <- constraintP <|> (pure [])
   name <- lexeme capitalized
-  args <- some identifier
+  arg <- identifier
   sep
   body <- manyTill (signatureDeclaration <* (sep <* scn)) $ symbol "end"
-  return $ TraitDecl supers name args body
+  return $ TraitDecl supers name arg body
 
 implDeclaration :: Parser (Decl SourceSpan)
 implDeclaration = label "trait implementation" . withLoc $ do
@@ -53,12 +53,17 @@ implDeclaration = label "trait implementation" . withLoc $ do
   let (constraints, ty) = unconstrained trt
       className : vars  = unwrapProduct ty
 
+  implVar <- case vars of
+    [] -> fail "not enough vars"
+    [ty] -> pure ty
+    _ -> fail "too many vars"
+
   className' <- case className of
     TConstructor t -> return t
     a -> fail $ "`" ++ show a ++ "` is not a valid class name."
   sep
   body <- manyTill (valueDeclaration <* sep <* scn) $ symbol "end"
-  return $ TraitImpl constraints className' vars body
+  return $ TraitImpl constraints className' implVar body
 
 signatureDeclaration :: Parser (Decl SourceSpan)
 signatureDeclaration = label "value signature" . withLoc $ do

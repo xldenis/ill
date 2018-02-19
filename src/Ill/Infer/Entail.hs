@@ -42,15 +42,15 @@ goalsByInst :: InstanceDict -> Constraint Name -> Maybe [Constraint Name]
 goalsByInst dict cons = snd <$> matchInst dict cons
 
 matchInst :: InstanceDict -> Constraint Name -> Maybe (InstanceEntry, [Constraint Name])
-matchInst dict (trait, tys) =
+matchInst dict (trait, ty) =
   asum $ map tryInst' $ M.lookup trait dict & concat
 
   where
 
   tryInst' :: InstanceEntry -> Maybe (InstanceEntry, [Constraint Name])
-  tryInst' i@(InstanceEntry instTys cons _) = do
-    let instHead = foldl TAp (TConstructor trait) instTys
-        searchHead = foldl TAp (TConstructor trait) tys
+  tryInst' i@(InstanceEntry instTy cons _) = do
+    let instHead = TAp (TConstructor trait) instTy
+        searchHead = TAp (TConstructor trait) ty
 
     subs <- subsume instHead searchHead
 
@@ -58,10 +58,10 @@ matchInst dict (trait, tys) =
     where
 
     substituteConstraint :: [(Name, Type Name)] -> Constraint Name -> Constraint Name
-    substituteConstraint sub (cons, tys) = (cons, map (replaceTypeVars sub) tys)
+    substituteConstraint sub (cons, ty) = (cons, replaceTypeVars sub ty)
 
 inHnf :: Constraint Name -> Bool
-inHnf (n, [t]) = hnf t
+inHnf (n, t) = hnf t
   where
   hnf (TVar t)         = True
   hnf (TConstructor _) = False

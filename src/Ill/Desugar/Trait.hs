@@ -103,32 +103,32 @@ import           Debug.Trace
 desugarTraits :: Environment -> [Decl TypedAnn] -> [Decl TypedAnn]
 desugarTraits env ds = fromDecl =<< ds
   where
-  fromDecl (_ :< TraitDecl supers nm args members) = dataFromDecl supers nm args members
-  fromDecl (_ :< TraitImpl supers nm tys  members) = runReaderT (valFromInst supers nm tys members) env
+  fromDecl (_ :< TraitDecl supers nm arg members) = dataFromDecl supers nm arg members
+  fromDecl (_ :< TraitImpl supers nm ty  members) = runReaderT (valFromInst supers nm ty members) env
   fromDecl (a :< Value name eqns) = runReaderT (addDictsToVals a name eqns) env
   fromDecl x = pure x
 
-valFromInst :: MonadReader Environment m => [Constraint Name] -> Name -> [Type Name] -> [Decl TypedAnn] -> m (Decl TypedAnn)
-valFromInst supers nm tys decls = do
+valFromInst :: MonadReader Environment m => [Constraint Name] -> Name -> Type Name -> [Decl TypedAnn] -> m (Decl TypedAnn)
+valFromInst supers nm ty decls = do
   trait <- reader traits >>= \traits -> case lookup nm traits of
     Just traitDict -> return traitDict
     Nothing -> error "this isn't possible"
 
-  let memberTys = map (generalizeWithout vars . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
-      superTys  = map (uncurry mkProductType) (superTraits trait)
-      argVars   = nub . concat $ map freeVariables tys
-      vars      = traitVars trait
-      tyConTy   = mkDictType nm vars superTys memberTys
-      subConTy  = applyTypeVars tys tyConTy
-      subst     = zip vars tys
+  let memberTys = map (generalizeWithout [vars] . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
+      superTys  = map (uncurry mkDictType) (superTraits trait)
+      argVars   = nub $ freeVariables ty
+      vars      = traitVar trait
+      tyConTy   = mkDictConsType nm vars superTys memberTys
+      subConTy  = applyTypeVars [ty] tyConTy
+      subst     = [(vars, ty)]
   let
     sortedDecls = sortOn valueName decls
     tyCon       = TyAnn Nothing (Type tyConTy (Just subConTy)) :< Constructor ("Mk" <> nm)
-    instName    = instanceName (nm, tys)
-    dictTy      = mkProductType nm tys
+    instName    = instanceName (nm, ty)
+    dictTy      = mkDictType nm ty
     applied     = mkAnn dictTy :< ( Apply tyCon $ superDicts ++ (map (fromValue . simplifyPatterns) sortedDecls))
     valAnn      = mkAnn $ constrain supers dictTy
-    superDictTy = map (SynAnn . uncurry mkProductType . substituteConstraint subst) (superTraits trait)
+    superDictTy = map (SynAnn . uncurry mkDictType . substituteConstraint subst) (superTraits trait)
     superDictVal = map (Var . instanceName . substituteConstraint subst) (superTraits trait)
     superDicts  = zipWith (:<) superDictTy superDictVal
 
@@ -136,7 +136,7 @@ valFromInst supers nm tys decls = do
   addDictsToVals valAnn instName [([], applied)]
   where
 
-  substituteConstraint subst (nm, tys) = (nm, map (replaceTypeVars subst) tys)
+  substituteConstraint subst (nm, tys) = (nm, (replaceTypeVars subst) tys)
 
   valueName (_ :< Value nm _) = nm
 
@@ -148,34 +148,38 @@ valFromInst supers nm tys decls = do
   unforall (Forall _ ty) = ty
   unforall ty = ty
 
-instanceName (nm, tys) = nm <> intercalate "_" (toList =<< tys)
+instanceName (nm, tys) = nm <> intercalate "_" (toList tys)
 
+mkProductType :: a -> [Type a] -> Type a
 mkProductType nm args = foldl TAp (TConstructor nm) args
+
+mkDictType :: a -> Type a -> Type a
+mkDictType nm args = TAp (TConstructor nm) args
 
 constraintsToFn :: Bool -> Type Name -> Type Name
 constraintsToFn needsGen ty = let
   (cons, fTy) = unconstrained ty
   vars :: [Name]
-  vars = concat . concat $ map (map freeVariables . snd) cons
+  vars = concat $ map (freeVariables . snd) cons
   baseTy = if needsGen then generalizeWithout vars fTy else fTy
 
-  in foldr tFn baseTy $ (map (uncurry mkProductType) cons)
+  in foldr tFn baseTy $ (map (uncurry mkDictType) cons)
 
-mkDictType :: Name -> [Name] -> [Type Name] -> [Type Name] -> Type Name
-mkDictType name vars supers members = let
-  builtDictTy = mkProductType name (map TVar vars)
+mkDictConsType :: Name -> Name -> [Type Name] -> [Type Name] -> Type Name
+mkDictConsType name vars supers members = let
+  builtDictTy = mkDictType name (TVar vars)
   in generalize $ foldr tFn builtDictTy (supers ++ members)
 
-dataFromDecl :: [Constraint Name] -> Name -> [Name] -> [Decl TypedAnn] -> [Decl TypedAnn]
+dataFromDecl :: [Constraint Name] -> Name -> Name -> [Decl TypedAnn] -> [Decl TypedAnn]
 dataFromDecl superTraits name vars members = let
   sortedMem = sortOn sigNm members
-  dataRec   = (:<) (TyAnn Nothing (Kind dataKind)) . Data name vars . pure . mkProductType tyName
+  dataRec   = (:<) (TyAnn Nothing (Kind dataKind)) . Data name [vars] . pure . mkProductType tyName
   dataKind  = foldl (\c _ -> c `KFn` Star) Star vars
   tyName    = "Mk" <> name
-  memTys    = map (generalizeWithout vars . typeOf) sortedMem
-  recTy     = foldl (\l r -> l `TAp` TVar r) (TConstructor name) vars
+  memTys    = map (generalizeWithout [vars] . typeOf) sortedMem
+  recTy     = (TConstructor name) `TAp` TVar vars
   memNms    = map sigNm sortedMem
-  superTys  = map (uncurry mkProductType) superTraits
+  superTys  = map (uncurry mkDictType) superTraits
   accessors = zipWith (mkAccessor tyName recTy (superTys ++ memTys)) memNms [(length superTys + 1)..]
   -- figure out the kind of new datatype
   in dataRec (superTys ++ memTys) : accessors
@@ -192,7 +196,7 @@ addDictsToVals ann nm eqns = do
     instDictNames = M.toList instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, GlobalDict $ instanceName i)
     localNameDict = zipWith (\cons ix -> (cons, LocalDict $ "dict" ++ show ix)) memberConstraints [1..]
     instanceDict = foldl (\x (nm, tys) -> M.insertWith (flip (++)) nm [InstanceEntry tys [] nm] x) instanceDicts memberConstraints
-    dictPats = map (\(cons, LocalDict nm) -> SynAnn (uncurry mkProductType cons) :< PVar nm) localNameDict
+    dictPats = map (\(cons, LocalDict nm) -> SynAnn (uncurry mkDictType cons) :< PVar nm) localNameDict
     nameDict = instDictNames ++ localNameDict
 
   local (\env -> env { traitDictionaries = instanceDict }) $ do
@@ -200,7 +204,7 @@ addDictsToVals ann nm eqns = do
     return $ ann { ty = Type fty' Nothing } :< Value nm (addPatsToEqns dictPats $ eqns')
   where
   instanceDictToConstraint :: (Name, [InstanceEntry]) -> [Constraint Name]
-  instanceDictToConstraint (nm, instances) = map (\i -> (nm, instTypes i)) instances
+  instanceDictToConstraint (nm, instances) = map (\i -> (nm, instType i)) instances
 
   addPatsToEqns ps eqns = map (first ((++) ps)) eqns
 
@@ -234,8 +238,8 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
       let traitCons   = constraints $ fromJust $ instTyOf v
           instanceTys = fromJust $ traitNm `lookup` traitCons
           memPolyTy   = generalize . constraintsToFn True . polyTy $ ty a
-          tyAnn       = Type memPolyTy (Just $ applyTypeVars instanceTys memPolyTy)
-          dictAnn     = fmapTyAnn (snd . unconstrained . applyTypeVars instanceTys) a
+          tyAnn       = Type memPolyTy (Just $ applyTypeVars [instanceTys] memPolyTy)
+          dictAnn     = fmapTyAnn (snd . unconstrained . applyTypeVars [instanceTys]) a
           dictVal     = dictAnn :< mkDictLookup instanceDict (tyAnn) (traitNm, instanceTys)
 
       return $ dictVal
@@ -253,22 +257,22 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
   mkDictVal id traitCons = case findInst traitCons id dicts of
     Just (LocalDict dict, _, _) -> SynAnn instDictTy :< Var dict
     Just (GlobalDict dict, entry, subTraits)   -> let
-      freeVars = nub . concat $ map freeVariables (instTypes entry)
-      consVars = concat $ fmap (concat . fmap freeVariables . snd) (instConstraints entry)
+      freeVars = nub $ freeVariables (instType entry)
+      consVars = concat $ fmap (freeVariables . snd) (instConstraints entry)
       instTy = constraintsToFn False $ constrain (subTraits) instDictTy
       polyTy = generalize $ constraintsToFn False $ constrain (instConstraints entry) polyDictTy
-      polyDictTy = mkProductType (fst traitCons) (instTypes entry)
+      polyDictTy = mkDictType (fst traitCons) (instType entry)
       dictAnn = TyAnn Nothing (Type polyTy $ Just instTy)
       in case subTraits of
         [] -> dictAnn :< Var dict
-        subTraits -> SynAnn (uncurry mkProductType traitCons) :< Apply (dictAnn :< Var dict) (map (mkDictVal id) subTraits)
+        subTraits -> SynAnn (uncurry mkDictType traitCons) :< Apply (dictAnn :< Var dict) (map (mkDictVal id) subTraits)
 
     Nothing -> error $ "couldnt find a dict for "
       ++ show (pretty traitCons) ++ "\n"
       ++ show (id)
       ++ show (findInst traitCons id dicts)
     where
-    instDictTy = uncurry mkProductType traitCons
+    instDictTy = uncurry mkDictType traitCons
 
 replaceTraitMethods _ x = pure x
 
@@ -278,8 +282,7 @@ findInst c@(nm, tys) id namedict = do
   matched <- find (\(c2, _) -> matcher c c2) namedict
   return (snd matched, entry, subDict)
   where
-  consTy = foldl1 TAp
-  matcher (nm1, ty1) (nm2, ty2) | nm1 == nm2 = isJust $ subsume (consTy ty2) (consTy ty1)
+  matcher (nm1, ty1) (nm2, ty2) | nm1 == nm2 = isJust $ subsume (ty2) (ty1)
   matcher _ _ = False
 
 mkAccessor tyNm recTy tys fldNm ix = let

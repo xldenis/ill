@@ -54,8 +54,8 @@ data Declaration a b
   | Value Name [(Patterns a, Expr a)]
   | Signature Name (Type Name)
   | Import Qualified Masks String Alias
-  | TraitDecl [Constraint Name] Name [Name] [b]
-  | TraitImpl [Constraint Name] Name [Type Name] [b]
+  | TraitDecl [Constraint Name] Name Name [b]
+  | TraitImpl [Constraint Name] Name (Type Name) [b]
   deriving (Eq, Functor, Show, Traversable, Foldable)
 
 type Decl a = Cofree (Declaration a) a
@@ -205,11 +205,11 @@ instance Pretty1 (Declaration a) where
             prettyMask (Hiding nms) = pretty "hiding" <+> tupled (map pretty nms)
             prettyMask (Only   nms) = tupled $ map pretty nms
             prettyMask _            = mempty
-  liftPretty pretty' (TraitDecl super name args body)  = nest 2 (pretty "trait" <+> declarationLine `above` vsep (map pretty' body)) `above` pretty "end"
+  liftPretty pretty' (TraitDecl super name arg body)  = nest 2 (pretty "trait" <+> declarationLine `above` vsep (map pretty' body)) `above` pretty "end"
     where constraints c = if null c then mempty else hsep (punctuate comma (map pretty c)) <+> pretty "|"
-          declarationLine = constraints super <+> pretty name <+> (hsep $ map pretty args)
-  liftPretty pretty' (TraitImpl supers trtNm args body) = nest 2 (declarationLine `above` vsep (map pretty' body)) `above` pretty "end"
+          declarationLine = constraints super <+> pretty name <+> pretty arg
+  liftPretty pretty' (TraitImpl supers trtNm arg body) = nest 2 (declarationLine `above` vsep (map pretty' body)) `above` pretty "end"
     where
     constraints c = if null c then mempty else hsep (punctuate comma (map prettyCons c)) <+> pretty "|"
-    prettyCons (nm, ts) = pretty nm <+> hsep (map pretty ts)
-    declarationLine = pretty "impl" <+> constraints supers <+> pretty trtNm <+> (hsep $ map pretty args)
+    prettyCons (nm, ty) = pretty nm <+> pretty ty
+    declarationLine = pretty "impl" <+> constraints supers <+> pretty trtNm <+> pretty arg

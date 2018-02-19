@@ -116,7 +116,7 @@ typeCheck (BoundModules
       where
       tyVars = varsInType ty'
       (constraints, ty') = unconstrained ty
-      fvInConstraints = nub $ concatMap ((concatMap freeVariables) . snd ) constraints
+      fvInConstraints = nub $ concatMap (freeVariables . snd) constraints
 
     simplify' (Constrained cons t) = do
       cons' <- reduce cons
@@ -167,15 +167,15 @@ typeCheck (BoundModules
 
   go (OtherBG (a :< TraitImpl supers nm args ds)) = do
     trait <- lookupTrait nm
-    let subs = zip (traitVars trait) args
-        cons = map (\(nm, cs') -> (nm, map (replaceTypeVars subs) cs' )) (superTraits trait)
+    let subs = [(traitVar trait, args)]
+        cons = map (fmap (replaceTypeVars subs)) (superTraits trait)
 
     unsatisfiedSupers <- reduce cons
     when (not $ null unsatisfiedSupers) . internalError $ "unsatisfied supertraits in instance: " ++ show unsatisfiedSupers
 
     let constraints' = (nm, args) : supers
-        argVars    = nub . concat $ map freeVariables args
-        sigTys     = map (fmap (generalizeWithout argVars . constrain constraints' . applyTypeVars args)) (methodSigs trait)
+        argVars    = nub $ freeVariables args
+        sigTys     = map (fmap (generalizeWithout argVars . constrain constraints' . applyTypeVars [args])) (methodSigs trait)
         signatures = map (uncurry Signature) sigTys
         annotated  = map (\sig -> emptySpan :< sig) signatures
 
@@ -319,6 +319,6 @@ checkBindingGroupEl ty (a :< Value name els) dict = rethrow (ErrorInDecl name) $
 
 
   subCons sub (n, tys) = let
-    subbed = map (sub $?) tys
-    (consLists, baseTys) = unzip $ map unconstrained subbed
-    in map (\t -> (n, [t])) baseTys ++ concat consLists
+    subbed = sub $? tys
+    (consLists, baseTy) = unconstrained subbed
+    in (n, baseTy) : consLists
