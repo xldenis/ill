@@ -1,4 +1,7 @@
 module LiteralInList
+  data List a = Cons a (List a) | Nil
+  data Bool = False | True
+
   fn xxx_test(Cons 1 xs)
     False
   or xxx_test(Cons a xs)

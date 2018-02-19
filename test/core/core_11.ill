@@ -1,4 +1,20 @@
 module NaiveFib
+  trait Group a
+    minus :: a -> a -> a
+  end
+
+  trait Semigroup a
+    plus :: a -> a -> a
+  end
+
+  impl Group Int
+    fn minus () minusInt end
+  end
+
+  impl Semigroup Int
+      fn plus  () plusInt  end
+  end
+
   fn naive_fib(0)
     0
   or naive_fib(1)
