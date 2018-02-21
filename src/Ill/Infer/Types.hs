@@ -92,7 +92,7 @@ infer' (a :< Assign lnames exps) = do
   addNames bound
 
   exps' <- mapM infer exps
-  zipWithM ((=?=) . typeOf) exps' varTys
+  zipWithM (constrainedUnification . typeOf) exps' varTys
 
   return $ Ann a tNil :< Assign lnames exps'
 infer' (a :< Var nm) = do
