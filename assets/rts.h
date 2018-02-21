@@ -15,5 +15,5 @@ typedef struct {
 
 String* showInt(Int* x);
 String* mkString(size_t x);
-// Int* plusInt(Int* a, Int* b);
+Int* plusInt(Int* a, Int* b);
 String* plusStr(String* a, String* b);
