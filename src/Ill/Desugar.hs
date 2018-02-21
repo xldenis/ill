@@ -116,7 +116,7 @@ toCore (_ :< S.Body exps) = toCore' exps
   toCore' (e:others) = toCore e `mkSeq` (toCore' others)
     where
     mkSeq a b = (App (App (Var seq) a) b)
-    seq = Id "var" (generalize $ TVar "a" `tFn` TVar "a") Used
+    seq = Id "seq" (generalize $ TVar "a" `tFn` TVar "a") Used
 toCore (_ :< S.Literal lit ) = Lit lit
 
 toAlts = map toAlt
