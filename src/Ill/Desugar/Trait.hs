@@ -235,8 +235,8 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
   case nm `lookup` allTraitMethods of
     Just (traitNm, entry) -> do
       instanceDict <- reader traitDictionaries
-      let traitCons   = constraints $ fromJust $ instTyOf v
-          instanceTys = fromJust $ traitNm `lookup` traitCons
+      let traitCons   = constraints $ fromJust' $ instTyOf v
+          instanceTys = fromJust' $ traitNm `lookup` traitCons
           memPolyTy   = generalize . constraintsToFn True . polyTy $ ty a
           tyAnn       = Type memPolyTy (Just $ applyTypeVars [instanceTys] memPolyTy)
           dictAnn     = fmapTyAnn (snd . unconstrained . applyTypeVars [instanceTys]) a
@@ -246,6 +246,9 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
     Nothing -> pure v
 
   where
+
+  fromJust' (Just x) = x
+  fromJust' _ = error "fromJust in replaceTraitMethods"
 
   fmapTyAnn f ann = ann { ty = ( mapTy f (ty ann)) }
   mapTy f (Type pT iT) = Type (f pT) (f <$> iT)
