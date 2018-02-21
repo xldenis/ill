@@ -1,0 +1,30 @@
+module Codegen3
+  data List a = Cons a (List a) | Nil
+
+  trait Foldable t
+    foldr :: (a -> b -> b) -> b -> t a -> b
+  end
+
+  trait Semigroup a
+    plus :: a -> a -> a
+  end
+
+  trait Show a
+    show :: a -> String
+  end
+
+  impl Show Int
+    fn show(a)
+      showInt(a)
+    end
+  end
+
+  main :: String
+
+  fn main ()
+    list = Cons(1, Cons(2, Cons(3, Nil)))
+
+    summed = foldr(plus, 0, list)
+    show(summed)
+  end
+end

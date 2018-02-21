@@ -2,12 +2,10 @@ module Codegen3
   main :: String
 
   fn main ()
-    # list = Cons(1, Cons(2, Nil))
+    list = Cons(1, Cons(2, Cons(3, Nil)))
 
-    # mapped = fmap(fn (x) = x + 1 end, list)
-
-    list = Cons(1, Nil)
-    show(sum(list))
+    summed = foldr(plus, 0, list)
+    show(list)
   end
 
   fn sum (Cons x xs)

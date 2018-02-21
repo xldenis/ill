@@ -1,0 +1,14 @@
+module Codegen4
+
+  fn main ()
+    show(ap2(id, 1 + 1))
+  end
+
+  fn id(x)
+    x
+  end
+
+  fn ap2(f, a)
+    f(a)
+  end
+end
