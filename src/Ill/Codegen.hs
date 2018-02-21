@@ -56,6 +56,11 @@ malloc size = do
   call (ConstantOperand $ C.GlobalReference mallocTy "malloc") [(size, [])]
   where mallocTy = ptr $ T.FunctionType (ptr T.i8) [T.i64] False
 
+memcpy :: MonadIRBuilder m => AST.Operand -> AST.Operand -> AST.Operand -> m AST.Operand
+memcpy dest src size =
+  call (ConstantOperand $ C.GlobalReference memcpyTy "memcpy") [(dest, []), (src, []), (size, [])]
+  where memcpyTy = ptr $ T.FunctionType (ptr T.i8) [ptr T.i8, ptr T.i8, T.i64] False
+
 data CodegenState = CS
   { globalInfo :: [(Id, BindingInfo)]
   , localInfo :: [(Id, AST.Operand)]
@@ -70,6 +75,7 @@ primStr  = ptr $ T.NamedTypeReference "String"
 compileModule :: CoreModule -> AST.Module
 compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [])) $ mdo
   extern "malloc" [T.i64] (ptr T.i8)
+  extern "memcpy" [ptr T.i8, ptr T.i8, T.i64] (ptr T.i8)
   extern "ltInt" [primInt, primInt] primBool
   extern "gtInt" [primInt, primInt] primBool
   extern "eqInt" [primInt, primInt] primBool
@@ -167,37 +173,6 @@ defMkInt = do
 
 mkInt d = call (AST.ConstantOperand $ C.GlobalReference mkIntTy "mkInt") [(d, [])]
   where mkIntTy = ptr $ T.FunctionType (ptr $ T.NamedTypeReference (fromString "Int")) [T.i64] False
-
-closureType = ptr $ T.StructureType False (ptr T.i8 : T.i8 : [T.ArrayType 1 $ ptr T.i8])
-
-apply1 :: ModuleM m => m Operand
-apply1 = do
-  function "apply1" [(closureType , "closure"), (ptr T.i8, "argPtr")] (ptr T.i8) $ \[closurePtr, argPtr] -> do
-    block `named` "entry"
-
-    arityPtr <- gep closurePtr $ int32 0 ++ int32 1
-    arity <- load arityPtr 8
-    cond <- icmp AST.EQ arity (ConstantOperand $ C.Int 8 1)
-    condBr cond "Arity 1" "default"
-
-    block `named` "Arity 1"; do
-      closureArgPtr <- gep closurePtr $ int32 0 ++ int32 2 ++ int32 0
-      store closureArgPtr 8 argPtr
-      voidPtrPtr <- gep closurePtr $ int32 0 ++ int32 0
-      voidPtr <- load voidPtrPtr 8
-      fPtr <- bitcast voidPtr (ptr $ T.FunctionType (ptr $ T.i8) [T.typeOf closurePtr] False)
-      retVal <- call fPtr [(closurePtr, [])]
-      ret retVal
-    block `named` "default"; do
-      arity' <- sub arity =<< byte 1
-      closureArgPtr <- gep closurePtr $ int32 0 ++ int32 2 ++ [arity']
-      store closureArgPtr 8 argPtr
-
-      arityPtr <- gep closurePtr $ int32 0 ++ int32 1
-
-      store arityPtr 8 arity'
-      retVal <- bitcast closurePtr (ptr $ T.i8)
-      ret retVal
 
 compileConstructor :: MonadModuleBuilder m => (Name, (Int, Type Name, Int)) -> m ()
 compileConstructor (nm, (_, ty, tag)) = do
@@ -317,9 +292,9 @@ compileBody (Case scrut alts) = mdo
   tag <- load tagPtr 8
 
   switch tag defAlt alts'
-
+                                                                  --   v-- the problem is here
   (alts', phis) <- unzip <$> M.zipWithM (compileAlt retBlock scrutOp) [0..] (filter isConAlt alts)
-  (defAlt, maybeBody) <- fromJust $ (compileDefaultAlt retBlock) <$> (find isTrivialAlt alts) <|> pure (defaultBranch retBlock)
+  (defAlt, maybeBody) <- fromJust' $ (compileDefaultAlt retBlock) <$> (find isTrivialAlt alts) <|> pure (defaultBranch retBlock)
 
   retBlock <- block `named` "switch_return" ; do
     phi $ maybeToList maybeBody ++ phis
@@ -343,7 +318,7 @@ compileBody (Case scrut alts) = mdo
 
       mbb <- liftIRState $ gets builderBlock
 
-      let label = partialBlockName $ fromJust mbb
+      let label = partialBlockName $ fromJust' mbb
       pure (blk, Just (body, label))
 
   compileAlt :: AST.Name -> Operand -> Integer -> Alt Var -> m ((C.Constant, AST.Name), (Operand, AST.Name))
@@ -352,7 +327,7 @@ compileBody (Case scrut alts) = mdo
     scrutPtr <- bitcast scrut $ ptr $ T.NamedTypeReference (fromString cons)
     scrut' <- load scrutPtr 8
 
-    (Info _ argTys _ _) <- reader (\s -> fromJust $ cons `lookup` globalInfo s)
+    (Info _ argTys _ _) <- reader (\s -> fromJust' $ cons `lookup` globalInfo s)
 
     bindVals <- catMaybes <$> (forM (zip3 [1..] binds argTys) $ \(ix, v, ty) -> do
       case usage v of
@@ -365,7 +340,7 @@ compileBody (Case scrut alts) = mdo
     val <- local (updateLocals (bindVals ++)) $ compileBody b
     mbb <- liftIRState $ gets builderBlock
 
-    let label = partialBlockName $ fromJust mbb
+    let label = partialBlockName $ fromJust' mbb
 
     br retB -- here is the problem... we may have generated intermediate blocks so we need to get the correct label
     pure ((tag, block), (val, label))
@@ -426,7 +401,7 @@ knownCall (Info arity argTys _ _) i@(Id{}) args = do
   args' <- mapM compileBody args
   dict <- reader globalInfo
 
-  let f' = operand . fromJust $ varName i `lookup` dict
+  let f' = operand . fromJust' $ varName i `lookup` dict
 
   args'' <- forM (zip args' argTys) $ \(arg, ty) -> do
     if T.typeOf arg == ty
@@ -434,6 +409,9 @@ knownCall (Info arity argTys _ _) i@(Id{}) args = do
     else bitcast arg ty
 
   call f' (map (\arg -> (arg, [])) args'')
+  where
+  fromJust' (Just x) = x
+  fromJust' _ = error "Known call could not be found."
 
 unknownCall closurePtr args = do
   let (T.PointerType (T.StructureType _ ls) _) = T.typeOf closurePtr
@@ -452,14 +430,53 @@ unknownCall closurePtr args = do
 
   After a lot of head scratching, I've settled on this fairly naive approach to closure representation.
 
-  +------------------+-----------------+------+--------+-----+
-  | Function Pointer | Remaining Arity | ArgN | ArgN-1 | ... |
-  +------------------+-----------------+------+--------+-----+
+  +------------------+-------------+-----------------+------+--------+-----+
+  | Function Pointer | Total Arity | Remaining Arity | ArgN | ArgN-1 | ... |
+  +------------------+-------------+-----------------+------+--------+-----+
 
   Note, the arguments are stored in reverse order. The reason for this is that it allows us to use the
   remaining arity to directly index the closure. If we stored them in forward order, we'd also need to
   store the fully arity in order to determine the offset for the next argument we wish to store.
 -}
+
+closureType = ptr $ T.StructureType False (ptr T.i8  : T.i8 : T.i8 : [T.ArrayType 1 $ ptr T.i8])
+
+apply1 :: ModuleM m => m Operand
+apply1 = do
+  function "apply1" [(closureType , "closure"), (ptr T.i8, "argPtr")] (ptr T.i8) $ \[closurePtr, argPtr] -> do
+    block `named` "entry"
+
+    totalArity <- flip load 8 =<< (gep closurePtr $ int32 0 ++ int32 1)
+    offsetPtr <- gep (ConstantOperand $ C.Null closureType) $ int32 0 ++ int32 3 ++ [totalArity]
+    total <- ptrtoint offsetPtr T.i64
+
+    voidPtr <- malloc total
+    srcPtr <- bitcast closurePtr (ptr T.i8)
+    memcpy voidPtr srcPtr total
+
+    closurePtr <- bitcast voidPtr closureType
+
+    arityPtr <- gep closurePtr $ int32 0 ++ int32 2
+    arity <- load arityPtr 8
+    cond <- icmp AST.EQ arity (ConstantOperand $ C.Int 8 1)
+    condBr cond "Arity 1" "default"
+
+    block `named` "Arity 1"; do
+      closureArgPtr <- gep closurePtr $ int32 0 ++ int32 3 ++ int32 0
+      store closureArgPtr 8 argPtr
+      voidPtrPtr <- gep closurePtr $ int32 0 ++ int32 0
+      voidPtr <- load voidPtrPtr 8
+      fPtr <- bitcast voidPtr (ptr $ T.FunctionType (ptr $ T.i8) [T.typeOf closurePtr] False)
+      retVal <- call fPtr [(closurePtr, [])]
+      ret retVal
+    block `named` "default"; do
+      arity' <- sub arity =<< byte 1
+      closureArgPtr <- gep closurePtr $ int32 0 ++ int32 3 ++ [arity']
+      store closureArgPtr 8 argPtr
+
+      store arityPtr 8 arity'
+      retVal <- bitcast closurePtr (ptr $ T.i8)
+      ret retVal
 
 sizeofType ty = ConstantOperand $ C.PtrToInt (C.GetElementPtr False (C.Null ty) [C.Int 32 1]) T.i64
 
@@ -473,7 +490,8 @@ buildClosure (Info _ argTys retTy _) i@(Id{}) = do
   voidPtr <- bitcast name (ptr $ T.i8)
   val' <- insertvalue val voidPtr [0]
   ix <- byte . fromIntegral $ length argTys
-  val'' <- insertvalue val' ix [1]
+  val'' <- insertvalue val'  ix [1]
+  val'' <- insertvalue val'' ix [2]
 
   store memPtr 8 val''
   return memPtr
@@ -484,7 +502,7 @@ mkClosureCall :: ModuleM m => Int -> Var -> m Operand
 mkClosureCall arity i@(Id{}) = function (fromString $ "callClosure" ++ varName i) [(closureType, "closure")] llvmRetTy $ \[closure] -> mdo
   block `named` "entry" ; do
     args <- forM (zip [0..] llvmArgTy') $ \(i, ty) -> do
-      argPtr <- gep closure $ int32 0 ++ int32 2 ++ int32 i
+      argPtr <- gep closure $ int32 0 ++ int32 3 ++ int32 i
       ptr' <- bitcast argPtr (ptr ty)
       load ptr' 8
 
