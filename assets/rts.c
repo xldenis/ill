@@ -44,6 +44,12 @@ String* plusStr(String* a, String* b)
     return str;
 }
 
+String* omgDebug(String* a)
+{
+    printf("%s\n", a->data);
+    return a;
+}
+
 extern String* module_main();
 
 int main()

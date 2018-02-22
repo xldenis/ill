@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
 module Ill.Infer.Monad where
 
 import           Ill.Prelude
@@ -14,7 +15,9 @@ import           Control.Monad.State
 import           Control.Monad.Unify
 
 import           Ill.Syntax.Builtins
-import           Data.Map (Map, insert, union, fromList, (!?), insertWith)
+import           Data.Map (Map, insert, union, fromList, (!?), (!), insertWith, adjust)
+
+import           Data.Data
 
 data Environment = Environment
   { names             :: Map Name (Type Name)
@@ -31,7 +34,8 @@ data ConstructorEntry = ConstructorEntry
   , consType :: Type Name
   , consTyVars :: [Name]
   , consArity :: Int
-  } deriving (Show, Eq)
+  , consTag :: Int
+  } deriving (Show, Eq, Data)
 
 data TraitEntry = TraitEntry
   { superTraits :: [Constraint Name]
@@ -174,14 +178,14 @@ addDataType name args dctors ctorKind = do
   let env' = env { types = insert name ctorKind (types env) }
   modify $ \s -> s { env = env' }
 
-  forM_ dctors $ uncurry (addDataConstructor name args)
+  zipWithM_ (\i -> uncurry $ addDataConstructor name args i ) [0..] dctors
 
-addDataConstructor :: Name -> [Name] -> Name -> [Type Name] -> Check ()
-addDataConstructor tyCons args dataCons tys = do
+addDataConstructor :: Name -> [Name] -> Int -> Name -> [Type Name] -> Check ()
+addDataConstructor tyCons args tag dataCons tys = do
   env <- env <$> get
   let retTy = foldl TAp (TConstructor tyCons) (map TVar args)
       dataConsTy = generalize $ foldr tFn retTy tys
       fields = args
-      consEntry = ConstructorEntry tyCons dataConsTy fields (length tys)
+      consEntry = ConstructorEntry tyCons dataConsTy fields (length tys) tag
   putEnv $ env { constructors = insert dataCons consEntry (constructors env) }
   return ()

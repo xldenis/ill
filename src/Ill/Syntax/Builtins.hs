@@ -29,4 +29,5 @@ primitives =
   , ("plusStr",  tString `tFn` tString `tFn` tString)
   , ("showInt", tInteger `tFn` tString)
   , ("failedPattern", generalize $ TVar "a")
+  , ("omgDebug", tString `tFn` tString)
   ]

@@ -1,0 +1,16 @@
+module Omg
+
+  fn fibs(0)
+    0
+  or fibs(1)
+    1
+  or fibs(n)
+    fibs(n - 1) + fibs(n - 2)
+  end
+
+  fn main ()
+    a = omgDebug('omgggg')
+    show(fibs(32))
+  end
+end
+

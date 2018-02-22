@@ -31,7 +31,7 @@ runInterpreter mod = do
   case  compileToCore mod of
     Left err -> putStrLn $ err
     Right (coreMod) -> do
-      let boundConstructors = map (\(c, (arity, _, _)) -> (c, arity)) $ Core.constructors coreMod
+      let boundConstructors = map (fmap consArity) $ Core.constructors coreMod
 
       env <- Interp.mkEnvForModule boundConstructors (bindings coreMod)
       val <- Interp.eval env (Var $ Id "main" undefined Used)

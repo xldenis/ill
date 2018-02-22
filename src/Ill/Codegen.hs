@@ -31,8 +31,7 @@ import           Control.Monad.State (gets)
 import           Ill.Syntax.Pretty
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
-
-import Debug.Trace
+import           Data.Map ((!))
 
 import qualified Ill.Syntax.Builtins as Builtins
 import Data.Text.Lazy (pack)
@@ -64,16 +63,17 @@ memcpy dest src size =
 data CodegenState = CS
   { globalInfo :: [(Id, BindingInfo)]
   , localInfo :: [(Id, AST.Operand)]
+  , consInfo :: [(Id, ConstructorEntry)]
   } deriving (Show, Eq)
 
-updateLocals f (CS c l) = CS c (f l)
+updateLocals f (CS c l i) = CS c (f l) i
 
 primInt = ptr $ T.NamedTypeReference "Int"
 primBool = ptr $ T.NamedTypeReference "Bool"
 primStr  = ptr $ T.NamedTypeReference "String"
 
 compileModule :: CoreModule -> AST.Module
-compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [])) $ mdo
+compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [] (constructors mod))) $ mdo
   extern "malloc" [T.i64] (ptr T.i8)
   extern "memcpy" [ptr T.i8, ptr T.i8, T.i64] (ptr T.i8)
   extern "ltInt" [primInt, primInt] primBool
@@ -85,6 +85,7 @@ compileModule mod =  buildModule "example" . (flip runReaderT (CS infoMap [])) $
   extern "plusInt" [primInt, primInt] primInt
   extern "plusStr" [primStr, primStr] primStr
   extern "showInt" [primInt] primStr
+  extern "omgDebug" [primStr] primStr
 
   typedef "String" (Just $ T.StructureType False [T.i64, ptr $ T.i8])
 
@@ -123,15 +124,15 @@ builtinInfo = map go Builtins.primitives
     op  = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString nm)
     in (nm, Info arity args ret op)
 
-collectConstructorInfo :: (Name, (Int, Type Name, Int)) -> (Id, BindingInfo)
-collectConstructorInfo (nm, (arity, ty, _)) = let
-  tys = unwrapFnType ty
+collectConstructorInfo :: (Name, ConstructorEntry) -> (Id, BindingInfo)
+collectConstructorInfo (nm, cons) = let
+  tys = unwrapFnType (consType cons)
   args = map llvmArgType $ init tys
   ret  = llvmArgType $ last tys
 
   op = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString nm)
 
-  in (nm, Info arity args ret op)
+  in (nm, Info (consArity cons) args ret op)
 
 collectBindingInfo :: Bind Var -> (Id, BindingInfo)
 collectBindingInfo (NonRec v b) = let
@@ -174,8 +175,8 @@ defMkInt = do
 mkInt d = call (AST.ConstantOperand $ C.GlobalReference mkIntTy "mkInt") [(d, [])]
   where mkIntTy = ptr $ T.FunctionType (ptr $ T.NamedTypeReference (fromString "Int")) [T.i64] False
 
-compileConstructor :: MonadModuleBuilder m => (Name, (Int, Type Name, Int)) -> m ()
-compileConstructor (nm, (_, ty, tag)) = do
+compileConstructor :: MonadModuleBuilder m => (Name, ConstructorEntry) -> m ()
+compileConstructor (nm, cons) = do
   typedef (fromString nm) (Just $ T.StructureType False llvmArgTys)
 
   M.void $ function (fromString $ nm) funArgs (retTy) $ \args -> do
@@ -183,7 +184,7 @@ compileConstructor (nm, (_, ty, tag)) = do
       voidPtr <- malloc (sizeofType $ ptr consTy)
       memPtr <- bitcast voidPtr (ptr consTy)
       val <- load memPtr 8
-      header <- int64 (fromIntegral tag)
+      header <- int64 (fromIntegral $ consTag cons)
       headerVal <- insertvalue val header [0]
       built <- M.foldM (\prev (ix, arg) -> insertvalue prev arg [ix]) headerVal (zip [1..] args)
 
@@ -195,7 +196,7 @@ compileConstructor (nm, (_, ty, tag)) = do
   llvmArgTys = T.i64 : llvmArgTy'
   llvmArgTy' = map llvmArgType argTys
   argTys = init unwrapped
-  unwrapped = unwrapFnType ty
+  unwrapped = unwrapFnType (consType cons)
   retTy = llvmArgType (last unwrapped)
   funArgs = zip llvmArgTy' (repeat (fromString "a"))
 
@@ -288,12 +289,14 @@ compileBody l@(Let (NonRec v e) exp) = do -- figure out how to handle recursive 
 compileBody (Case scrut alts) = mdo
   scrutOp <- compileBody scrut
 
-  tagPtr <- emitInstr (ptr T.i64) (AST.GetElementPtr False scrutOp (int32 0 ++ int32 0) [])
+  let tagIx = if isJust $ find isConAlt alts then 0 else 1
+
+  tagPtr <- gep scrutOp (int32 0 ++ int32 tagIx)
   tag <- load tagPtr 8
 
   switch tag defAlt alts'
-                                                                  --   v-- the problem is here
-  (alts', phis) <- unzip <$> M.zipWithM (compileAlt retBlock scrutOp) [0..] (filter isConAlt alts)
+
+  (alts', phis) <- unzip <$> M.mapM (compileAlt retBlock scrutOp) (filter (not . isTrivialAlt) alts)
   (defAlt, maybeBody) <- fromJust' $ (compileDefaultAlt retBlock) <$> (find isTrivialAlt alts) <|> pure (defaultBranch retBlock)
 
   retBlock <- block `named` "switch_return" ; do
@@ -321,9 +324,9 @@ compileBody (Case scrut alts) = mdo
       let label = partialBlockName $ fromJust' mbb
       pure (blk, Just (body, label))
 
-  compileAlt :: AST.Name -> Operand -> Integer -> Alt Var -> m ((C.Constant, AST.Name), (Operand, AST.Name))
-  compileAlt retB scrut i c@(ConAlt cons binds b) = do
-    block <- block `named` (fromString $ "branch" ++ cons)
+  compileAlt :: AST.Name -> Operand -> Alt Var -> m ((C.Constant, AST.Name), (Operand, AST.Name))
+  compileAlt retB scrut c@(ConAlt cons binds b) = do
+    block <- block `named` (fromString $ "branch " ++ cons)
     scrutPtr <- bitcast scrut $ ptr $ T.NamedTypeReference (fromString cons)
     scrut' <- load scrutPtr 8
 
@@ -336,13 +339,27 @@ compileBody (Case scrut alts) = mdo
           return $ Just (varName v, field)
         NotUsed -> pure Nothing)
 
-    let tag = C.Int 64 i
+    consInfo <- reader (fromJust . lookup cons . consInfo)
+
+    let tag = C.Int 64 (fromIntegral $ consTag consInfo)
     val <- local (updateLocals (bindVals ++)) $ compileBody b
     mbb <- liftIRState $ gets builderBlock
 
     let label = partialBlockName $ fromJust' mbb
 
-    br retB -- here is the problem... we may have generated intermediate blocks so we need to get the correct label
+    br retB
+    pure ((tag, block), (val, label))
+  compileAlt retB _ c@(LitAlt (Integer i) b) = do
+    block <- block `named` (fromString $ "branch " ++ show i)
+
+    let tag = C.Int 64 (fromIntegral i)
+
+    val <- compileBody b
+    mbb <- liftIRState $ gets builderBlock
+    let label = partialBlockName $ fromJust' mbb
+
+    br retB
+
     pure ((tag, block), (val, label))
 
 compileBody a@(App _ _) = do

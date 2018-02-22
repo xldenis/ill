@@ -4,8 +4,8 @@ module Codegen3
   fn main ()
     list = Cons(1, Cons(2, Cons(3, Nil)))
 
-    summed = foldr(plus, 0, list)
-    show(list)
+    summed = fmap(fn (x) = x + 1 end, list)
+    'list: ' + show(summed) + ' sum: ' + show(sum(summed))
   end
 
   fn sum (Cons x xs)

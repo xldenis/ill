@@ -18,7 +18,7 @@ import Ill.Desugar.LambdaLift as X
 
 import Control.Monad.State
 
-import Ill.Infer.Monad (Environment)
+import Ill.Infer.Monad (Environment, ConstructorEntry(..))
 
 type Id = Name
 
@@ -52,7 +52,8 @@ declToCore' (a :< Value nm [([], exp)]) = do
 declToCore' (_ :< Data nm args conses) = do
   let cons' = map (\(tag, cons) ->
         case unwrapProduct cons of
-          (TConstructor consNm : args) -> (consNm, (length args, getConstructorType cons, tag))
+          (TConstructor consNm : args) ->
+            (consNm, ConstructorEntry consNm (getConstructorType cons) [] (length args) tag)
         ) (zip [0..] conses)
   modify $ \m -> m { constructors = cons' ++ constructors m, types = nm : types m }
   where

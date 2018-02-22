@@ -113,6 +113,15 @@ entry:
 }
 
 ; Function Attrs: nounwind ssp uwtable
+define %struct.String* @omgDebug(%struct.String* readonly returned %a) local_unnamed_addr #0 {
+entry:
+  %data = getelementptr inbounds %struct.String, %struct.String* %a, i64 0, i32 1
+  %0 = load i8*, i8** %data, align 8, !tbaa !12
+  %puts = tail call i32 @puts(i8* %0)
+  ret %struct.String* %a
+}
+
+; Function Attrs: nounwind ssp uwtable
 define i32 @main() local_unnamed_addr #0 {
 entry:
   %call = tail call %struct.String* (...) @module_main() #4

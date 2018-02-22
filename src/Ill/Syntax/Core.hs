@@ -1,5 +1,9 @@
 {-# LANGUAGE DeriveFunctor, DeriveAnyClass, DeriveTraversable, DeriveFoldable, DeriveDataTypeable #-}
-module Ill.Syntax.Core where
+module Ill.Syntax.Core
+( ConstructorEntry
+, module Ill.Syntax.Core
+, consArity, consTag, consType
+) where
 
 import           Ill.Prelude
 
@@ -13,6 +17,8 @@ import Ill.Syntax.Literal
 import Ill.Syntax.Name
 import Ill.Syntax.Pretty
 import Ill.Syntax.Type
+
+import Ill.Infer.Monad
 
 -- Look into using recursion schemes to simplify tons of codebase
 data Core n
@@ -75,7 +81,7 @@ data Bind n
 
 data CoreModule = Mod
   { bindings :: [Bind Var]
-  , constructors :: [(Name, (Int, Type Name, Int))] -- wip: more generally track constructor info
+  , constructors :: [(Name, ConstructorEntry)] -- wip: more generally track constructor info
   , types :: [Id]
   } deriving (Show, Eq)
 
