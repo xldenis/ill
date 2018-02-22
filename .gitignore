@@ -2,3 +2,4 @@
 *.prof
 .DS_Store
 .hspec-failures
+/*.ll

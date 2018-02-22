@@ -32,7 +32,7 @@ codegen ast = case runTC ast of
     let desugared = defaultPipeline env typed
         core = compileCore desugared
         binds = (bindings core)
-    -- putStrLn $ prettyModule core
+
     withContext $ \ctx -> do
       path <- getDataFileName "assets/builtins.ll"
       cPath <- getDataFileName "assets/rts.ll"

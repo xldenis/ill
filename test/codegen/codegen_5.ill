@@ -1,11 +1,15 @@
 module Omg
+  fibList2 :: Int -> Int -> Int -> List Int
+  fn fibList2(a, _, 0)
+    Cons(a, Nil)
+  or fibList2(a, b, 1)
+    Cons(a, Nil)
+  or fibList2(a, b, n)
+    Cons(a, fibList2(b, a + b, n - 1))
+  end
 
-  fn fibs(0)
-    0
-  or fibs(1)
-    1
-  or fibs(n)
-    fibs(n - 1) + fibs(n - 2)
+  fn fibList1(n)
+    fibList2(0, 1, n)
   end
 
   fn main ()

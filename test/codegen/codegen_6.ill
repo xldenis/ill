@@ -1,0 +1,19 @@
+module Fibs
+  # todo fix type inference
+  fibs2 :: Semigroup a | a -> a -> Int -> a
+  fn fibs2(a, _, 0)
+    a
+  or fibs2(_, b, 1)
+    b
+  or fibs2(a, b, n)
+    fibs2(b, a + b, n - 1)
+  end
+
+  fn fibs1(n)
+    fibs2(0, 1, n)
+  end
+
+  fn main ()
+    show(fibs1(73))
+  end
+end

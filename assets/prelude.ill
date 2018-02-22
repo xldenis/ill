@@ -152,7 +152,7 @@ module Prelude
 
   impl Show a | Show (List a)
     fn show(list)
-      '[' + foldr(plus, '', intersperse(',', fmap(show, list))) + ']'
+      '[' + foldr(plus, '', intersperse(', ', fmap(show, list))) + ']'
     end
   end
 
