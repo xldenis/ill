@@ -149,7 +149,7 @@ runInterpreter mod =  case runTC mod of
         desugared = desugaringPipe typed
 
     let (Mod core coreConstructors _) = declsToCore desugared
-    let boundConstructors = map (\(c, (arity, _, _)) -> (c, arity)) $ coreConstructors
+    let boundConstructors = map (fmap consArity) $ coreConstructors
 
     env <- mkEnvForModule boundConstructors core
 
