@@ -116,7 +116,6 @@ valFromInst supers nm ty decls = do
 
   let memberTys = map (generalizeWithout [vars] . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
       superTys  = map (uncurry mkDictType) (superTraits trait)
-      argVars   = nub $ freeVariables ty
       vars      = traitVar trait
       tyConTy   = mkDictConsType nm vars superTys memberTys
       subConTy  = applyTypeVars [ty] tyConTy
@@ -191,7 +190,7 @@ addDictsToVals ann nm eqns = do
   instanceDicts <- reader traitDictionaries
 
   let
-    (memberConstraints, memberTy) = unconstrained (fromTyAnn ann)
+    (memberConstraints, _) = unconstrained (fromTyAnn ann)
     fty' = generalize $ constraintsToFn False (unforall $ fromTyAnn ann)
     instDictNames = M.toList instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, GlobalDict $ instanceName i)
     localNameDict = zipWith (\cons ix -> (cons, LocalDict $ "dict" ++ show ix)) memberConstraints [1..]
@@ -260,8 +259,6 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
   mkDictVal id traitCons = case findInst traitCons id dicts of
     Just (LocalDict dict, _, _) -> SynAnn instDictTy :< Var dict
     Just (GlobalDict dict, entry, subTraits)   -> let
-      freeVars = nub $ freeVariables (instType entry)
-      consVars = concat $ fmap (freeVariables . snd) (instConstraints entry)
       instTy = constraintsToFn False $ constrain (subTraits) instDictTy
       polyTy = generalize $ constraintsToFn False $ constrain (instConstraints entry) polyDictTy
       polyDictTy = mkDictType (fst traitCons) (instType entry)
