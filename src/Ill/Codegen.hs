@@ -77,17 +77,17 @@ primStr  = ptr $ T.NamedTypeReference "String"
 
 compileModule :: CoreModule -> AST.Module
 compileModule mod =  buildModule "example" . flip runReaderT (CS infoMap [] (constructors mod)) $ mdo
-  extern "malloc" [T.i64] (ptr T.i8)
-  extern "memcpy" [ptr T.i8, ptr T.i8, T.i64] (ptr T.i8)
-  extern "ltInt" [primInt, primInt] primBool
-  extern "gtInt" [primInt, primInt] primBool
-  extern "eqInt" [primInt, primInt] primBool
-  extern "geqInt" [primInt, primInt] primBool
-  extern "leqInt" [primInt, primInt] primBool
+  extern "malloc"   [T.i64] (ptr T.i8)
+  extern "memcpy"   [ptr T.i8, ptr T.i8, T.i64] (ptr T.i8)
+  extern "ltInt"    [primInt, primInt] primBool
+  extern "gtInt"    [primInt, primInt] primBool
+  extern "eqInt"    [primInt, primInt] primBool
+  extern "geqInt"   [primInt, primInt] primBool
+  extern "leqInt"   [primInt, primInt] primBool
   extern "minusInt" [primInt, primInt] primInt
-  extern "plusInt" [primInt, primInt] primInt
-  extern "plusStr" [primStr, primStr] primStr
-  extern "showInt" [primInt] primStr
+  extern "plusInt"  [primInt, primInt] primInt
+  extern "plusStr"  [primStr, primStr] primStr
+  extern "showInt"  [primInt] primStr
   extern "omgDebug" [primStr] primStr
 
   typedef "String" (Just $ T.StructureType False [T.i64, ptr T.i8])
@@ -184,14 +184,16 @@ compileConstructor (nm, cons) = do
 
   M.void $ function (fromString nm) funArgs retTy $ \args -> do
     block `named` "entryC" ; do
-      voidPtr <- malloc (sizeofType $ ptr consTy)
-      memPtr <- bitcast voidPtr (ptr consTy)
-      val <- load memPtr 8
+      val <- alloca consTy Nothing 1
+
       header <- int64 (fromIntegral $ consTag cons)
       headerVal <- insertvalue val header [0]
       built <- M.foldM (\prev (ix, arg) -> insertvalue prev arg [ix]) headerVal (zip [1..] args)
 
+      voidPtr <- malloc (sizeofType $ ptr consTy)
+      memPtr <- bitcast voidPtr (ptr consTy)
       store memPtr 8 built
+
       retPtr <- bitcast memPtr retTy
       ret retPtr
   where
