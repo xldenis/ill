@@ -1,14 +1,9 @@
-{-# LANGUAGE DeriveFunctor         #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE InstanceSigs          #-}
-{-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE PatternSynonyms, StandaloneDeriving       #-}
 
 module Ill.Syntax
 ( module X
@@ -46,7 +41,10 @@ type Qualified = Bool
 
 type Alias = Maybe String
 
-data Module a = Module Name [Decl a] deriving (Eq, Show)
+data Module a = Module Name [Decl a]
+
+deriving instance Show a => Show (Module a)
+deriving instance Eq a => Eq (Module a)
 
 data Declaration a b
   = Data Name [Name] [Type Name]
@@ -56,7 +54,7 @@ data Declaration a b
   | Import Qualified Masks String Alias
   | TraitDecl [Constraint Name] Name Name [b]
   | TraitImpl [Constraint Name] Name (Type Name) [b]
-  deriving (Eq, Functor, Show, Traversable, Foldable)
+  deriving (Eq, Functor, Show, Traversable, Foldable, Generic1)
 
 type Decl a = Cofree (Declaration a) a
 
@@ -68,6 +66,13 @@ data Masks
 
 makePrisms ''Declaration
 
+
+instance Eq a => Eq1 (Declaration a) where
+  liftEq = liftEqDefault
+
+instance Show a => Show1 (Declaration a) where
+  liftShowsPrec = liftShowsPrecDefault
+
 instance Bifunctor Declaration where
   bimap :: forall a b c d. (a -> b) -> (c -> d) -> Declaration a c -> Declaration b d
   bimap l r (Data n nms tys) = Data n nms tys
@@ -78,8 +83,6 @@ instance Bifunctor Declaration where
   bimap l r (Import q m s a)  = Import q m s a
   bimap l r (TraitDecl cs n nms bs) = TraitDecl cs n nms (map r bs)
   bimap l r (TraitImpl cs n tys bs) = TraitImpl cs n tys (map r bs)
-
--- should figure out a way to do bifoldable/traversable
 
 instance Bifoldable Declaration where
   bifoldMap l r (Value n brs) = foldMap helper brs

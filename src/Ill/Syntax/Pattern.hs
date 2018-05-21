@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable, DeriveFoldable #-}
 module Ill.Syntax.Pattern where
 
 import Ill.Prelude
@@ -13,11 +12,17 @@ data Pattern a
   | Wildcard
   | PVar String
   | PLit Literal
-  deriving (Eq, Show, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Functor, Foldable, Traversable, Generic1)
 
 type Pat a = Cofree Pattern a
 
 type Patterns a = [Pat a]
+
+instance Eq1 Pattern where
+  liftEq = liftEqDefault
+
+instance Show1 Pattern where
+  liftShowsPrec = liftShowsPrecDefault
 
 instance Pretty1 f => Pretty (Cofree f a) where
   pretty (a :< el) = liftPretty pretty el

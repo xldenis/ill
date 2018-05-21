@@ -4,6 +4,9 @@ module Ill.Prelude
 , module Data.Foldable
 , module Control.Monad
 , module Control.Applicative
+, module Data.Functor.Classes.Generic
+, module Data.Functor.Classes
+, module GHC.Generics
 , isJust
 , maybeToList
 , fromMaybe
@@ -21,3 +24,7 @@ import Control.Monad
 import Control.Applicative
 import Data.Maybe
 import Data.List
+
+import Data.Functor.Classes
+import Data.Functor.Classes.Generic
+import GHC.Generics

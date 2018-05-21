@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -33,11 +30,17 @@ data Expression p a
   | Body [a]
   -- | Hash [(a, a)]
   | Array [a]
-  deriving (Eq, Functor, Show, Traversable, Foldable)
+  deriving (Eq, Functor, Show, Traversable, Foldable, Generic1)
 
 makePrisms ''Expression
 
 type Expr a = Cofree (Expression a) a
+
+instance Eq p => Eq1 (Expression p) where
+  liftEq = liftEqDefault
+
+instance Show p => Show1 (Expression p) where
+  liftShowsPrec = liftShowsPrecDefault
 
 instance Bifunctor Expression where
   bimap l r (Apply a as) = Apply (r a) (map r as)

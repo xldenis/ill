@@ -1,16 +1,8 @@
-resolver: nightly-2017-10-31
+resolver: nightly-2018-05-18
 
 packages:
 - '.'
 extra-deps:
-# - git: https://github.com/llvm-hs/llvm-hs.git
-- git: https://github.com/xldenis/llvm-hs.git
-  commit: 0bcbd51ee6c134bd9871451e973b28ceff17fb05
-  subdirs:
-    - llvm-hs
-    - llvm-hs-pure
-- git: https://github.com/llvm-hs/llvm-hs-pretty
-  commit: ae349cce595fd94bdbf56689c2f2463f175db5ac
 
 flags: {}
 ghc-options:

@@ -3,7 +3,7 @@ module Ill.Parser.Type where
 
 import           Ill.Prelude
 
-import Text.Megaparsec
+import Text.Megaparsec (sepBy1, try)
 import Text.Megaparsec.Expr
 
 import Ill.Syntax

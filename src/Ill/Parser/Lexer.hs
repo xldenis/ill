@@ -10,7 +10,7 @@ import           Ill.Prelude
 
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Char
-import Text.Megaparsec
+import Text.Megaparsec hiding (many)
 
 import Control.Comonad.Cofree
 

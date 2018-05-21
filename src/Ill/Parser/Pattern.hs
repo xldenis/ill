@@ -7,7 +7,7 @@ import Ill.Syntax
 import Ill.Parser.Lexer
 import Ill.Parser.Literal
 
-import Text.Megaparsec
+import Text.Megaparsec (try)
 
 pattern :: Parser (Pat SourceSpan)
 pattern = (parens pattern) <|> wildcard <|> destructor <|> pLit <|> var

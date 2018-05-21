@@ -61,9 +61,11 @@ data Substitution t = Substitution { runSubstitution :: M.HashMap Int t }
 
 instance (Partial t) => Monoid (Substitution t) where
   mempty = Substitution M.empty
-  s1 `mappend` s2 = Substitution $
-                      M.map (s2 $?) (runSubstitution s1) `M.union`
-                      M.map (s1 $?) (runSubstitution s2)
+
+instance Partial t => Semigroup (Substitution t) where
+  s1 <> s2 = Substitution $
+              M.map (s2 $?) (runSubstitution s1) `M.union`
+              M.map (s1 $?) (runSubstitution s2)
 
 -- |
 -- State required for type checking

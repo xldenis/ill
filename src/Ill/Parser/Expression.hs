@@ -8,7 +8,7 @@ import Ill.Parser.Pattern
 import Ill.Parser.Literal
 import Ill.Syntax
 
-import Text.Megaparsec
+import Text.Megaparsec hiding (some, many)
 import Text.Megaparsec.Expr
 
 import Control.Comonad.Cofree

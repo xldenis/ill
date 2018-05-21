@@ -9,7 +9,7 @@ module Ill.Parser
 
 import           Ill.Prelude
 
-import           Text.Megaparsec
+import           Text.Megaparsec hiding (many)
 
 import           Ill.Syntax
 

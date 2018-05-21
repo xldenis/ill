@@ -15,7 +15,7 @@ import           Ill.Syntax.Type
 import qualified LLVM.AST                  as AST
 import           LLVM.AST.AddrSpace
 import qualified LLVM.AST.Constant         as C
-import           LLVM.AST.Operand
+import           LLVM.AST.Operand (Operand(..))
 import qualified LLVM.AST.Type             as T
 import qualified LLVM.AST.Typed            as T
 import           LLVM.IRBuilder

@@ -3,7 +3,7 @@ module Ill.Parser.Declaration (declaration) where
 
 import           Ill.Prelude
 
-import Text.Megaparsec
+import Text.Megaparsec hiding (many, some)
 
 import Ill.Syntax
 import Ill.Parser.Lexer
