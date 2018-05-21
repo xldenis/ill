@@ -211,7 +211,7 @@ unwrapProduct ty = reverse $ unfoldr' go ty
   We often need to apply arguments to types whether those arguments are themselves other types
   (in the case of polymorphic types) or values (in the case of normal functions).
 
-  This function calculates the result of applying a type to a function.
+  This function calculates the result of applying a type to a function type.
 -}
 
 applyArgumentToType :: Show a => Type Name -> Type Name -> a -> Type Name

@@ -5,7 +5,6 @@ module Core2
 
   impl Show a | Show (List a)
     fn show(Cons el ls)
-      # show(el)
       show(ls)
     or show(Nil)
       ''
