@@ -184,14 +184,14 @@ compileConstructor (nm, cons) = do
 
   M.void $ function (fromString nm) funArgs retTy $ \args -> do
     block `named` "entryC" ; do
-      val <- alloca consTy Nothing 1
+      voidPtr <- malloc (sizeofType $ ptr consTy)
+      memPtr <- bitcast voidPtr (ptr consTy)
+      val <- load memPtr 8
 
       header <- int64 (fromIntegral $ consTag cons)
       headerVal <- insertvalue val header [0]
       built <- M.foldM (\prev (ix, arg) -> insertvalue prev arg [ix]) headerVal (zip [1..] args)
 
-      voidPtr <- malloc (sizeofType $ ptr consTy)
-      memPtr <- bitcast voidPtr (ptr consTy)
       store memPtr 8 built
 
       retPtr <- bitcast memPtr retTy
@@ -296,7 +296,8 @@ compileBody (Case scrut alts) = mdo
 
   let tagIx = if isJust $ find isConAlt alts then 0 else 1
 
-  tagPtr <- gep scrutOp (int32 0 ++ int32 tagIx)
+  scrutHead <- bitcast scrutOp (ptr $ T.StructureType False [T.i64])
+  tagPtr <- gep scrutHead (int32 0 ++ int32 tagIx)
   tag <- load tagPtr 8
 
   switch tag defAlt alts'
@@ -340,7 +341,7 @@ compileBody (Case scrut alts) = mdo
     bindVals <- catMaybes <$> forM (zip3 [1..] binds argTys) (\(ix, v, ty) -> do
       case usage v of
         Used -> do
-          field <- extractvalue (ty) scrut' [ix]
+          field <- extractvalue ty scrut' [ix]
           return $ Just (varName v, field)
         NotUsed -> pure Nothing)
 
