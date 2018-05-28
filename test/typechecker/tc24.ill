@@ -1,6 +1,25 @@
 module TobyBreaksTypeChecking
   data List a = Cons a (List a) | Nil
+  data Ordering = L
+  impl Group Int
+    fn minus(_,_)
+      1
+    end
+  end
 
+  trait Group a
+    minus :: a -> a -> a
+  end
+
+  trait Ord a
+    compare :: a -> a -> Ordering
+  end
+
+  impl Ord Int
+    fn compare(_,_)
+      L
+    end
+  end
   make_range :: Int -> List Int -> List Int
   fn make_range(x, acc)
     if x > 0 then

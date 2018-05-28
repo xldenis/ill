@@ -12,6 +12,7 @@ import           Ill.Prelude
 import           Control.Monad.Unify
 import           Control.Comonad (extract)
 import           Control.Monad.State (get)
+import           Control.Monad.Writer
 
 import qualified Data.HashMap.Strict as H
 import           Data.Bifunctor
@@ -25,38 +26,34 @@ typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
 typeOf c =  fromMaybe (polyTy $ fromTy c) (instTy $ fromTy c)
   where fromTy = ty . extract
 
-infer :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
+infer :: Expr SourceSpan -> WriterT [Constraint Name] (UnifyT (Type Name) Check) (Expr TypedAnn)
 infer exp = rethrow (ErrorInExpression exp) (infer' exp)
 
-infer' :: Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
+infer' :: Expr SourceSpan -> WriterT [Constraint Name] (UnifyT (Type Name) Check) (Expr TypedAnn)
 infer' (a :< Apply l args) = do
-  retTy <- fresh
+  retTy <- lift fresh
   f' <- infer l
 
   args' <- mapM infer args
-  constraints <- typeOf f' `constrainedUnification` flattenConstraints (foldr tFn retTy $ map typeOf args')
-  let retTy' = constrain constraints retTy
+  typeOf f' =??= flattenConstraints (foldr tFn retTy $ map typeOf args')
 
-  return $ Ann a retTy' :< Apply f' args'
+  return $ Ann a retTy :< Apply f' args'
 infer' (a :< If cond left right) = do
   cond' <- check tBool cond
   left' <- infer left
   right' <- infer right
-  constraints <- typeOf left' `constrainedUnification` typeOf right'
+  typeOf left' =??= typeOf right'
 
-  let (cons, _) = unconstrained $ typeOf cond'
-      retTy     = constrain (cons ++ constraints) $ typeOf left'
-
-  return $ Ann a retTy :< If cond' left' right'
+  return $ Ann a (typeOf left') :< If cond' left' right'
 infer' (a :< Case cond branches) = do
   cond' <- infer cond
-  retTy <- fresh
+  retTy <- lift fresh
 
   branches' <- forM branches $ \(pattern, expr) -> do
-    (dict, pattern') <- inferPat (typeOf cond') pattern
+    (dict, pattern') <- lift $ inferPat (typeOf cond') pattern
 
     expr' <- bindNames dict (infer expr)
-    typeOf expr' `constrainedUnification` retTy
+    typeOf expr' =??= retTy
 
     return $ (pattern', expr')
 
@@ -72,47 +69,46 @@ infer' (a :< BinOp op l r) = do
   op' <- infer op
   l' <- infer l
   r' <- infer r
-  retTy <- fresh
+  retTy <- lift fresh
 
-  constraints <- typeOf op' `constrainedUnification` flattenConstraints (foldr tFn retTy [typeOf l', typeOf r'])
-  let retTy' = constrain constraints retTy
+  typeOf op' =??= flattenConstraints (foldr tFn retTy [typeOf l', typeOf r'])
 
   return $ Ann a retTy :< BinOp op' l' r'
 infer' (a :< Lambda pats expr) = do
-  patTys <- replicateM (length pats) fresh
+  patTys <- replicateM (length pats) (lift fresh)
 
-  (patDict, pats') <- inferPats (zip patTys pats)
+  (patDict, pats') <- lift $ inferPats (zip patTys pats)
   expr' <- bindNames patDict (infer expr)
 
-  let retTy = foldr tFn (typeOf expr') patTys
+  let retTy = flattenConstraints $ foldr tFn (typeOf expr') patTys
   return $ Ann a retTy :< Lambda pats' expr'
 infer' (a :< Assign lnames exps) = do
-  varTys <- replicateM (length lnames) fresh
+  varTys <- replicateM (length lnames) (lift fresh)
   let bound = zip lnames varTys
   addNames bound
 
   exps' <- mapM infer exps
-  cons <- zipWithM (constrainedUnification . typeOf) exps' varTys
+  zipWithM_ (constrainedUnification . typeOf) exps' varTys
 
-  return $ Ann a (constrain (concat cons) tNil) :< Assign lnames exps'
+  return $ Ann a tNil :< Assign lnames exps'
 infer' (a :< Var nm) = do
   ty <-  lookupVariable nm
-  ty' <- instantiate ty
+  ty' <- lift $ instantiate ty
 
   return $ TyAnn (Just a) (Type ty $ Just ty') :< Var nm
 infer' (a :< Constructor nm) = do
   ConstructorEntry { consType = ty, consTyVars = args } <- lookupConstructor nm
-  ty' <- instantiate ty
+  ty' <- lift $ instantiate ty
 
   return $ TyAnn (Just a) (Type ty $ Just ty') :< Constructor nm
 infer' (a :< Literal l) = do
   let ty = litType l
   return $ Ann a ty :< Literal l
 
-check :: Type Name -> Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
+check :: Type Name -> Expr SourceSpan -> WriterT [Constraint Name] (UnifyT (Type Name) Check) (Expr TypedAnn)
 check ty exp = rethrow (ErrorInExpression exp) $ check' ty exp
 
-check' :: Type Name -> Expr SourceSpan -> UnifyT (Type Name) Check (Expr TypedAnn)
+check' :: Type Name -> Expr SourceSpan -> WriterT [Constraint Name] (UnifyT (Type Name) Check) (Expr TypedAnn)
 check' expected (a :< If cond l r) = do
   cond' <- check tBool cond
   left' <- check expected l
@@ -121,21 +117,23 @@ check' expected (a :< If cond l r) = do
   return $ Ann a expected :< If cond' left' right'
 check' expected (a :< Var nm) = do
   ty <- lookupVariable nm
-  ty' <- instantiate ty
+  ty' <- lift $ instantiate ty
 
-  cons <- ty' `constrainedUnification` expected
+  ty' =??= expected
 
-  return $ TyAnn (Just a) (Type ty $ Just $ constrain cons ty') :< Var nm
+  return $ TyAnn (Just a) (Type ty $ Just ty') :< Var nm
 check' expected (a :< Constructor nm) = do
   ConstructorEntry { consType = ty, consTyVars = args } <- lookupConstructor nm
-  ty' <- instantiate ty
-  ty' =?= expected
+  ty' <- lift $ instantiate ty
+  ty' =??= expected
 
   return $ TyAnn (Just a) (Type ty $ Just ty') :< Constructor nm
 check' expected v@(_ :< BinOp _ _ _) = do
   v' <- infer v
-  cons <- typeOf v' `constrainedUnification` expected
-  return $ fmap (modifyTyAnn (constrain cons)) v'
+
+  typeOf v' =??= expected
+
+  return v'
   where
 
   modifyTyAnn f (TyAnn src (Type ty m)) = TyAnn src (Type (f ty) m)
@@ -148,13 +146,13 @@ check' expected (a :< Body es) = do
 
   let totalConstraints = nub $ concatMap (constraints . typeOf) tys
 
-  cons <- (typeOf $ last tys) `constrainedUnification` expected
+  cons <- (typeOf $ last tys) =??= expected
 
   return $ Ann a (constrain totalConstraints $ typeOf $ last tys) :< Body tys
 check' expected (a :< Apply f args) = do
   f' <- infer f
 
-  subst <- unifyCurrentSubstitution <$> UnifyT get
+  subst <- lift $ unifyCurrentSubstitution <$> UnifyT get
   let fTy' = (subst $?) (typeOf f')
 
   let (constraints, ty') = unconstrained ( fTy')
@@ -164,23 +162,23 @@ check' expected (a :< Apply f args) = do
 
   args' <- mapM (uncurry check) (zip argTys args)
 
-  retTy =?= expected
+  retTy =??= expected
 
   return $ Ann a (constrain constraints retTy) :< Apply f' args'
 check' expected (a :< Literal lit) = do
   let ty = litType lit
-  ty =?= expected
+  ty =??= expected
   return $ Ann a ty :< Literal lit
 check' expected l@(a :< Lambda pats exp) = do
   l' <- infer l
 
-  expected =?= typeOf l'
+  expected =??= typeOf l'
 
   return l'
 check' expected c@(a :< Case scrut pats) = do
   c' <- infer c
 
-  typeOf c' =?= expected
+  typeOf c' =??= expected
 
   return c'
 check' expected ty = error (show $ pretty ty)
@@ -206,6 +204,7 @@ instance Partial (Type a) where
   ($?) sub t@(TUnknown u)    = fromMaybe t $ H.lookup u (runSubstitution sub)
   ($?) sub (Forall vars ty)  = Forall vars $ sub $? ty
   ($?) sub other             = other
+
 instance UnificationError (Type Name) MultiError where
   occursCheckFailed t = TypeOccursError t
 
@@ -232,11 +231,17 @@ unifyTypes f@(Forall{}) ty = do
 unifyTypes ty t@(Forall{}) = unifyTypes t ty
 unifyTypes t1 t2 = throwError $ UnificationError t1 t2
 
-constrainedUnification :: Type Name -> Type Name -> UnifyT (Type Name) Check [Constraint Name]
-constrainedUnification t1 t2 = let
-  (cons1, t1') = unconstrained t1
-  (cons2, t2') = unconstrained t2
-  in t1' =?= t2' >> return (cons1 ++ cons2)
+constrainedUnification :: Type Name -> Type Name -> WriterT [Constraint Name] (UnifyT (Type Name) Check) ()
+constrainedUnification t1 t2 = do
+  let
+    (cons1, t1') = unconstrained t1
+    (cons2, t2') = unconstrained t2
+
+  tell (cons1 ++ cons2)
+
+  lift $ t1' =?= t2' >> return ()
+
+a =??= b = constrainedUnification a b
 
 type Alt a = (Patterns a, Expr a)
 

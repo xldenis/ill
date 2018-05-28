@@ -67,6 +67,7 @@ lintCoreInDir dir = do
 spec :: Spec
 spec = do
   lintCoreInDir "test/core"
+  lintCoreInDir "test/desugar"
   describe "substitution" $ do
     describe "in nested bindings" $ do
       it "respects let statements" $ do

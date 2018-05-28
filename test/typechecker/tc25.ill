@@ -9,6 +9,16 @@ module X
     end
   end
 
+  trait Group a
+    minus :: a -> a -> a
+  end
+
+  impl Group Int
+    fn minus(_,_)
+      1
+    end
+  end
+
   fn c (i)
     i - 5
   end

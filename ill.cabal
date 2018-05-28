@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f1f362fef002d8d0190c3e20b4494a5a1a2604aab4662b6f8c43e9ff0a8d7455
+-- hash: ad34ec18d9ba92afcde0c961f03dc4547e94739db73b70c72f672ab886fb1991
 
 name:           ill
 version:        0.1.0.0
@@ -28,28 +28,6 @@ source-repository head
   location: https://github.com/xldenis/ill
 
 library
-  hs-source-dirs:
-      src
-  default-extensions: FlexibleContexts NoImplicitPrelude DeriveGeneric FlexibleInstances DeriveFunctor DeriveTraversable DeriveFoldable
-  ghc-options: -fwarn-incomplete-uni-patterns -fdiagnostics-color=always
-  build-depends:
-      base >=4.7 && <5
-    , bifunctors
-    , bytestring
-    , comonad
-    , containers
-    , free
-    , lens
-    , llvm-hs
-    , llvm-hs-pretty
-    , llvm-hs-pure
-    , megaparsec
-    , mtl
-    , prettyprinter
-    , prettyprinter-ansi-terminal
-    , text
-    , transformers-compat
-    , unordered-containers
   exposed-modules:
       Control.Monad.Fresh
       Control.Monad.Unify
@@ -93,10 +71,39 @@ library
   other-modules:
       Ill.Prelude
       Paths_ill
+  hs-source-dirs:
+      src
+  default-extensions: FlexibleContexts NoImplicitPrelude DeriveGeneric FlexibleInstances DeriveFunctor DeriveTraversable DeriveFoldable
+  ghc-options: -fwarn-incomplete-uni-patterns -fdiagnostics-color=always
+  build-depends:
+      base >=4.7 && <5
+    , bifunctors
+    , bytestring
+    , comonad
+    , containers
+    , free
+    , lens
+    , llvm-hs
+    , llvm-hs-pretty
+    , llvm-hs-pure
+    , megaparsec
+    , mtl
+    , prettyprinter
+    , prettyprinter-ansi-terminal
+    , text
+    , transformers-compat
+    , unordered-containers
   default-language: Haskell2010
 
 executable ill
   main-is: Main.hs
+  other-modules:
+      CodegenDebug
+      CoreDebug
+      DesugarDebug
+      Infer
+      Interpreter
+      Paths_ill
   hs-source-dirs:
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
@@ -112,18 +119,22 @@ executable ill
     , prettyprinter
     , prettyprinter-ansi-terminal
     , text
-  other-modules:
-      CodegenDebug
-      CoreDebug
-      DesugarDebug
-      Infer
-      Interpreter
-      Paths_ill
   default-language: Haskell2010
 
 test-suite ill-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
+  other-modules:
+      Ill.CoreSpec
+      Ill.InferSpec
+      Ill.InterpSpec
+      Ill.Parser.ExpressionSpec
+      Ill.Parser.PatternSpec
+      Ill.Parser.TypeSpec
+      Ill.ParserSpec
+      Ill.Quote
+      SpecHelper
+      Paths_ill
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
@@ -143,15 +154,4 @@ test-suite ill-test
     , prettyprinter-ansi-terminal
     , template-haskell
     , text
-  other-modules:
-      Ill.CoreSpec
-      Ill.InferSpec
-      Ill.InterpSpec
-      Ill.Parser.ExpressionSpec
-      Ill.Parser.PatternSpec
-      Ill.Parser.TypeSpec
-      Ill.ParserSpec
-      Ill.Quote
-      SpecHelper
-      Paths_ill
   default-language: Haskell2010

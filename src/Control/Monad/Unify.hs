@@ -30,6 +30,7 @@ import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Error.Class
 import Control.Monad.Fresh
+import Control.Monad.Writer
 
 import Data.HashMap.Strict as M
 
@@ -103,6 +104,9 @@ instance (MonadState s m) => MonadState s (UnifyT t m) where
 instance (MonadError e m) => MonadError e (UnifyT t m) where
   throwError = UnifyT . throwError
   catchError e f = UnifyT $ catchError (unUnify e) (unUnify . f)
+
+instance (MonadWriter w m) => MonadWriter w (UnifyT t m) where
+  tell = UnifyT . tell
 
 -- |
 -- Run a computation in the Unify monad, failing with an error, or succeeding with a return value and the new next unification variable

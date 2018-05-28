@@ -1,4 +1,6 @@
 module ImproperBindingInCase # need to move this to desguar tests
+  data Maybe a = Just a | Nothing
+
   fn test_messed_up_name_binds(i, Nothing)
     i
   or test_messed_up_name_binds(item, x)

@@ -2,7 +2,11 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
-module Ill.Infer.Monad where
+module Ill.Infer.Monad
+( module Ill.Infer.Monad
+, module Control.Monad.Unify
+, runWriterT
+) where
 
 import           Ill.Prelude
 
@@ -12,6 +16,7 @@ import           Ill.Syntax
 
 import           Control.Monad.Except
 import           Control.Monad.State
+import           Control.Monad.Writer (runWriterT)
 import           Control.Monad.Unify
 
 import           Ill.Syntax.Builtins

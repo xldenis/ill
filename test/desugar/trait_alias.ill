@@ -1,0 +1,19 @@
+module TraitAlias
+  trait Show a
+    show :: a -> String
+  end
+
+  impl Show Int
+    fn show(_)
+      ''
+    end
+  end
+
+  fn notShow(a)
+    show(a)
+  end
+
+  fn main()
+    notShow(1)
+  end
+end

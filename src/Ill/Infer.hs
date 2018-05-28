@@ -266,16 +266,18 @@ typeForBindingGroupEl (a :< Value name els) dict = rethrow (ErrorInDecl name) $ 
 
   x <- forM els $ \(pats, val) -> do
     (patDict, pats') <- inferPats (zip patTys pats)
-    val' <- bindNames dict $ bindNames patDict (infer val)
+    (val', cons) <- runWriterT $ do
+      val' <- bindNames dict $ bindNames patDict (infer val)
+      typeOf val' `constrainedUnification` retTy
+      return val'
 
-    cons <- typeOf val' `constrainedUnification` retTy
     return ((pats', val'), cons)
 
   let (vals', cons') = unzip x
   let fTy = foldr tFn (typeOf . snd $ last vals') patTys
       memberType = fromJust (lookup name dict)
 
-  fTy `constrainedUnification` memberType
+  fTy =?= memberType
 
   return $ Ann a (constrain (concat cons') memberType) :< Value name vals'
 
@@ -297,8 +299,10 @@ checkBindingGroupEl ty (a :< Value name els) dict = rethrow (ErrorInDecl name) $
     let patTys = zip argTys pats
 
     (patDict, pats') <- inferPats patTys
-    val' <- bindNames (patDict ++ dict) (check retTy val)
-    cons <- retTy `constrainedUnification` typeOf val'
+    (val', cons) <- runWriterT $ do
+      val' <- bindNames (patDict ++ dict) (check retTy val)
+      retTy `constrainedUnification` typeOf val'
+      return val'
 
     return (cons, (pats', val'))
 
