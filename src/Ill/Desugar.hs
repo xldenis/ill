@@ -67,17 +67,7 @@ declToCore' (_) = pure ()
   Get the type applications needed for a type annotation
 -}
 getTypeApps :: TypedAnn -> [CoreExp]
-getTypeApps t = map (C.Type . snd) subst
-  where
-  subst = case join $ subsume <$> (pure . unForall . polyTy $ S.ty t) <*> ((instTy $ S.ty t)) of
-    Just l -> filter (\(v, _) -> v `elem` boundVars (polyTy $ S.ty t)) l
-    Nothing -> []
-
-  boundVars (Forall vs _) = vs
-  boundVars _ = []
-
-  unForall (Forall _ t) = t
-  unForall t = t
+getTypeApps = map (C.Type . snd) . getAnnSubst
 
 toCore :: Expr TypedAnn -> CoreExp
 toCore lVar@(a :< S.Var nm) = foldl App (Var var) (getTypeApps a)
@@ -86,7 +76,9 @@ toCore cons@(a :< S.Constructor nm) = foldl App (Var var) (getTypeApps a)
   where var = Id nm (typeOf cons) Used
 toCore (_ :< S.Case scrut alts) = Case (toCore scrut) (toAlts alts)
 toCore (_ :< S.Assign names exprs) = error "assignments must be desugared in blocks"
-toCore (a :< S.Apply lam args) = foldl App (toCore lam) $ (map toCore args) ++ (getTypeApps a)
+toCore e@(a :< S.Apply lam args) = foldl App (toCore lam) $ getTypeApps ann ++ (map toCore args)
+  where instTy = foldr tFn (snd . unconstrained $ typeOf e) (map typeOf args)
+        ann = TyAnn Nothing (S.Type (fromJust $ instTyOf lam) (Just instTy))
 toCore (_ :< S.BinOp op left right) = error "binops should have been desugared to assigns"
 toCore (_ :< S.If cond left right) = Case (toCore cond)
   [ ConAlt "True" [] (toCore left)

@@ -1,4 +1,14 @@
 module LambdaLifting
+  trait Semigroup a
+    plus :: a -> a -> a
+  end
+
+  impl Semigroup Int
+    fn plus (_,_)
+      1
+    end
+  end
+
   fn test_lambda_lifting()
     x = 1
     # in the following lambda, x is a free variable (not bound directly by the lambda)

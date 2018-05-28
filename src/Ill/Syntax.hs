@@ -123,7 +123,7 @@ pattern Ann x y = TyAnn (Just x) (Type y Nothing)
 pattern SynAnn y = TyAnn Nothing (Type y Nothing)
 
 data TypeAnn
-  = Type { polyTy :: (Type Name), instTy :: Maybe (Type Name) }
+  = Type { polyTy :: Type Name, instTy :: Maybe (Type Name) }
   | Kind Kind
   | None
   deriving (Show, Eq)
@@ -148,6 +148,19 @@ typeOf = polyTy . ty . extract
 
 instTyOf :: Functor f => Cofree f TypedAnn -> Maybe (Type Name)
 instTyOf = instTy . ty . extract
+
+getAnnSubst :: TypedAnn -> [(Name, Type Name)]
+getAnnSubst t = subst
+  where
+  subst = case join $ subsume <$> (pure . unForall . polyTy $ ty t) <*> (instTy $ ty t) of
+    Just l -> filter (\(v, _) -> v `elem` boundVars (polyTy $ ty t)) l
+    Nothing -> []
+
+  boundVars (Forall vs _) = vs
+  boundVars _ = []
+
+  unForall (Forall _ t) = t
+  unForall t = t
 
 valueName :: Decl a -> Name
 valueName (_ :< Value n _) = n

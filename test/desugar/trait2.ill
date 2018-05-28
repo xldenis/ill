@@ -1,0 +1,37 @@
+module Trait2
+  data OMG = A | B
+
+  trait Show a
+    show :: a -> String
+  end
+
+  impl Show Int
+    fn show(_)
+      ''
+    end
+  end
+
+  impl Show OMG
+    fn show(_)
+      'omg'
+    end
+  end
+
+  trait Semigroup a
+    plus :: a -> a -> a
+  end
+
+  impl Semigroup String
+    fn plus(_,_)
+      ''
+    end
+  end
+
+  fn borked(a, b)
+    show(a) + show(b)
+  end
+
+  fn main()
+    borked(1, A)
+  end
+end

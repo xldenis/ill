@@ -107,6 +107,10 @@ desugarTraits env ds = fromDecl =<< ds
   fromDecl (a :< Value name eqns) = runReaderT (addDictsToVals a name eqns) env
   fromDecl x = pure x
 
+{-
+  Transform an instance declaration into a value of the dictionary type.
+-}
+
 valFromInst :: MonadReader Environment m => [Constraint Name] -> Name -> Type Name -> [Decl TypedAnn] -> m (Decl TypedAnn)
 valFromInst supers nm ty decls = do
   trait <- reader (lookup nm . traits) >>= \case
@@ -167,6 +171,10 @@ mkDictConsType name vars supers members = let
   builtDictTy = mkDictType (name, TVar vars)
   in generalize $ foldr tFn builtDictTy (supers ++ members)
 
+{-
+  Generate the datatype from a trait declaration. Also generates accessors for trait methods.
+-}
+
 dataFromDecl :: [Constraint Name] -> Name -> Name -> [Decl TypedAnn] -> [Decl TypedAnn]
 dataFromDecl superTraits name vars members = let
   sortedMem = sortOn sigNm members
@@ -182,6 +190,10 @@ dataFromDecl superTraits name vars members = let
   in dataRec (superTys ++ memTys) : accessors
   where
   sigNm (_ :< Signature nm _) = nm
+
+{-
+  Rewrite values to explicitly pass around dictionaries.
+-}
 
 addDictsToVals :: MonadReader Environment m => TypedAnn -> Name -> [Eqn TypedAnn] -> m (Decl TypedAnn)
 addDictsToVals ann nm eqns = do
@@ -218,20 +230,20 @@ addDictsToEqns dict eqns = forMOf (each . _2) eqns (transformMOf plate (replaceT
 
 replaceTraitMethods :: MonadReader Environment m => NameDict -> Expr TypedAnn -> m (Expr TypedAnn)
 replaceTraitMethods dicts v@(a :< Var nm) = do
-  traitInfo <- reader traits
-  let allTraitMethods = join $ map (\(nm, entry) -> map (fmap (const (nm, entry))) (methodSigs entry)) traitInfo
-  case nm `lookup` allTraitMethods of
-    Just (traitNm, entry) -> do
-      instanceDict <- reader traitDictionaries
-      let traitCons   = constraints $ fromJust' $ instTyOf v
-          instTy      = fromJust' $ traitNm `lookup` traitCons
-          memPolyTy   = generalize . constraintsToFn True . polyTy $ ty a
-          tyAnn       = Type memPolyTy (Just $ applyTypeVars [instTy] memPolyTy)
-          dictAnn     = fmapTyAnn (snd . unconstrained . applyTypeVars [instTy]) a
+  instanceDict <- reader traitDictionaries
 
-      return $ dictAnn :< mkDictLookup instanceDict tyAnn (traitNm, instTy)
-    Nothing -> pure v
+  let memberTypeScheme = generalize . constraintsToFn True . polyTy $ ty a
 
+  case constraints (typeOf v) /= [] of
+    True -> do
+      let
+        tyAnn     = Type memberTypeScheme (Just $ replaceTypeVars subst memberTypeScheme)
+        subst     = getAnnSubst $ fmapTyAnn (snd . unconstrained) a
+        dictAnn   = fmapTyAnn (snd . unconstrained . replaceTypeVars subst) a
+        traitCons = constraints $ replaceTypeVars subst . polyTy $ ty a
+
+      return $ dictAnn :< mkDictLookup instanceDict tyAnn traitCons
+    False -> pure v
   where
 
   fromJust' (Just x) = x
@@ -240,8 +252,9 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
   fmapTyAnn f ann = ann { ty = ( mapTy f (ty ann)) }
   mapTy f (Type pT iT) = Type (f pT) (f <$> iT)
 
-  mkDictLookup :: InstanceDict -> TypeAnn -> Constraint Name -> Expression TypedAnn (Expr TypedAnn)
-  mkDictLookup id ty c = Apply (TyAnn Nothing ty :< Var nm) [mkDictVal id c]
+  mkDictLookup :: InstanceDict -> TypeAnn -> [Constraint Name] -> Expression TypedAnn (Expr TypedAnn)
+  mkDictLookup id ty [] = Var nm
+  mkDictLookup id ty c  = Apply (TyAnn Nothing ty :< Var nm) (map (mkDictVal id) c)
 
   mkDictVal :: InstanceDict -> Constraint Name -> Expr TypedAnn
   mkDictVal id traitCons = case findInst traitCons id dicts of
@@ -270,10 +283,13 @@ instanceAnnotation c@(nm, ty) entry subDicts = let
 findInst :: Constraint Name -> InstanceDict -> NameDict -> Maybe (DictName, InstanceEntry, [Constraint Name])
 findInst c@(nm, tys) id namedict = do
   (entry, subDict) <- matchInst id c
-  matched <- find (\(c2, _) -> matcher c c2) namedict
+
+  -- this is currently very hacky... need to find a better way to represent this...
+  matched <- find (matcher c) namedict
   return (snd matched, entry, subDict)
   where
-  matcher (nm1, ty1) (nm2, ty2) | nm1 == nm2 = isJust $ subsume (ty2) (ty1)
+  matcher c1         (c2, LocalDict _) = c1 == c2
+  matcher (nm1, ty1) ((nm2, ty2), _) | nm1 == nm2 = isJust $ subsume ty2 ty1
   matcher _ _ = False
 
 mkAccessor tyNm recTy tys fldNm ix = let

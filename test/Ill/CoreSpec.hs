@@ -107,6 +107,7 @@ spec = do
 
 
   describe "desugaring" $ do
+    it "passes local dicts to constrained methods" localDictsPassedToConstrainedMethods
     it "desugars constructor groups" $ do
       constructorGroups
     it "mappairs" $ do
@@ -148,7 +149,6 @@ spec = do
       renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
 
     it "simple module" $ do
-
       let mod = [modQ|
         module X
           data L a = C a (L a) | Nil
@@ -210,3 +210,26 @@ constructorGroups = do
 
   renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
 
+localDictsPassedToConstrainedMethods = do
+  let
+    mod = [modQ|
+      module X
+        trait A a
+          test :: a -> Bool
+        end
+
+        fn aliased(x)
+          test(x)
+        end
+      end
+    |]
+    Right (typed, e') = runTC mod
+    ValueBG [x] = last typed
+    [result] = desugarTraits (env e') [x]
+    expected = [decl|
+      fn aliased(dict1, x)
+        test(dict1)(x)
+      end
+    |]
+
+  renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
