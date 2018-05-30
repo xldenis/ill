@@ -146,7 +146,8 @@ addTrait :: MonadState CheckState m => Name -- class name
   -> [(Name, Type Name)]  -- name and type of member sigs
   -> m ()
 addTrait name supers arg members = do
-  let qualifiedMembers = map (fmap (generalize . qualifyType)) members
+  let qualifiedMembers = map (fmap (generalize . qualifyType . generalizeWithout [arg])) members
+
   modifyEnv $ \e -> e { traits = (name, TraitEntry supers arg qualifiedMembers) : traits e }
   modifyEnv $ \e -> e { names = (fromList qualifiedMembers) `union` names e }
   where

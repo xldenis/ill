@@ -35,7 +35,9 @@ infer' (a :< Apply l args) = do
   f' <- infer l
 
   args' <- mapM infer args
-  typeOf f' =??= flattenConstraints (foldr tFn retTy $ map typeOf args')
+
+  fullyInstantiated <- lift $ instantiate (typeOf f')
+  fullyInstantiated =??= flattenConstraints (foldr tFn retTy $ map typeOf args')
 
   return $ Ann a retTy :< Apply f' args'
 infer' (a :< If cond left right) = do
@@ -151,11 +153,12 @@ check' expected (a :< Body es) = do
   return $ Ann a (constrain totalConstraints $ typeOf $ last tys) :< Body tys
 check' expected (a :< Apply f args) = do
   f' <- infer f
+  fTy <- lift $ instantiate (typeOf f')
 
   subst <- lift $ unifyCurrentSubstitution <$> UnifyT get
-  let fTy' = (subst $?) (typeOf f')
+  let fTy' = subst $? fTy
 
-  let (constraints, ty') = unconstrained ( fTy')
+  let (_, ty')  = unconstrained fTy'
       unwrapped = unwrapN (length args) ty'
       argTys    = init unwrapped
       retTy     = last unwrapped
@@ -164,7 +167,7 @@ check' expected (a :< Apply f args) = do
 
   retTy =??= expected
 
-  return $ Ann a (constrain constraints retTy) :< Apply f' args'
+  return $ Ann a retTy :< Apply f' args'
 check' expected (a :< Literal lit) = do
   let ty = litType lit
   ty =??= expected
@@ -286,4 +289,5 @@ instantiate :: Type Name -> UnifyT (Type Name) Check (Type Name)
 instantiate (Forall vars ty) = do
   replacements <- forM vars $ \var -> (,) <$> pure var <*> fresh
   return $ replaceTypeVars replacements ty
+instantiate (Constrained cs ty) = Constrained cs <$> instantiate ty
 instantiate t = pure t

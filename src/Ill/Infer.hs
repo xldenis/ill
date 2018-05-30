@@ -53,8 +53,6 @@ import           Ill.Syntax.Type
 import Data.Bitraversable
 import Control.Lens.Plated
 
-import Debug.Trace
-
 type RawDecl = Decl SourceSpan
 
 {-
@@ -233,7 +231,7 @@ substituteAnn sub = \ann -> do
   pure $ ann { ty = Type subbedPoly subbedInst }
 
 substituteOneType :: Substitution (Type Name) -> Type Name -> Type Name
-substituteOneType sub ty = varIfUnknown . flattenConstraints $ sub $? ty
+substituteOneType sub ty = varIfUnknown $ sub $? ty
 
 type TypedDict   = [(Name, Type Name)]
 type UntypedDict = [(Name, Type Name)]
