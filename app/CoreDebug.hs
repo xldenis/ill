@@ -24,16 +24,17 @@ import Data.Maybe (maybeToList)
 
 import Prelude hiding (putStrLn, putStr)
 
-coreDebug :: Maybe String -> Module SourceSpan -> IO ()
-coreDebug filter ast = case runTC ast of
+coreDebug :: Maybe String -> Bool -> Module SourceSpan -> IO ()
+coreDebug filter onlyLint ast = case runTC ast of
   Left err -> putStrLn $ prettyType err
   Right (typed, env) -> do
     let desugared = defaultPipeline env typed
         core = compileCore desugared
         binds = filterBindings filter (bindings core)
 
-    putStrLn $ pack "\n\nCORE OUTPUT\n\n"
-    putStrLn $ renderIll cliRenderArgs (vcat $ map pretty $ binds)
+    unless onlyLint $ do
+      putStrLn $ pack "\n\nCORE OUTPUT\n\n"
+      putStrLn $ renderIll cliRenderArgs (vcat $ map pretty $ binds)
 
     case runLinter core of
       Left err -> putStrLn $ pack err

@@ -113,7 +113,9 @@ substitute = go []
 -}
 
 getTyOf :: CoreExp -> Type Name
-getTyOf b@(App f a) = applyArgumentToType (getTyOf a) (getTyOf f) (pretty (f, a))
+getTyOf b@(App f a) = case applyArgumentToType (getTyOf a) (getTyOf f) of
+  Just t -> t
+  Nothing -> error $ "Invalid App " ++ (show $ pretty b)
 getTyOf (Case _ alts) = altTyOf $ head alts
   where altTyOf (TrivialAlt e) = getTyOf e
         altTyOf (LitAlt _ e)   = getTyOf e

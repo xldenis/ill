@@ -25,7 +25,7 @@ data Format = Format String
 data Infer = Infer String
 data Desugar = Desugar String String
 data Run = Run String
-data Core = Core String (Maybe String)
+data Core = Core String (Maybe String) Bool
 data Codegen = Codegen String
 
 fileArg = strArgument (metavar "FILE" <> help "location of source file")
@@ -48,7 +48,7 @@ options = do
       run    (Run <$> fileArg)
     addCommand "core"
       "generate core bindings for a module"
-      core   (Core <$> fileArg <*> filterArg)
+      core   (Core <$> fileArg <*> filterArg <*> (flag False True $ long "only-lint"))
     addCommand "desugar"
       "view the desugaring pipeline up to a given stage"
       desugarC (Desugar <$> stageArg <*> fileArg)
@@ -60,7 +60,7 @@ codegenC (Codegen f) = commandWrapper f (codegen)
 format (Format f) = commandWrapper f (T.putStrLn . renderIll defaultRenderArgs . pretty)
 inferC (Infer f)  = commandWrapper f (infer)
 run    (Run f)    = commandWrapper f (runInterpreter)
-core   (Core f filter) = commandWrapper f (coreDebug filter)
+core   (Core f filter lint) = commandWrapper f (coreDebug filter lint)
 desugarC (Desugar s f) = commandWrapper f (desugar s)
 
 commandWrapper file com parsedPrelude = do

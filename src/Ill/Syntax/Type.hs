@@ -110,7 +110,6 @@ unconstrained (Constrained cons t) = (concatMap unconstrainedConstraints cons, t
   unconstrainedConstraints (n, c) = let
     (cs', ty) = unconstrained c
     in (n, ty) : cs'
-
 unconstrained (Forall vars ty) = let
   (cons, ty') = unconstrained ty
   in (cons, Forall vars ty')
@@ -214,10 +213,10 @@ unwrapProduct ty = reverse $ unfoldr' go ty
   This function calculates the result of applying a type to a function type.
 -}
 
-applyArgumentToType :: Show a => Type Name -> Type Name -> a -> Type Name
-applyArgumentToType arg t@(Forall _ _) _ = applyTypeVars [arg] t
-applyArgumentToType arg (TAp (TAp (TConstructor "->") (TVar n)) b) _ = replaceTypeVars [(n, arg)] b
-applyArgumentToType arg (Arrow (TVar n) b) _ = replaceTypeVars [(n, arg)] b
-applyArgumentToType arg (TAp (TAp (TConstructor "->") _) b) _ = b
-applyArgumentToType arg (Arrow _ b) _ = b
-applyArgumentToType arg t o = error $ show arg ++ " omg " ++ show t ++ "omg2 " ++ show o
+applyArgumentToType :: Type Name -> Type Name -> Maybe (Type Name)
+applyArgumentToType arg t@(Forall _ _) = Just $  applyTypeVars [arg] t
+applyArgumentToType arg (TAp (TAp (TConstructor "->") (TVar n)) b) = Just $ replaceTypeVars [(n, arg)] b
+applyArgumentToType arg (Arrow (TVar n) b) = Just $ replaceTypeVars [(n, arg)] b
+applyArgumentToType arg (TAp (TAp (TConstructor "->") _) b) = Just b
+applyArgumentToType arg (Arrow _ b) = Just b
+applyArgumentToType arg t = Nothing

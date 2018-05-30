@@ -18,7 +18,9 @@ import           Ill.Infer.Monad     (defaultCheckEnv, env, names)
 
 import qualified Data.Map            as M
 import           Data.Maybe
+import           Data.Bifunctor (first)
 
+import           Ill.Error (rethrow)
 {-
   Core Linting
 
@@ -33,7 +35,18 @@ import           Data.Maybe
   testing.
 -}
 
-type LintM m = (MonadState LintEnv m, MonadError String m)
+type LintM m = (MonadState LintEnv m, MonadError ErrorStack m)
+
+data ErrorStack = Stack CoreExp ErrorStack | Msg String deriving Show
+-- need to add a mechanism to summarize the errors, we dont need _every_ single level of nesting
+
+instance Pretty ErrorStack where
+  pretty (Stack exp stack) = vcat $
+    [ pretty "error in expr:"
+    , pretty exp
+    , nest 2 (pretty stack)
+    ]
+  pretty (Msg str) = pretty str
 
 data LintEnv = E
   { boundNames  :: M.Map String (Type String)
@@ -41,7 +54,7 @@ data LintEnv = E
   } deriving (Show, Eq)
 
 runLinter :: CoreModule -> Either String ()
-runLinter = flip evalState (E (names $ env defaultCheckEnv) []) . runExceptT . lintModule
+runLinter = first (show . pretty) . flip evalState (E (names $ env defaultCheckEnv) []) . runExceptT . lintModule
   where
   lintModule mod = bindNames (map getVar $ bindings mod) $
     bindCons (constructors mod) (mapM_ lintBind (bindings mod))
@@ -80,21 +93,25 @@ lintBind (NonRec b exp) = do
 
   case (idTy b) == ty of
     True -> pure ()
-    False -> throwError $ "the type of binding " ++ show (pretty ty) ++ " did not match expected type " ++ show (pretty $ idTy b)
+    False -> throwError  . Msg $ "the type of binding " ++ show (pretty ty) ++ " did not match expected type " ++ show (pretty $ idTy b)
 
 lookupName var = do
   names <- gets boundNames
   case var `M.lookup` names of
     Just x  -> return x
-    Nothing -> throwError $ "the name " ++ show var ++ " could not be found."
+    Nothing -> throwError . Msg $ "the name " ++ show var ++ " could not be found."
 
 lookupTyVar var = do
   tyvars <- gets boundTyVars
-  if var `elem` tyvars then return () else throwError $ "the typevariable " ++ show var ++ " could not be found."
+  if var `elem` tyvars then return () else throwError . Msg $ "the typevariable " ++ show var ++ " could not be found."
 
 -- Check the types of the core expression
 lintCore :: LintM m => CoreExp -> m (Type String)
-lintCore l@(Lambda bind exp) = do
+lintCore c = rethrow oneWrap (lintCore' c)
+  where oneWrap e@(Stack{}) = e
+        oneWrap e = Stack c e
+
+lintCore' l@(Lambda bind exp) = do
   bodyTy <- bindName bind (lintCore exp)
   return $ makeCorrectFunTy bind bodyTy
   where
@@ -103,8 +120,8 @@ lintCore l@(Lambda bind exp) = do
     Forall vars ty -> Forall (varName tv : vars) ty
     ty             -> Forall [varName tv] ty
   -- need to build a type lambda instead of a term lambda
-lintCore (Var var) = lookupName (varName var)
-lintCore ap@(App f t@(Type ty)) = do
+lintCore' (Var var) = lookupName (varName var)
+lintCore' ap@(App f t@(Type ty)) = do
   lintCore t
   fTy <- lintCore f
 
@@ -118,17 +135,17 @@ lintCore ap@(App f t@(Type ty)) = do
     [ pretty "type variable applied to non polymorphic function!"
     , pretty (ty, ap)
     ]
-lintCore ap@(App f arg) = do
+lintCore' ap@(App f arg) = do
   fTy <- lintCore f
   argTy <- lintCore arg
 
   (a, b) <- getArgTy ap fTy
   if isJust $ a `subsume` argTy then return b
-  else throwError $ "app error: " ++ show (pretty (fTy, argTy))
+  else throwError . Msg $ "app error: " ++ show (pretty (fTy, argTy))
   where
   getArgTy _ (TAp (TAp (TConstructor "->") a) b) = pure (a, b)
   getArgTy _ (Arrow a b) = pure (a, b)
-  getArgTy _ ty' = throwError . show $ vcat
+  getArgTy _ ty' = throwError . Msg . show $ vcat
     [ pretty "The function has an unresolved polymorphic variable in the application:"
     , pretty ap
     , pretty "function:"
@@ -137,28 +154,28 @@ lintCore ap@(App f arg) = do
     , pretty ty'
     ]
 
-lintCore c@(Case scrut alts) = do
+lintCore' c@(Case scrut alts) = do
   scrutTy <- lintCore scrut
   retTys <- mapM (lintAlt scrutTy) alts
   return $ head retTys
 
   if all (isJust . subsume (head retTys)) retTys
   then return $ head retTys
-  else throwError . show $ pretty "hmmm some alts done have the same types!" <+> pretty retTys
-lintCore l@(Let bind exp) = do
+  else throwError . Msg . show $ pretty "hmmm some alts done have the same types!" <+> pretty retTys
+lintCore' l@(Let bind exp) = do
   lintBind bind
   let NonRec b _ = bind
   bindName b (lintCore exp)
-lintCore (Type t) = do
+lintCore' (Type t) = do
   let vars = freeVariables t
   mapM_ lookupTyVar vars
 
   return t -- validate no unknown tyvars
-lintCore (Lit lit) = return $ litType lit
+lintCore' (Lit lit) = return $ litType lit
 
 lintAlt :: LintM m => Type String -> Alt Var -> m (Type String)
 lintAlt ty (ConAlt i binds exp) = foldl (flip bindName) (lintCore exp) binds
 lintAlt ty (TrivialAlt exp) = lintCore exp
 lintAlt ty (LitAlt lit exp) = if litType lit == ty
   then lintCore exp
-  else throwError "bad lit alt!"
+  else throwError $ Msg "bad lit alt!"
