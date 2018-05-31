@@ -14,7 +14,7 @@ module Omg
 
   fn main ()
     a = omgDebug('omgggg')
-    show(fibs(32))
+    show(fibList1(32))
   end
 end
 

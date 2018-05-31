@@ -150,7 +150,8 @@ match vars eqns = do
       error "currently string literal matches arent implemented"
     else do
       branches <- mapM matchLiteral subGroups
-      let failBranch = ((extract . fst $ head  branches) :< Wildcard, id)
+      let failBranch = ((extract . fst $ head branches) :< Wildcard, updateInstAnn)
+          updateInstAnn (ann :< e) = ann { ty = ((ty ann) { instTy = Just (snd $ unconstrained retTy) }) } :< e
 
       return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (fmap ($ fail)) (branches ++ [failBranch]))
     where

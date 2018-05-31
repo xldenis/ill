@@ -294,9 +294,12 @@ compileBody l@(Let (NonRec v e) exp) = do -- figure out how to handle recursive 
 compileBody (Case scrut alts) = mdo
   scrutOp <- compileBody scrut
 
-  let tagIx = if isJust $ find isConAlt alts then 0 else 1
+  let (tagIx, scrutTy) =
+        if isJust $ find isConAlt alts
+        then (0, ptr $ T.StructureType False [T.i64])
+        else (1, ptr $ T.StructureType False [T.i64, T.i64])
 
-  scrutHead <- bitcast scrutOp (ptr $ T.StructureType False [T.i64])
+  scrutHead <- bitcast scrutOp scrutTy
   tagPtr <- gep scrutHead (int32 0 ++ int32 tagIx)
   tag <- load tagPtr 8
 
