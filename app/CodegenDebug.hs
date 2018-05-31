@@ -19,6 +19,7 @@ import Prelude hiding (putStrLn, putStr)
 
 import Data.Text.Lazy.IO
 import qualified Data.ByteString.Char8 as BS
+import Control.Monad (when)
 
 import LLVM.Module
 import LLVM.Context
@@ -26,12 +27,14 @@ import LLVM.PassManager
 
 import Paths_ill
 
-codegen ast = case runTC ast of
+codegen toPrint ast = case runTC ast of
   Left err -> putStrLn $ prettyType err
   Right (typed, env) -> do
     let desugared = defaultPipeline env typed
         core = compileCore desugared
         binds = (bindings core)
+
+    when toPrint $ putStrLn (prettyModule core)
 
     withContext $ \ctx -> do
       path <- getDataFileName "assets/builtins.ll"

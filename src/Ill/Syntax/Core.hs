@@ -129,15 +129,23 @@ getTyOf (Lit l) = litType l
 getTyOf v = error $ show v
 
 instance (HasType b, Pretty b) => Pretty (Core b) where
-  pretty (Lambda binder exp) = nest 2 $ pretty "\\" <> pretty binder <+> pretty "->" <> softline <> pretty exp
+  pretty l@(Lambda _ _) = nest 2 $ pretty "\\" <> hcat (intersperse space $ map pretty binders) <+> pretty "->" <> line <> pretty exp
+    where unwrapLambda (Lambda b exp) = fmap (b :) (unwrapLambda exp)
+          unwrapLambda exp = (exp, [])
+
+          (exp, binders) = unwrapLambda l
+
   pretty a@(App _ _)    = nest 2 $ parensIf (needsParens f) (pretty f) <> softline' <> (argify (map prettyAp args))
     where needsParens (Var _) = False
           needsParens (App _ _) = False
           needsParens _       = True
+
           prettyAp (Type ty) = pretty "@" <+> pretty ty
           prettyAp app       = pretty app
+
           unwrapApp (App f a) acc = unwrapApp f (a : acc)
           unwrapApp (f) acc = f : acc
+
           argify = tupled -- parens . concatWith (surround $ pretty ", ")
           (f : args) = unwrapApp a []
   pretty (Case scrut alts)   =
@@ -162,6 +170,6 @@ instance (HasType n, Pretty n) => Pretty (Bind n) where
   pretty (NonRec nm exp) = parens (pretty nm <+> pretty "::" <+> pretty (getTy nm)) <+> pretty "=" <+> pretty exp
 
 instance Pretty Var where
-  pretty (TyVar{ varName = name}) = parens $ pretty "@" <> pretty name
+  pretty (TyVar{ varName = name}) = parens $ pretty "@" <+> pretty name
   pretty (Id{ varName = name, usage = Used, idTy = ty }) = pretty name
   pretty (Id{ varName = name, usage = NotUsed }) = pretty "_"

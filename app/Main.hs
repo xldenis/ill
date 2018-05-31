@@ -26,7 +26,7 @@ data Infer = Infer String
 data Desugar = Desugar String String
 data Run = Run String
 data Core = Core String (Maybe String) Bool
-data Codegen = Codegen String
+data Codegen = Codegen String Bool
 
 fileArg = strArgument (metavar "FILE" <> help "location of source file")
 stageArg = strArgument (metavar "STAGE")
@@ -54,9 +54,9 @@ options = do
       desugarC (Desugar <$> stageArg <*> fileArg)
     addCommand "codegen"
       "run the code generator and prettyprint llvm ir"
-      codegenC (Codegen <$> fileArg)
+      codegenC (Codegen <$> fileArg <*> (flag False True $ long "print-ir"))
 
-codegenC (Codegen f) = commandWrapper f (codegen)
+codegenC (Codegen f toPrint) = commandWrapper f (codegen toPrint)
 format (Format f) = commandWrapper f (T.putStrLn . renderIll defaultRenderArgs . pretty)
 inferC (Infer f)  = commandWrapper f (infer)
 run    (Run f)    = commandWrapper f (runInterpreter)
