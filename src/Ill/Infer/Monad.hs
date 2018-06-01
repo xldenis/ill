@@ -44,7 +44,7 @@ data ConstructorEntry = ConstructorEntry
 
 data TraitEntry = TraitEntry
   { superTraits :: [Constraint Name]
-  , traitVar  :: Name
+  , traitVarNm  :: Name
   , methodSigs :: [(Name, Type Name)]
   } deriving (Show, Eq)
 

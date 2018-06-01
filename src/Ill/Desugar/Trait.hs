@@ -120,7 +120,7 @@ valFromInst supers nm ty decls = do
   let
     memberTys = map (generalizeWithout [vars] . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
     superTys  = map mkDictType (superTraits trait)
-    vars      = traitVar trait
+    vars      = traitVarNm trait
     tyConTy   = mkDictConsType nm vars superTys memberTys
     subConTy  = applyTypeVars [ty] tyConTy
     subst     = [(vars, ty)]
