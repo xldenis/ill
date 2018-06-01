@@ -104,7 +104,7 @@ desugarTraits env ds = fromDecl =<< ds
   where
   fromDecl (_ :< TraitDecl supers nm arg members) = dataFromDecl supers nm arg members
   fromDecl (_ :< TraitImpl supers nm ty  members) = runReaderT (valFromInst supers nm ty members) env
-  fromDecl (a :< Value name eqns) = runReaderT (addDictsToVals a name eqns) env
+  fromDecl (a :< Value i name eqns) = runReaderT (addDictsToVals a i name eqns) env
   fromDecl x = pure x
 
 {-
@@ -118,12 +118,13 @@ valFromInst supers nm ty decls = do
     Nothing -> error "this isn't possible"
 
   let
-    memberTys = map (generalizeWithout [vars] . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
-    superTys  = map mkDictType (superTraits trait)
-    vars      = traitVarNm trait
-    tyConTy   = mkDictConsType nm vars superTys memberTys
-    subConTy  = applyTypeVars [ty] tyConTy
-    subst     = [(vars, ty)]
+
+    memberTys   = map (generalizeWithout [vars] . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
+    superTys    = map mkDictType (superTraits trait)
+    vars        = traitVarNm trait
+    tyConTy     = mkDictConsType nm vars superTys memberTys
+    subConTy    = applyTypeVars [ty] tyConTy
+    subst       = [(vars, ty)]
     sortedDecls = sortOn valueName decls
     tyCon       = TyAnn Nothing (Type tyConTy (Just subConTy)) :< Constructor ("Mk" <> nm)
     instName    = instanceName (nm, ty)
@@ -134,16 +135,14 @@ valFromInst supers nm ty decls = do
     superDicts  = map (\inst -> SynAnn (mkDictType inst) :< Var (instanceName inst)) substituted
 
   -- there's a bug in simplify patterns its not returning the correct values
-  addDictsToVals valAnn instName [([], applied)]
+  addDictsToVals valAnn Dictionary instName [([], applied)]
   where
 
   substituteConstraint subst (nm, tys) = (nm, (replaceTypeVars subst) tys)
 
-  valueName (_ :< Value nm _) = nm
+  valueEqns (_ :< Value _ _ eqns) = eqns
 
-  valueEqns (_ :< Value _ eqns) = eqns
-
-  fromValue (_ :< Value _ [([], e)]) = e
+  fromValue (_ :< Value _ _ [([], e)]) = e
   fromValue _ = error "impossible non-value during trait decl desugaring"
 
   unforall (Forall _ ty) = ty
@@ -195,8 +194,8 @@ dataFromDecl superTraits name vars members = let
   Rewrite values to explicitly pass around dictionaries.
 -}
 
-addDictsToVals :: MonadReader Environment m => TypedAnn -> Name -> [Eqn TypedAnn] -> m (Decl TypedAnn)
-addDictsToVals ann nm eqns = do
+addDictsToVals :: MonadReader Environment m => TypedAnn -> ValueInfo -> Name -> [Eqn TypedAnn] -> m (Decl TypedAnn)
+addDictsToVals ann i nm eqns = do
   instanceDicts <- reader traitDictionaries
 
   let
@@ -210,7 +209,7 @@ addDictsToVals ann nm eqns = do
 
   local (\env -> env { traitDictionaries = instanceDict }) $ do
     eqns' <- addDictsToEqns nameDict eqns
-    return $ ann { ty = Type fty' Nothing } :< Value nm (addPatsToEqns dictPats eqns')
+    return $ ann { ty = Type fty' Nothing } :< Value i nm (addPatsToEqns dictPats eqns')
   where
   instanceDictToConstraint :: (Name, [InstanceEntry]) -> [Constraint Name]
   instanceDictToConstraint (nm, instances) = map (\i -> (nm, instType i)) instances
@@ -296,7 +295,7 @@ mkAccessor tyNm recTy tys fldNm ix = let
   val = SynAnn valTy :< Var "el"
   valTy = tys !! (ix - 1)
   accessorTy = generalize $ recTy `tFn` valTy
-  in SynAnn accessorTy :< Value fldNm [([mkPattern recTy tyNm tys ix], val)]
+  in SynAnn accessorTy :< Value Default fldNm [([mkPattern recTy tyNm tys ix], val)]
 
 mkPattern :: Type Name -> Name -> [Type Name] -> Int -> Pat TypedAnn
 mkPattern recTy recNm tys ix = let

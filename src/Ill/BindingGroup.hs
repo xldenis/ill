@@ -32,7 +32,7 @@ data BoundModules a = BoundModules
 
 bgNames (ValueBG ds) = map valueName ds
   where
-  valueName (_ :< Value n _) = n
+  valueName (_ :< Value _ n _) = n
   valueName _ = error "ValueBG has non Value element"
 bgNames (DataBG  ds) = map dataName ds
   where
@@ -116,13 +116,13 @@ valueBindingGroups values = let
   graphNode v = (v, valueName v, (signatureName $ valueName v) : valueUsedName v `intersect` allValues)
   allValues = map valueName values
   in map (ValueBG . sccToDecl) (stronglyConnComp graphList)
-  where valueName (_ :< Value n _) = n
+  where valueName (_ :< Value _ n _) = n
         valueName (_ :< Signature n _) = signatureName n
-        valueBody (Value _ v) = v
+        valueBody (Value _ _ v) = v
         signatureName n = n ++ "_sig"
 
 valueUsedName :: Decl a -> [Ident]
-valueUsedName (_ :< Value n alts) = let
+valueUsedName (_ :< Value _ n alts) = let
   s = singleton n
   f pats ex' = let
     s' = foldl (\acc p -> fst $ patUsedName acc p) s pats

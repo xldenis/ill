@@ -40,7 +40,7 @@ declsToCore :: [Decl TypedAnn] -> CoreModule
 declsToCore decls = execState (mapM declToCore' decls) (emptyModule)
 
 declToCore' :: Decl TypedAnn -> State CoreModule ()
-declToCore' (a :< Value nm [([], exp)]) = do
+declToCore' (a :< Value _ nm [([], exp)]) = do
   let bindExp = (toCore exp)
 
   modify $ \m -> m { bindings = NonRec binder bindExp : bindings m }

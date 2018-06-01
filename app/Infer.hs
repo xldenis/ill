@@ -40,7 +40,7 @@ printBG m (_ : bgs) = printBG m bgs
 printBG _ []        = return ()
 
 printTypes :: M.Map String [InstanceEntry] -> [Decl TypedAnn] -> IO ()
-printTypes m ((a :< Value n _):ts)   = putStr (pack n <> ": ") >> putStrLn (prettyType $ ty a) >> printTypes m ts
+printTypes m ((a :< Value _ n _):ts) = putStr (pack n <> ": ") >> putStrLn (prettyType $ ty a) >> printTypes m ts
 printTypes m ((a :< Data  n _ _):ts) = putStr (pack n <> ": ") >> print (nest 2 $ (pretty $ ty a) `above` tyInsts) >> printTypes m ts
   where tyInsts = prettyTraitInsts $ M.findWithDefault [] n m
 printTypes m (_ : ts) = printTypes m ts

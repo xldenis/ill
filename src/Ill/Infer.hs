@@ -84,7 +84,7 @@ typeCheck (BoundModules
       return $ explicit ++ implicit
 
     subbedValues <- appSubs inferredVals
-    values <- forM subbedValues $ \(ann :< v) -> do
+    values <- forM subbedValues $ \v@(ann :< val) -> do
       let t = fromTyAnn ann
 
       t' <- flattenConstraints <$> simplify' t
@@ -93,21 +93,19 @@ typeCheck (BoundModules
       let generalizedType = generalize t'
       addValue (valueName v) generalizedType
 
-      return $ (ann { ty = Type generalizedType Nothing }) :< updateValue (generalizeVars (valueName v) generalizedType) v
+      return $ (ann { ty = Type generalizedType Nothing }) :< updateValue (generalizeVars (valueName v) generalizedType) val
 
     return $ ValueBG values
 
     where
 
-    updateValue f (Value nm brs) = Value nm (map (fmap $ transform f) brs)
+    updateValue f (Value i nm brs) = Value i nm (map (fmap $ transform f) brs)
 
     generalizeVars target t (a :< Var nm) | nm == target = a { ty = fmapTy (const t) (ty a) } :< Var nm
     generalizeVars _ _ a = a
 
     generalizeSig (a :< Signature nm ty) = a :< Signature nm (generalize ty)
     generalizeSig decl = decl
-
-    valueName (Value n _) = n
 
     ambiguous ty = not . null $ ambiguities ty
     ambiguities ty = fvInConstraints \\ tyVars
@@ -249,12 +247,12 @@ typeDictionary vals = do
       typedDict   = map (\(t, v) -> (valueName v, t)) typed
   return (untyped, typed, typedDict ++ untypedDict, untypedDict)
   where
-  valueName (_ :< Value n _) = n
+  valueName (_ :< Value _ n _) = n
   signatureName (_ :< Signature n _) = n
   signatureType (_ :< Signature _ t) = t
 
 typeForBindingGroupEl :: RawDecl -> UntypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
-typeForBindingGroupEl (a :< Value name els) dict = rethrow (ErrorInDecl name) $ do
+typeForBindingGroupEl (a :< Value i name els) dict = rethrow (ErrorInDecl name) $ do
   let (pats, _) = unzip els
       numArgs = length $ head pats
   when (any (/= numArgs) $ map length pats) . throwError $ InternalError "branches have different amounts of patterns"
@@ -277,10 +275,10 @@ typeForBindingGroupEl (a :< Value name els) dict = rethrow (ErrorInDecl name) $ 
 
   fTy =?= memberType
 
-  return $ Ann a (constrain (concat cons') memberType) :< Value name vals'
+  return $ Ann a (constrain (concat cons') memberType) :< Value i name vals'
 
 checkBindingGroupEl :: Type Name -> RawDecl -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
-checkBindingGroupEl ty (a :< Value name els) dict = rethrow (ErrorInDecl name) $ do
+checkBindingGroupEl ty (a :< Value i name els) dict = rethrow (ErrorInDecl name) $ do
   let (pats, _) = unzip els
       numArgs = length $ head pats
 
@@ -308,7 +306,7 @@ checkBindingGroupEl ty (a :< Value name els) dict = rethrow (ErrorInDecl name) $
 
   validateConstraints constraints minCons
 
-  return $ Ann a ty :< Value name vals'
+  return $ Ann a ty :< Value i name vals'
 
   where
 

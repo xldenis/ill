@@ -11,7 +11,7 @@ desugarBinOps :: [Decl TypedAnn] -> [Decl TypedAnn]
 desugarBinOps = map desugarDecl
 
 desugarDecl :: Decl TypedAnn -> Decl TypedAnn
-desugarDecl (a :< Value n eqns) = a :< (Value n $ transformOn (each . _2) desugarExpr eqns)
+desugarDecl (a :< Value i n eqns) = a :< (Value i n $ transformOn (each . _2) desugarExpr eqns)
 desugarDecl (ann :< TraitImpl a b c m) = ann :< (TraitImpl a b c (map desugarDecl m))
 desugarDecl a = a
 

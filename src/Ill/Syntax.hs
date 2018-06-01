@@ -58,7 +58,8 @@ data Declaration a b
     , aliasType :: (Type Name)
     }
   | Value
-    { declName :: Name
+    { declInfo :: ValueInfo
+    , declName :: Name
     , declEqns :: [(Patterns a, Expr a)]
     }
   | Signature
@@ -93,8 +94,12 @@ data Masks
   | All
   deriving (Eq, Show)
 
-makePrisms ''Declaration
+data ValueInfo
+  = Default
+  | Dictionary
+  deriving (Eq, Show)
 
+makePrisms ''Declaration
 
 instance Eq a => Eq1 (Declaration a) where
   liftEq = liftEqDefault
@@ -106,7 +111,7 @@ instance Bifunctor Declaration where
   bimap :: forall a b c d. (a -> b) -> (c -> d) -> Declaration a c -> Declaration b d
   bimap l r (Data n nms tys) = Data n nms tys
   bimap l r (TypeSynonym n nms ty) = TypeSynonym n nms ty
-  bimap l r (Value n brs) = Value n $ map helper brs
+  bimap l r (Value i n brs) = Value i n $ map helper brs
     where helper (pats, expr) = (fmap (fmap l) pats, nestedFmap l expr)
   bimap l r (Signature nm ty) = Signature nm ty
   bimap l r (Import q m s a)  = Import q m s a
@@ -114,14 +119,14 @@ instance Bifunctor Declaration where
   bimap l r (TraitImpl cs n tys bs) = TraitImpl cs n tys (map r bs)
 
 instance Bifoldable Declaration where
-  bifoldMap l r (Value n brs) = foldMap helper brs
+  bifoldMap l r (Value i n brs) = foldMap helper brs
     where
     helper (pats, expr) = foldMap (foldMap l) pats `mappend` foldMap l expr
   bifoldMap l r val = bifoldMapDefault l r val
 
 instance Bitraversable Declaration where
   bitraverse :: forall f a b c d. Applicative f => (a -> f c) -> (b -> f d) -> Declaration a b -> f (Declaration c d)
-  bitraverse l _ (Value n brs) = Value n <$> traverse helper brs
+  bitraverse l _ (Value i n brs) = Value i n <$> traverse helper brs
     where helper (pats, exp) = (,) <$> (traverse (traverse l) pats) <*> (hoistAppToCofree l exp)
   bitraverse _ _ (Data n nms tys) = pure $ Data n nms tys
   bitraverse _ _ (TypeSynonym n nms ty) = pure $ TypeSynonym n nms ty
@@ -192,10 +197,10 @@ getAnnSubst t = subst
   unForall t = t
 
 valueName :: Decl a -> Name
-valueName (_ :< Value n _) = n
+valueName (_ :< Value _ n _) = n
 
 isValue :: Decl a -> Bool
-isValue (_ :< Value _ _) = True
+isValue (_ :< Value{}) = True
 isValue _ = False
 
 isDataDecl :: Decl a -> Bool
@@ -224,7 +229,7 @@ dropAnn :: (Bifunctor f, Functor (f a)) => Cofree (f a) a -> Cofree (f ()) ()
 dropAnn = nestedFmap (const ())
 
 lookupFn n (Module _ ds) = find pred ds
-  where pred (_ :< Value name _) = n == name
+  where pred (_ :< Value _ name _) = n == name
         pred _                   = False
 
 instance Pretty (Module a) where
@@ -238,7 +243,7 @@ instance Pretty1 (Declaration a) where
           hsep' [] = mempty
           hsep' xs = hsep xs <+> emptyDoc
   liftPretty pretty' (TypeSynonym alias vars target) = pretty "type" <+> pretty alias <+> pretty vars <+> pretty "=" <+> pretty target
-  liftPretty pretty' (Value name cases) = vsep (headBranch : map otherBranch (tail cases)) `above` pretty "end"
+  liftPretty pretty' (Value _ name cases) = vsep (headBranch : map otherBranch (tail cases)) `above` pretty "end"
     where branch (args, body) = nest 2 $ tupled (map pretty args) `above` pretty body
           headBranch    = pretty "fn" <+> pretty name <+> branch (head cases)
           otherBranch b = pretty "or" <+> pretty name <+> branch b

@@ -80,7 +80,7 @@ valueDeclaration = label "value" . withLoc $ do
     bname <- symbol $ pack name
     branch
   symbol "end"
-  return $ Value name (main : alts)
+  return $ Value Default name (main : alts)
   where
   branch = do
     args <- parens $ list pattern

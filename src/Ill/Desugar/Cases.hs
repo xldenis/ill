@@ -43,7 +43,7 @@ eqnsExpr = snd . head
 type MatchResult a = Expr a -> Expr a
 
 declToEqns :: Decl TypedAnn -> [Eqn TypedAnn]
-declToEqns (_ :< Value _ eqns) = eqns
+declToEqns (_ :< Value _ _ eqns) = eqns
 declToEqns _                   = []
 
 desugarPatterns = simplifyPatterns
@@ -55,7 +55,7 @@ runFresh = runIdentity . flip evalStateT 0 . unFreshT
 matchFailure = SynAnn (generalize $ TVar "a") :< Var "failedPattern"
 
 simplifyPatterns :: Decl TypedAnn -> Decl TypedAnn
-simplifyPatterns v@(a :< Value n eqns) = runFresh $ do
+simplifyPatterns v@(a :< Value i n eqns) = runFresh $ do
   let
     binders = enumFromTo 1 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
     binderTy = init . unwrapFnType . snd . unconstrained $ typeOf v
@@ -65,7 +65,7 @@ simplifyPatterns v@(a :< Value n eqns) = runFresh $ do
   exp' <- transformM simplifyCaseExpr (matchResult failure)
   let eqn' = [([], mkAbs (zipWith (\p t -> mkTypedAnn t :< PVar p) binders binderTy) (typeOf v) exp')]
 
-  return $ a :< Value n eqn'
+  return $ a :< Value i n eqn'
 simplifyPatterns v = v
 
 mkAbs binders retTy val = mkTypedAnn retTy :< Lambda binders val
