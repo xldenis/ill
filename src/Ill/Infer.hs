@@ -172,7 +172,7 @@ typeCheck (BoundModules
 
   go (OtherBG (a :< TraitImpl supers nm args ds)) = do
     trait <- lookupTrait nm
-    let subs = [(traitVar trait, args)]
+    let subs = [(traitVarNm trait, args)]
         cons = map (fmap (replaceTypeVars subs)) (superTraits trait)
 
     unsatisfiedSupers <- reduce cons

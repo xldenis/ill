@@ -50,13 +50,42 @@ deriving instance Show a => Show (Module a)
 deriving instance Eq a => Eq (Module a)
 
 data Declaration a b
-  = Data Name [Name] [Type Name]
-  | TypeSynonym Name [Name] (Type Name)
-  | Value Name [(Patterns a, Expr a)]
-  | Signature Name (Type Name)
-  | Import Qualified Masks String Alias
-  | TraitDecl [Constraint Name] Name Name [b]
-  | TraitImpl [Constraint Name] Name (Type Name) [b]
+  = Data
+    { declName :: Name
+    , dataVars :: [Name]
+    , dataConstructors :: [Type Name]
+    }
+  | TypeSynonym
+    { declName :: Name
+    , dataVars :: [Name]
+    , aliasType :: (Type Name)
+    }
+  | Value
+    { declName :: Name
+    , declEqns :: [(Patterns a, Expr a)]
+    }
+  | Signature
+    { declName :: Name
+    , declType :: (Type Name)
+    }
+  | Import
+    { importQualified :: Qualified
+    , importMask :: Masks
+    , importName :: Name
+    , importAlias :: Alias
+    }
+  | TraitDecl
+    { traitSuperclasses ::[Constraint Name]
+    , traitName  :: Name
+    , traitVar  :: Name
+    , traitValues :: [b]
+    }
+  | TraitImpl
+    { traitSuperclasses :: [Constraint Name]
+    , traitName :: Name
+    , traitType :: (Type Name)
+    , traitValues :: [b]
+    }
   deriving (Eq, Functor, Show, Traversable, Foldable, Generic1)
 
 type Decl a = Cofree (Declaration a) a
