@@ -103,7 +103,7 @@ desugarTraits :: Environment -> Module TypedAnn -> Module TypedAnn
 desugarTraits env (Module nm ds) = Module nm (fromDecl =<< ds)
   where
   fromDecl (_ :< TraitDecl supers nm arg members) = dataFromDecl supers nm arg members
-  fromDecl (_ :< TraitImpl supers nm ty  members) = runReaderT (valFromInst supers nm ty members) env
+  fromDecl (_ :< TraitImpl supers nm ty  members) = join $ runReaderT (valFromInst supers nm ty members) env
   fromDecl (a :< Value name eqns) = runReaderT (addDictsToVals a name eqns) env
   fromDecl x = pure x
 
@@ -111,33 +111,43 @@ desugarTraits env (Module nm ds) = Module nm (fromDecl =<< ds)
   Transform an instance declaration into a value of the dictionary type.
 -}
 
-valFromInst :: MonadReader Environment m => [Constraint Name] -> Name -> Type Name -> [Decl TypedAnn] -> m (Decl TypedAnn)
+valFromInst :: MonadReader Environment m => [Constraint Name] -> Name -> Type Name -> [Decl TypedAnn] -> m [Decl TypedAnn]
 valFromInst supers nm ty decls = do
   trait <- reader (lookup nm . traits) >>= \case
     Just traitDict -> return traitDict
     Nothing -> error "this isn't possible"
 
   let
+    instName    = instanceName (nm, ty)
     memberTys = map (generalizeWithout [vars] . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
     superTys  = map mkDictType (superTraits trait)
     vars      = traitVarNm trait
+    sortedDecls = sortOn valueName (map (prefixMemberNameWith instName . simplifyPatterns) decls)
+
+  memberVals <- forM sortedDecls $ \(a :< Value nm eqns) -> addDictsToVals a nm eqns
+
+  let
     tyConTy   = mkDictConsType nm vars superTys memberTys
     subConTy  = applyTypeVars [ty] tyConTy
-    subst     = [(vars, ty)]
-    sortedDecls = sortOn valueName decls
     tyCon       = TyAnn Nothing (Type tyConTy (Just subConTy)) :< Constructor ("Mk" <> nm)
-    instName    = instanceName (nm, ty)
     dictTy      = mkDictType (nm, ty)
-    applied     = SynAnn dictTy :< (Apply tyCon $ superDicts ++ (map (fromValue . simplifyPatterns) sortedDecls))
+    memberReferences = map (variableFromMember (map TVar $ freeVariables dictTy)) sortedDecls
+    applied     = SynAnn dictTy :< (Apply tyCon $ superDicts ++ (memberReferences))
     valAnn      = SynAnn $ constrain supers dictTy
-    substituted = map (substituteConstraint subst) (superTraits trait)
-    superDicts  = map (\inst -> SynAnn (mkDictType inst) :< Var (instanceName inst)) substituted
+    subbedSuperTraits = map (substituteConstraint [(vars, ty)]) (superTraits trait)
+    superDicts  = map (\inst -> SynAnn (mkDictType inst) :< Var (instanceName inst)) subbedSuperTraits
 
-  -- there's a bug in simplify patterns its not returning the correct values
-  addDictsToVals valAnn instName [([], applied)]
+  instVal <- addDictsToVals valAnn instName [([], applied)]
+
+  return $ instVal : memberVals
   where
 
   substituteConstraint subst (nm, tys) = (nm, (replaceTypeVars subst) tys)
+
+  prefixMemberNameWith pref (a :< v) =  a :< v { declName = pref ++ (declName v)}
+  variableFromMember bv v = let
+    ann = TyAnn Nothing (Type (generalize $ typeOf v) (Just $ applyTypeVars bv (typeOf v)))
+    in ann :< Var (valueName v)
 
   valueName (_ :< Value nm _) = nm
 
