@@ -17,7 +17,7 @@ import Ill.Desugar.Trait
 import Ill.Desugar
 import Ill.Syntax.Pretty
 import Ill.BindingGroup
-import Ill.Syntax.Core
+import Ill.Syntax.Core as C
 import Ill.Interpret
 
 import Control.Monad.State
@@ -148,9 +148,9 @@ runInterpreter mod =  case runTC mod of
     let desugaringPipe = (desugarTraits e . desugarBinOps) >=> pure . simplifyPatterns
         desugared = desugaringPipe typed
 
-    let (Mod core coreConstructors _) = declsToCore desugared
-    let boundConstructors = map (fmap consArity) $ coreConstructors
+    let mod = declsToCore desugared
+    let boundConstructors = map (fmap consArity) (C.constructors mod)
 
-    env <- mkEnvForModule boundConstructors core
+    env <- mkEnvForModule boundConstructors (allBinds mod)
 
     eval env (Var $ Id "main" tNil Used)

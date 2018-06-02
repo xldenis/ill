@@ -40,14 +40,12 @@ declsToCore :: [Decl TypedAnn] -> CoreModule
 declsToCore decls = execState (mapM declToCore' decls) (emptyModule)
 
 declToCore' :: Decl TypedAnn -> State CoreModule ()
-declToCore' (a :< Value _ nm [([], exp)]) = do
-  let bindExp = (toCore exp)
-
-  modify $ \m -> m { bindings = NonRec binder bindExp : bindings m }
+declToCore' (a :< Value i nm [([], exp)])
+  | i == Dictionary = do
+    modify $ \m -> m { dictionaries = NonRec binder (toCore exp) : dictionaries m }
+  | otherwise = do
+    modify $ \m -> m { bindings = NonRec binder (toCore exp) : bindings m }
   where
-  unforall (Forall tVars _) = tVars
-  unforall _                = []
-
   binder = Id { varName = nm, idTy = fromTyAnn a, usage = Used }
 declToCore' (_ :< Data nm args conses) = do
   let cons' = map (\(tag, cons) ->
@@ -55,7 +53,7 @@ declToCore' (_ :< Data nm args conses) = do
           (TConstructor consNm : args) ->
             (consNm, ConstructorEntry consNm (getConstructorType cons) [] (length args) tag)
         ) (zip [0..] conses)
-  modify $ \m -> m { constructors = cons' ++ constructors m, types = nm : types m }
+  modify $ \m -> m { types = (nm, cons') : types m }
   where
   getConstructorType ty = let
     (TConstructor tyCons : tys) = unwrapProduct ty

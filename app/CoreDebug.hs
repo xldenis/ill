@@ -30,11 +30,11 @@ coreDebug filter onlyLint ast = case runTC ast of
   Right (typed, env) -> do
     let desugared = defaultPipeline env typed
         core = compileCore desugared
-        binds = filterBindings filter (bindings core)
+        binds = filterBindings filter (allBinds core)
 
     unless onlyLint $ do
       putStrLn $ pack "\n\nCORE OUTPUT\n\n"
-      putStrLn $ renderIll cliRenderArgs (vcat $ map pretty $ binds)
+      putStrLn $ renderIll cliRenderArgs (vcat . map pretty $ binds)
 
     case runLinter core of
       Left err -> putStrLn $ pack err

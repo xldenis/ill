@@ -56,8 +56,8 @@ data LintEnv = E
 runLinter :: CoreModule -> Either String ()
 runLinter = first (show . pretty) . flip evalState (E (names $ env defaultCheckEnv) []) . runExceptT . lintModule
   where
-  lintModule mod = bindNames (map getVar $ bindings mod) $
-    bindCons (constructors mod) (mapM_ lintBind (bindings mod))
+  lintModule mod = bindNames (map getVar $ allBinds mod) $
+    bindCons (constructors mod) (mapM_ lintBind (allBinds mod))
 
   getVar (NonRec v _) = v
 

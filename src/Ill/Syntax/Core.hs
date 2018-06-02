@@ -18,7 +18,7 @@ import Ill.Syntax.Name
 import Ill.Syntax.Pretty
 import Ill.Syntax.Type
 
-import Ill.Infer.Monad
+import Ill.Infer.Monad (ConstructorEntry(..))
 
 -- Look into using recursion schemes to simplify tons of codebase
 data Core n
@@ -81,9 +81,14 @@ data Bind n
 
 data CoreModule = Mod
   { bindings :: [Bind Var]
-  , constructors :: [(Name, ConstructorEntry)] -- wip: more generally track constructor info
-  , types :: [Id]
+  , types :: [(Name, [(Name, ConstructorEntry)])]
+  , dictionaries :: [Bind Var]
   } deriving (Show, Eq)
+
+constructors :: CoreModule -> [(Name, ConstructorEntry)]
+constructors = join . map snd . types
+
+allBinds c = dictionaries c ++ bindings c
 
 emptyModule = Mod [] [] []
 

@@ -48,7 +48,11 @@ import           Ill.Syntax.Type
 
 normalize :: CoreModule -> CoreModule
 normalize m@(Mod{..}) =
-  m { bindings = (evalFresh 0 $ forM bindings bindToANF) }
+  let (anfBinds, anfDicts) = evalFresh 0 $ do
+        binds <- forM bindings bindToANF
+        dicts <- forM dictionaries bindToANF
+        return (binds, dicts)
+  in m { bindings = anfBinds, dictionaries = anfDicts }
   where bindToANF (NonRec x e) = NonRec x <$> (transformM toANF e)
 
 isAtom (Var v)      = True

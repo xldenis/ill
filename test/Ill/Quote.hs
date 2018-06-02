@@ -37,6 +37,7 @@ deriving instance (Data a, Data b) => Data (Declaration a b)
 deriving instance (Data a, Data b) => Data (Expression a b)
 deriving instance Data a => Data (S.Pattern a)
 deriving instance Data Masks
+deriving instance Data ValueInfo
 
 modQ :: QuasiQuoter
 modQ = QuasiQuoter

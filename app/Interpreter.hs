@@ -33,7 +33,7 @@ runInterpreter mod = do
     Right (coreMod) -> do
       let boundConstructors = map (fmap consArity) $ Core.constructors coreMod
 
-      env <- Interp.mkEnvForModule boundConstructors (bindings coreMod)
+      env <- Interp.mkEnvForModule boundConstructors (allBinds coreMod)
       val <- Interp.eval env (Var $ Id "main" undefined Used)
 
       print (Interp.showish val)

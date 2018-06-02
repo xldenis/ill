@@ -19,8 +19,15 @@ type Fresh a = FreshT Identity a
 evalFresh :: Int -> Fresh a -> a
 evalFresh i = runIdentity . evalFreshT i
 
+runFresh :: Int -> Fresh a -> (a, Int)
+runFresh i = runIdentity . runFreshT i
+
 evalFreshT :: Monad m => Int -> FreshT m a -> m a
 evalFreshT i = (flip evalStateT i) . unFreshT
+
+runFreshT :: Monad m => Int -> FreshT m a -> m (a, Int)
+runFreshT i = (flip runStateT i) . unFreshT
+
 
 newtype FreshT m a = FreshT { unFreshT :: StateT Int m a }
   deriving (Functor, Applicative, Monad, MonadState Int, MonadTrans)

@@ -118,7 +118,6 @@ valFromInst supers nm ty decls = do
     Nothing -> error "this isn't possible"
 
   let
-
     memberTys   = map (generalizeWithout [vars] . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
     superTys    = map mkDictType (superTraits trait)
     vars        = traitVarNm trait

@@ -38,11 +38,21 @@ data LiftingState = Lifted
 type MonadLL m = (MonadFresh m, MonadState LiftingState m, MonadWriter [Bind Var] m)
 
 liftModule :: CoreModule -> CoreModule
-liftModule m@Mod{..} = m { bindings = evalMonadStack $ mapM liftGlobal bindings }
+liftModule m@Mod{..} =
+  let
+    ((binds, dicts), excess) = evalMonadStack $ do
+      dicts <- mapM liftGlobal dictionaries
+      binds <- mapM liftGlobal bindings
+
+      return (binds, dicts)
+  in m { bindings = binds ++ excess, dictionaries = dicts }
   where
-  evalMonadStack = uncurry (++) . evalFresh 0 . runWriterT . flip evalStateT (Lifted bindNames [])
-  bindNames = map (\(NonRec v _) -> varName v) bindings ++ (map fst primitives) ++ consNames
-  consNames = map fst constructors
+  evalMonadStack = evalFresh 0 . runWriterT . flip evalStateT (Lifted bindNames [])
+
+  bindNames = map (\(NonRec v _) -> varName v) bindings
+    ++ map (\(NonRec v _) -> varName v) dictionaries
+    ++ (map fst primitives) ++ consNames
+  consNames = join $ map (map fst . snd) types
 
 liftBinding (NonRec nm exp) = do
   exp' <- liftLambda exp

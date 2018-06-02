@@ -1,0 +1,6 @@
+module IntPatternBug
+#       v--- this crashes when attempting to pretty print the module
+  fn(a, 0)
+    True
+  end
+end

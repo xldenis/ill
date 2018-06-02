@@ -32,25 +32,24 @@ codegen toPrint ast = case runTC ast of
   Right (typed, env) -> do
     let desugared = defaultPipeline env typed
         core = compileCore desugared
-        binds = (bindings core)
 
     when toPrint $ putStrLn (prettyModule core)
 
-    withContext $ \ctx -> do
-      path <- getDataFileName "assets/builtins.ll"
-      cPath <- getDataFileName "assets/rts.ll"
-      withModuleFromAST ctx (compileModule core) $ \mod -> do
-        withModuleFromLLVMAssembly ctx (File path) $ \builtins -> do
-          withModuleFromLLVMAssembly ctx (File cPath) $ \cBuiltins -> do
-            withPassManager defaultCuratedPassSetSpec $ \pm -> do
-              runPassManager pm mod
-              linkModules mod builtins
-              linkModules mod cBuiltins
-              writeLLVMAssemblyToFile (File "example.ll") mod
+    -- withContext $ \ctx -> do
+    --   path <- getDataFileName "assets/builtins.ll"
+    --   cPath <- getDataFileName "assets/rts.ll"
+    --   withModuleFromAST ctx (compileModule core) $ \mod -> do
+    --     withModuleFromLLVMAssembly ctx (File path) $ \builtins -> do
+    --       withModuleFromLLVMAssembly ctx (File cPath) $ \cBuiltins -> do
+    --         withPassManager defaultCuratedPassSetSpec $ \pm -> do
+    --           runPassManager pm mod
+    --           linkModules mod builtins
+    --           linkModules mod cBuiltins
+    --           writeLLVMAssemblyToFile (File "example.ll") mod
 
 
 
-      return ()
+    --   return ()
 
 runTC (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 prettyType a = renderIll defaultRenderArgs (pretty $ a)

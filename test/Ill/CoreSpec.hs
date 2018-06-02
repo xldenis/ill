@@ -28,6 +28,7 @@ import Data.Bifunctor
 
 import Control.Arrow
 import Control.Monad
+import Control.Monad.Fresh
 
 import System.Directory
 import System.FilePath
@@ -163,7 +164,7 @@ spec = do
       case runTC mod of
         Right (typed, _) -> let
           ValueBG [x] = last typed
-          matcher = runFresh $ match ["u"] (declToEqns x)
+          matcher = evalFresh 0 $ match ["u"] (declToEqns x)
           result  = matcher (undefined :< Var "zzzx")
           expected = [expr|
             case u of

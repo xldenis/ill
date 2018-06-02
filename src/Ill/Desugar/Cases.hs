@@ -50,12 +50,10 @@ desugarPatterns = simplifyPatterns
 
 type MF  a = FreshT Identity a
 
-runFresh = runIdentity . flip evalStateT 0 . unFreshT
-
 matchFailure = SynAnn (generalize $ TVar "a") :< Var "failedPattern"
 
 simplifyPatterns :: Decl TypedAnn -> Decl TypedAnn
-simplifyPatterns v@(a :< Value i n eqns) = runFresh $ do
+simplifyPatterns v@(a :< Value i n eqns) = evalFresh 0 $ do
   let
     binders = enumFromTo 1 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
     binderTy = init . unwrapFnType . snd . unconstrained $ typeOf v
