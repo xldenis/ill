@@ -1,5 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
-module Ill.Desugar.Trait where
+module Ill.Desugar.Trait
+( desugarTraits
+)
+where
 
 {-
 
@@ -90,10 +93,9 @@ import qualified Data.Map as M
 
 import           Ill.Desugar.Cases
 import           Ill.Infer.Entail  as E
-import           Ill.Infer.Monad
+import           Ill.Infer.Monad hiding (env)
 import           Ill.Syntax
 import           Ill.Syntax.Pretty (pretty)
-
 {-
   1. Handle super classes and superclass accessors
   2. Fix dictionary passing in dictionary definitions
@@ -103,17 +105,25 @@ desugarTraits :: Environment -> Module TypedAnn -> Module TypedAnn
 desugarTraits env (Module nm ds) = Module nm (fromDecl =<< ds)
   where
   fromDecl (_ :< TraitDecl supers nm arg members) = dataFromDecl supers nm arg members
-  fromDecl (_ :< TraitImpl supers nm ty  members) = join $ runReaderT (valFromInst supers nm ty members) env
-  fromDecl (a :< Value name eqns) = runReaderT (addDictsToVals a name eqns) env
+  fromDecl (_ :< TraitImpl supers nm ty  members) = join $ runReaderT (valFromInst supers nm ty members) (fromEnv env)
+  fromDecl (a :< Value name eqns) = runReaderT (addDictsToVals a name eqns) (fromEnv env)
   fromDecl x = pure x
 
+data TraitDesugarEnv = TDEnv
+  { env :: Environment
+  , traitMethods :: [Id]
+  }
+
+fromEnv env = let
+  methodNames = join $ map (map fst . methodSigs . snd) (traits env)
+  in TDEnv env methodNames
 {-
   Transform an instance declaration into a value of the dictionary type.
 -}
 
-valFromInst :: MonadReader Environment m => [Constraint Name] -> Name -> Type Name -> [Decl TypedAnn] -> m [Decl TypedAnn]
+valFromInst :: MonadReader TraitDesugarEnv m => [Constraint Name] -> Name -> Type Name -> [Decl TypedAnn] -> m [Decl TypedAnn]
 valFromInst supers nm ty decls = do
-  trait <- reader (lookup nm . traits) >>= \case
+  trait <- reader (lookup nm . traits . env) >>= \case
     Just traitDict -> return traitDict
     Nothing -> error "this isn't possible"
 
@@ -122,7 +132,7 @@ valFromInst supers nm ty decls = do
     memberTys = map (generalizeWithout [vars] . snd . unconstrained . snd) $ sortOn fst (methodSigs trait)
     superTys  = map mkDictType (superTraits trait)
     vars      = traitVarNm trait
-    sortedDecls = sortOn valueName (map (prefixMemberNameWith instName . simplifyPatterns) decls)
+    sortedDecls = sortOn valueName (map (prefixMemberNameWith instName) decls)
 
   memberVals <- forM sortedDecls $ \(a :< Value nm eqns) -> addDictsToVals a nm eqns
 
@@ -205,20 +215,20 @@ dataFromDecl superTraits name vars members = let
   Rewrite values to explicitly pass around dictionaries.
 -}
 
-addDictsToVals :: MonadReader Environment m => TypedAnn -> Name -> [Eqn TypedAnn] -> m (Decl TypedAnn)
+addDictsToVals :: MonadReader TraitDesugarEnv m => TypedAnn -> Name -> [Eqn TypedAnn] -> m (Decl TypedAnn)
 addDictsToVals ann nm eqns = do
-  instanceDicts <- reader traitDictionaries
+  instanceDicts <- reader (traitDictionaries . env)
 
   let
     (memberConstraints, _) = unconstrained (fromTyAnn ann)
     fty' = generalize $ constraintsToFn False (unforall $ fromTyAnn ann)
-    instDictNames  = M.toList instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, GlobalDict $ instanceName i)
-    localDictNames = zipWith (\cons ix -> (cons, LocalDict $ "dict" ++ show ix)) memberConstraints [1..]
+    instDictNames  = M.toList instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, Global $ instanceName i)
+    localDictNames = zipWith (\cons ix -> (cons, Local $ "dict" ++ show ix)) memberConstraints [1..]
     instanceDict   = foldl (\x (nm, tys) -> M.insertWith (flip (++)) nm [InstanceEntry tys [] nm] x) instanceDicts memberConstraints
-    dictPats       = map (\(cons, LocalDict nm) -> SynAnn (mkDictType cons) :< PVar nm) localDictNames
+    dictPats       = map (\(cons, Local nm) -> SynAnn (mkDictType cons) :< PVar nm) localDictNames
     nameDict       = instDictNames ++ localDictNames
 
-  local (\env -> env { traitDictionaries = instanceDict }) $ do
+  local (\t -> t { env = (env t) { traitDictionaries = instanceDict } }) $ do
     eqns' <- addDictsToEqns nameDict eqns
     return $ ann { ty = Type fty' Nothing } :< Value nm (addPatsToEqns dictPats eqns')
   where
@@ -230,31 +240,28 @@ addDictsToVals ann nm eqns = do
   unforall (Forall _ ty) = ty
   unforall ty = ty
 
-data DictName = LocalDict Name | GlobalDict Name
-  deriving (Show, Eq)
+data Dict a = Local a | Global a
+  deriving (Show, Eq, Foldable)
 
-type NameDict = [(Constraint Name, DictName)]
+type NameDict = [(Constraint Name, Dict Name)]
 
-addDictsToEqns :: MonadReader Environment m => NameDict -> [Eqn TypedAnn] -> m [Eqn TypedAnn]
+addDictsToEqns :: MonadReader TraitDesugarEnv m => NameDict -> [Eqn TypedAnn] -> m [Eqn TypedAnn]
 addDictsToEqns dict eqns = forMOf (each . _2) eqns (transformMOf plate (replaceTraitMethods dict))
 
-replaceTraitMethods :: MonadReader Environment m => NameDict -> Expr TypedAnn -> m (Expr TypedAnn)
+replaceTraitMethods :: MonadReader TraitDesugarEnv m => NameDict -> Expr TypedAnn -> m (Expr TypedAnn)
 replaceTraitMethods dicts v@(a :< Var nm) = do
-  instanceDict <- reader traitDictionaries
-
-  let memberTypeScheme = generalize . constraintsToFn True . polyTy $ ty a
-
   case constraints (typeOf v) /= [] of
     True -> do
       let
-        tyAnn     = Type memberTypeScheme (Just $ replaceTypeVars subst memberTypeScheme)
-        subst     = getAnnSubst $ fmapTyAnn (snd . unconstrained) a
-        dictAnn   = fmapTyAnn (snd . unconstrained . replaceTypeVars subst) a
-        traitCons = constraints $ replaceTypeVars subst . polyTy $ ty a
+        accessorType = generalize . constraintsToFn True . polyTy $ ty a
+        accessorAnn  = Type accessorType (Just $ replaceTypeVars subst accessorType)
+        subst        = getAnnSubst memberAnn
+        memberAnn    = fmapTyAnn (snd . unconstrained) a
+        traitCons    = constraints $ replaceTypeVars subst . polyTy $ ty a
 
-      return $ dictAnn :< mkDictLookup instanceDict tyAnn traitCons
+      mkDictLookup memberAnn accessorAnn traitCons
     False -> pure v
-  where
+   where
 
   fromJust' (Just x) = x
   fromJust' _ = error "fromJust in replaceTraitMethods"
@@ -262,19 +269,36 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
   fmapTyAnn f ann = ann { ty = ( mapTy f (ty ann)) }
   mapTy f (Type pT iT) = Type (f pT) (f <$> iT)
 
-  mkDictLookup :: InstanceDict -> TypeAnn -> [Constraint Name] -> Expression TypedAnn (Expr TypedAnn)
-  mkDictLookup id ty [] = Var nm
-  mkDictLookup id ty c  = Apply (TyAnn Nothing ty :< Var nm) (map (mkDictVal id) c)
+  modifyPolyTy f (Type pT iT) = Type (f pT) iT
 
-  mkDictVal :: InstanceDict -> Constraint Name -> Expr TypedAnn
+  mkDictLookup :: MonadReader TraitDesugarEnv m => TypedAnn -> TypeAnn -> [Constraint Name] ->  m (Expr TypedAnn)
+  mkDictLookup memberAnn _ [] = return $ memberAnn :< Var nm
+  mkDictLookup memberAnn accessorAnn cs = do
+    id <- reader (traitDictionaries . env)
+    memNames <- reader traitMethods
+
+    let dictionaries = map (mkDictVal id) cs
+    return $ case (dictionaries, nm `elem` memNames) of
+      ([Global (a :< Var instName)], True) -> let
+        entry = case findInst (head cs) id dicts of
+          Just (_, entry, _) -> entry
+          Nothing -> error "somehow i cant find this dict anymore!?"
+        instanceMemberAnn = TyAnn Nothing (modifyPolyTy (generalize . applyTypeVars [instType entry]) (ty memberAnn))
+
+        in instanceMemberAnn :< Var (instName ++ nm)
+      (dicts, _) -> memberAnn :< Apply (TyAnn Nothing accessorAnn :< Var nm) (toList =<< dicts)
+
+  mkDictVal :: InstanceDict -> Constraint Name -> Dict (Expr TypedAnn)
   mkDictVal id traitCons = case findInst traitCons id dicts of
-    Just (LocalDict dict, _, _) -> SynAnn (mkDictType traitCons) :< Var dict
-    Just (GlobalDict dict, entry, subTraits)   -> let
+    Just (Local dict, _, _) -> Local (SynAnn (mkDictType traitCons) :< Var dict)
+    Just (Global dict, entry, subTraits)   -> let
       dictAnn = instanceAnnotation traitCons entry subTraits
       dictVal = dictAnn :< Var dict
       in case subTraits of
-        [] -> dictVal
-        subTraits -> SynAnn (mkDictType traitCons) :< Apply dictVal (map (mkDictVal id) subTraits)
+        [] -> Global dictVal
+        subTraits -> let
+          dictionaries = toList . mkDictVal id =<< subTraits
+          in Global $ SynAnn (mkDictType traitCons) :< Apply dictVal dictionaries
 
     Nothing -> error $ "couldnt find a dict for "
       ++ show (pretty traitCons) ++ "\n"
@@ -290,7 +314,7 @@ instanceAnnotation c@(nm, ty) entry subDicts = let
   polyDictTy = mkDictType (nm, instType entry)
   in TyAnn Nothing (Type polyTy $ Just instTy)
 
-findInst :: Constraint Name -> InstanceDict -> NameDict -> Maybe (DictName, InstanceEntry, [Constraint Name])
+findInst :: Constraint Name -> InstanceDict -> NameDict -> Maybe (Dict Name, InstanceEntry, [Constraint Name])
 findInst c@(nm, tys) id namedict = do
   (entry, subDict) <- matchInst id c
 
@@ -298,7 +322,7 @@ findInst c@(nm, tys) id namedict = do
   matched <- find (matcher c) namedict
   return (snd matched, entry, subDict)
   where
-  matcher c1         (c2, LocalDict _) = c1 == c2
+  matcher c1         (c2, Local _) = c1 == c2
   matcher (nm1, ty1) ((nm2, ty2), _) | nm1 == nm2 = isJust $ subsume ty2 ty1
   matcher _ _ = False
 

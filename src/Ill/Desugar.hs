@@ -72,9 +72,9 @@ getTypeApps = map (C.Type . snd) . getAnnSubst
 
 toCore :: Expr TypedAnn -> CoreExp
 toCore lVar@(a :< S.Var nm) = foldl App (Var var) (getTypeApps a)
-  where var = Id nm (typeOf lVar) Used
+  where var = Id nm (polyTyOf lVar) Used
 toCore cons@(a :< S.Constructor nm) = foldl App (Var var) (getTypeApps a)
-  where var = Id nm (typeOf cons) Used
+  where var = Id nm (polyTyOf cons) Used
 toCore (_ :< S.Case scrut alts) = Case (toCore scrut) (toAlts alts)
 toCore (_ :< S.Assign names exprs) = error "assignments must be desugared in blocks"
 toCore e@(a :< S.Apply lam args) = foldl App (toCore lam) $ getTypeApps ann ++ (map toCore args)

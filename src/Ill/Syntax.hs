@@ -176,7 +176,12 @@ fromTyAnn :: TypedAnn -> Type Name
 fromTyAnn = fromType . ty
 
 typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
-typeOf = polyTy . ty . extract
+typeOf c =  fromMaybe (polyTy $ fromTy c) (instTy $ fromTy c)
+  where fromTy = ty . extract
+
+polyTyOf :: Functor f => Cofree f TypedAnn -> (Type Name)
+polyTyOf = polyTy . ty . extract
+
 
 instTyOf :: Functor f => Cofree f TypedAnn -> Maybe (Type Name)
 instTyOf = instTy . ty . extract
