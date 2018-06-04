@@ -22,23 +22,21 @@ import Ill.Syntax.Pretty
 import Data.Bifunctor (first, bimap)
 
 desugar :: String -> Module SourceSpan -> IO ()
-desugar stage ast = case runTC ast of
+desugar stage ast = case typeCheckModule ast of
   Left err -> putStrLn $ prettyType err
-  Right (typed, env) -> do
+  Right (mod, env) -> do
     let pipeline = stageToPipeline stage
-        desugared = pipeline env typed
+        desugared = pipeline env mod
 
     -- print (map pretty $ traitDictionaries env)
-    putStrLn $ renderIll' (pretty $ Module "t" desugared)
+    putStrLn $ renderIll' (pretty desugared)
   where
   cliRenderArgs = defaultRenderArgs { width = 50}
 
-runTC (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
-
-stageToPipeline :: String -> (Environment -> [Decl TypedAnn] -> [Decl TypedAnn])
+stageToPipeline :: String -> (Environment -> Module TypedAnn -> Module TypedAnn)
 stageToPipeline "binop"  e = desugarBinOps
 stageToPipeline "traits" e = desugarTraits e . stageToPipeline "binop" e
-stageToPipeline "cases"  e = (stageToPipeline "traits" e) >=> pure . simplifyPatterns
+stageToPipeline "cases"  e = desugarPatterns . stageToPipeline "traits" e
 stageToPipeline _ _ = id
 
 prettyType a = renderIll defaultRenderArgs (pretty $ a)

@@ -41,7 +41,10 @@ type Qualified = Bool
 
 type Alias = Maybe String
 
-data Module a = Module Name [Decl a]
+data Module a = Module
+  { moduleName :: Name
+  , moduleDecls :: [Decl a]
+  }
 
 deriving instance Show a => Show (Module a)
 deriving instance Eq a => Eq (Module a)

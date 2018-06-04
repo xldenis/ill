@@ -99,8 +99,8 @@ import           Ill.Syntax.Pretty (pretty)
   2. Fix dictionary passing in dictionary definitions
 -}
 
-desugarTraits :: Environment -> [Decl TypedAnn] -> [Decl TypedAnn]
-desugarTraits env ds = fromDecl =<< ds
+desugarTraits :: Environment -> Module TypedAnn -> Module TypedAnn
+desugarTraits env (Module nm ds) = Module nm (fromDecl =<< ds)
   where
   fromDecl (_ :< TraitDecl supers nm arg members) = dataFromDecl supers nm arg members
   fromDecl (_ :< TraitImpl supers nm ty  members) = runReaderT (valFromInst supers nm ty members) env

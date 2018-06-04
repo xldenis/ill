@@ -17,6 +17,7 @@ import Ill.Desugar.Administrative as X
 import Ill.Desugar.LambdaLift as X
 
 import Control.Monad.State
+import Control.Category ((>>>))
 
 import Ill.Infer.Monad (Environment, ConstructorEntry(..))
 
@@ -30,11 +31,11 @@ type Id = Name
   to variables with the name of the contrsuctor.
 -}
 
-defaultPipeline :: Environment -> [Decl TypedAnn] -> [Decl TypedAnn]
-defaultPipeline env = desugarTraits env . desugarBinOps >=> pure . simplifyPatterns
+defaultPipeline :: Environment -> Module TypedAnn -> Module TypedAnn
+defaultPipeline env = desugarBinOps >>> desugarTraits env >>> desugarPatterns
 
-compileCore :: [Decl TypedAnn] -> CoreModule
-compileCore desugared = declsToCore desugared & normalize . liftModule
+compileCore :: Module TypedAnn -> CoreModule
+compileCore (Module nm desugared) = declsToCore desugared & normalize . liftModule
 
 declsToCore :: [Decl TypedAnn] -> CoreModule
 declsToCore decls = execState (mapM declToCore' decls) (emptyModule)

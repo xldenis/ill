@@ -36,8 +36,8 @@ runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
 
 mkVar nm = Id { varName = nm, C.idTy = tNil, usage = Used }
 
-moduleToCore :: Environment -> [Decl TypedAnn] -> CoreModule
-moduleToCore e = (desugarBinOps >>> desugarTraits e >=> pure . simplifyPatterns) >>> declsToCore >>> normalize >>> liftModule
+moduleToCore :: Environment -> Module TypedAnn -> CoreModule
+moduleToCore e = (defaultPipeline e) >>> compileCore
 
 runTC' (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 
@@ -47,7 +47,7 @@ coreLintSpec path = do
     Left e -> expectationFailure $
       "the parser is expected to succeed, but it failed with:\n" ++
       showParseError e
-    Right ast -> case runTC' ast of
+    Right ast -> case typeCheckModule ast of
       Left err -> expectationFailure . show $ pretty err
       Right (typed, env) -> do
         case runLinter (moduleToCore env typed) of
@@ -225,7 +225,7 @@ localDictsPassedToConstrainedMethods = do
     |]
     Right (typed, e') = runTC mod
     ValueBG [x] = last typed
-    [result] = desugarTraits (env e') [x]
+    Module _ [result] = desugarTraits (env e') (Module "fake" [x])
     expected = [decl|
       fn aliased(dict1, x)
         test(dict1)(x)

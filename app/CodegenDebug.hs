@@ -27,10 +27,10 @@ import LLVM.PassManager
 
 import Paths_ill
 
-codegen toPrint ast = case runTC ast of
+codegen toPrint ast = case typeCheckModule ast of
   Left err -> putStrLn $ prettyType err
-  Right (typed, env) -> do
-    let desugared = defaultPipeline env typed
+  Right (mod, env) -> do
+    let desugared = defaultPipeline env mod
         core = compileCore desugared
         binds = (bindings core)
 
@@ -52,5 +52,4 @@ codegen toPrint ast = case runTC ast of
 
       return ()
 
-runTC (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 prettyType a = renderIll defaultRenderArgs (pretty $ a)

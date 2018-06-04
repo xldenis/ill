@@ -46,13 +46,12 @@ declToEqns :: Decl TypedAnn -> [Eqn TypedAnn]
 declToEqns (_ :< Value _ eqns) = eqns
 declToEqns _                   = []
 
-desugarPatterns = simplifyPatterns
-
-type MF  a = FreshT Identity a
-
 runFresh = runIdentity . flip evalStateT 0 . unFreshT
 
 matchFailure = SynAnn (generalize $ TVar "a") :< Var "failedPattern"
+
+desugarPatterns :: Module TypedAnn -> Module TypedAnn
+desugarPatterns (Module nm decls) = Module nm (map simplifyPatterns decls)
 
 simplifyPatterns :: Decl TypedAnn -> Decl TypedAnn
 simplifyPatterns v@(a :< Value n eqns) = runFresh $ do

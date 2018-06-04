@@ -38,14 +38,10 @@ runInterpreter mod = do
 
       print (Interp.showish val)
 
-runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
-
-unCheck c = execCheck c
-
 prettyType a = renderIll defaultRenderArgs (pretty $ a)
 
 compileToCore mod =  do
-  case runTC mod of
+  case typeCheckModule mod of
     Right (typed, e) -> let
       desugared = defaultPipeline e typed
       in Right (compileCore desugared)

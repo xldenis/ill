@@ -7,8 +7,8 @@ import Control.Lens.Plated
 
 import           Ill.Syntax
 
-desugarBinOps :: [Decl TypedAnn] -> [Decl TypedAnn]
-desugarBinOps = map desugarDecl
+desugarBinOps :: Module TypedAnn -> Module TypedAnn
+desugarBinOps (Module nm decls) = Module nm (map desugarDecl decls)
 
 desugarDecl :: Decl TypedAnn -> Decl TypedAnn
 desugarDecl (a :< Value n eqns) = a :< (Value n $ transformOn (each . _2) desugarExpr eqns)

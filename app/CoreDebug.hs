@@ -25,10 +25,10 @@ import Data.Maybe (maybeToList)
 import Prelude hiding (putStrLn, putStr)
 
 coreDebug :: Maybe String -> Bool -> Module SourceSpan -> IO ()
-coreDebug filter onlyLint ast = case runTC ast of
+coreDebug filter onlyLint ast = case typeCheckModule ast of
   Left err -> putStrLn $ prettyType err
-  Right (typed, env) -> do
-    let desugared = defaultPipeline env typed
+  Right (mod, env) -> do
+    let desugared = defaultPipeline env mod
         core = compileCore desugared
         binds = filterBindings filter (bindings core)
 
@@ -44,7 +44,6 @@ coreDebug filter onlyLint ast = case runTC ast of
   where
   cliRenderArgs = defaultRenderArgs { width = 90 }
 
-runTC (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
 prettyType a = renderIll defaultRenderArgs (pretty $ a)
 
 filterBindings :: Maybe String -> [Bind Var] -> [Bind Var]

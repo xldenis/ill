@@ -143,12 +143,11 @@ getConstructorArities (_ :< Data nm _ conses) = map (\cons ->
   ) conses
 getConstructorArities _ = []
 
-runInterpreter mod =  case runTC mod of
+runInterpreter mod =  case typeCheckModule mod of
   Right (typed, e) -> do
-    let desugaringPipe = (desugarTraits e . desugarBinOps) >=> pure . simplifyPatterns
-        desugared = desugaringPipe typed
+    let desugared = defaultPipeline e typed
 
-    let (Mod core coreConstructors _) = declsToCore desugared
+    let (Mod core coreConstructors _) = compileCore desugared
     let boundConstructors = map (fmap consArity) $ coreConstructors
 
     env <- mkEnvForModule boundConstructors core

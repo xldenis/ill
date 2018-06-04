@@ -52,6 +52,7 @@ import           Ill.Syntax
 import           Ill.Syntax.Type
 import Data.Bitraversable
 import Control.Lens.Plated
+import Data.Bifunctor (bimap)
 
 type RawDecl = Decl SourceSpan
 
@@ -59,6 +60,12 @@ type RawDecl = Decl SourceSpan
   1. kind checking not implemented
   2. error messages suck
 -}
+
+typeCheckModule :: Module SourceSpan -> Either MultiError (Module TypedAnn, Environment)
+typeCheckModule (Module nm ds) = do
+  typecheckedGroups <- execCheck (bindingGroups ds >>= typeCheck)
+  (typcheckedDecls, env) <-  pure $ bimap fromBindingGroups env typecheckedGroups
+  return (Module nm typcheckedDecls, env)
 
 typeCheck :: BoundModules SourceSpan -> Check [BindingGroup TypedAnn]
 typeCheck (BoundModules
