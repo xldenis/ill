@@ -39,41 +39,11 @@ import qualified LLVM.AST.IntegerPredicate as AST
 import           Data.Text.Lazy            (pack)
 import qualified Ill.Syntax.Builtins       as Builtins
 
+import           Ill.Codegen.Monad
 {-
   init doesnt work
 -}
 prettyModule mod =  ppllvm $ compileModule mod
-
-insertvalue :: MonadIRBuilder m => Operand -> Operand -> [Word32] -> m Operand
-insertvalue agg el is = emitInstr (T.typeOf agg) $ AST.InsertValue agg el is []
-
-extractvalue :: MonadIRBuilder m => T.Type -> Operand -> [Word32] -> m Operand
-extractvalue ty agg is = emitInstr ty $ AST.ExtractValue agg is []
-
-byte :: Applicative f => Integer -> f Operand
-byte = pure . ConstantOperand . C.Int 8
-
-malloc :: MonadIRBuilder m => AST.Operand -> m AST.Operand
-malloc size =
-  call (ConstantOperand $ C.GlobalReference mallocTy "malloc") [(size, [])]
-  where mallocTy = ptr $ T.FunctionType (ptr T.i8) [T.i64] False
-
-memcpy :: MonadIRBuilder m => AST.Operand -> AST.Operand -> AST.Operand -> m AST.Operand
-memcpy dest src size =
-  call (ConstantOperand $ C.GlobalReference memcpyTy "memcpy") [(dest, []), (src, []), (size, [])]
-  where memcpyTy = ptr $ T.FunctionType (ptr T.i8) [ptr T.i8, ptr T.i8, T.i64] False
-
-data CodegenState = CS
-  { globalInfo :: [(Id, BindingInfo)]
-  , localInfo  :: [(Id, AST.Operand)]
-  , consInfo   :: [(Id, ConstructorEntry)]
-  } deriving (Show, Eq)
-
-updateLocals f (CS c l i) = CS c (f l) i
-
-primInt = ptr $ T.NamedTypeReference "Int"
-primBool = ptr $ T.NamedTypeReference "Bool"
-primStr  = ptr $ T.NamedTypeReference "String"
 
 compileModule :: CoreModule -> AST.Module
 compileModule mod =  buildModule "example" . flip runReaderT (CS infoMap [] (constructors mod)) $ mdo
@@ -109,13 +79,6 @@ compileModule mod =  buildModule "example" . flip runReaderT (CS infoMap [] (con
     map collectConstructorInfo (constructors mod) ++
     builtinInfo
 
-data BindingInfo = Info
-  { arity   :: Int
-  , argTys  :: [T.Type]
-  , retTy   :: T.Type
-  , operand :: AST.Operand
-  } deriving (Show, Eq)
-
 builtinInfo :: [(Id, BindingInfo)]
 builtinInfo = map go Builtins.primitives
   where
@@ -148,35 +111,35 @@ collectBindingInfo (NonRec v b) = let
 
 defMkDouble :: ModuleM m => m Operand
 defMkDouble = do
-  let dType = ptr $ T.NamedTypeReference (fromString "Double")
   typedef (fromString "Double") (Just $ T.StructureType False [T.i64, T.double])
-  function "mkDouble" [(T.double, "d")] dType $ \[d] -> do
+
+  functionWithGlobals functionInlineable "mkDouble" [(T.double, "d")] primDouble $ \[d] -> do
     block `named` "entry" ; do
       memPtr <- malloc =<< int64 (8 + 8)
-      iPtr <- bitcast memPtr dType
+      iPtr <- bitcast memPtr primDouble
       i <- load iPtr 8
       i' <- insertvalue i d [1]
       store iPtr 8 i'
       ret iPtr
 
 mkDouble d = call (AST.LocalReference mkDoubleTy "mkDouble") [(d, [])]
-  where mkDoubleTy = ptr $ T.FunctionType (ptr $ T.NamedTypeReference (fromString "Double")) [T.double] False
+  where mkDoubleTy = ptr $ T.FunctionType primDouble [T.double] False
 
 defMkInt :: ModuleM m => m Operand
 defMkInt = do
-  let iType = ptr $ T.NamedTypeReference (fromString "Int")
   typedef (fromString "Int") (Just $ T.StructureType False [T.i64, T.i64])
-  function "mkInt" [(T.i64, "d")] iType $ \[d] -> do
+
+  functionWithGlobals functionInlineable "mkInt" [(T.i64, "d")] primInt $ \[d] -> do
     block `named` "entry" ; do
       memPtr <- malloc (sizeofType primInt)
-      iPtr <- bitcast memPtr iType
+      iPtr <- bitcast memPtr primInt
       i <- load iPtr 8
       i' <- insertvalue i d [1]
       store iPtr 8 i'
       ret iPtr
 
 mkInt d = call (AST.ConstantOperand $ C.GlobalReference mkIntTy "mkInt") [(d, [])]
-  where mkIntTy = ptr $ T.FunctionType (ptr $ T.NamedTypeReference (fromString "Int")) [T.i64] False
+  where mkIntTy = ptr $ T.FunctionType primInt [T.i64] False
 
 compileConstructor :: MonadModuleBuilder m => (Name, ConstructorEntry) -> m ()
 compileConstructor (nm, cons) = do
@@ -205,8 +168,6 @@ compileConstructor (nm, cons) = do
   retTy = llvmArgType (last unwrapped)
   funArgs = zip llvmArgTy' (repeat (fromString "a"))
 
-ptr x = T.PointerType x (AddrSpace 0)
-
 llvmArgType (TVar nm) = ptr T.i8
 llvmArgType (TConstructor nm) = ptr $ T.NamedTypeReference (fromString nm)
 llvmArgType ap@(TAp _ _) = let
@@ -226,9 +187,6 @@ llvmArgType f@(TAp (TAp (TConstructor "->") a) b) =
   argTys = init unwrapped
   unwrapped = unwrapFnType f
 llvmArgType t = error $ show t
-
-type CodegenM m = (MonadFix m, MonadIRBuilder m,     MonadReader CodegenState m)
-type ModuleM  m = (MonadFix m, MonadModuleBuilder m, MonadReader CodegenState m)
 
 compileBinding :: ModuleM m => Bind Var -> m ()
 compileBinding (NonRec v l) | varName v == "main" = compileBinding (NonRec (v { varName = "module_main" }) l)
