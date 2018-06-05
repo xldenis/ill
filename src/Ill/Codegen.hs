@@ -111,14 +111,14 @@ collectBindingInfo (NonRec v b) = let
 
 defMkDouble :: ModuleM m => m Operand
 defMkDouble = do
-  typedef (fromString "Double") (Just $ T.StructureType False [T.i64, T.double])
+  typedef (fromString "Double") (Just $ T.StructureType False [T.double])
 
   functionWithGlobals functionInlineable "mkDouble" [(T.double, "d")] primDouble $ \[d] -> do
     block `named` "entry" ; do
-      memPtr <- malloc =<< int64 (8 + 8)
+      memPtr <- malloc $ sizeofType primDouble
       iPtr <- bitcast memPtr primDouble
       i <- load iPtr 8
-      i' <- insertvalue i d [1]
+      i' <- insertvalue i d [0]
       store iPtr 8 i'
       ret iPtr
 
@@ -127,14 +127,14 @@ mkDouble d = call (AST.LocalReference mkDoubleTy "mkDouble") [(d, [])]
 
 defMkInt :: ModuleM m => m Operand
 defMkInt = do
-  typedef (fromString "Int") (Just $ T.StructureType False [T.i64, T.i64])
+  typedef (fromString "Int") (Just $ T.StructureType False [T.i64])
 
   functionWithGlobals functionInlineable "mkInt" [(T.i64, "d")] primInt $ \[d] -> do
     block `named` "entry" ; do
       memPtr <- malloc (sizeofType primInt)
       iPtr <- bitcast memPtr primInt
       i <- load iPtr 8
-      i' <- insertvalue i d [1]
+      i' <- insertvalue i d [0]
       store iPtr 8 i'
       ret iPtr
 
@@ -252,10 +252,7 @@ compileBody l@(Let (NonRec v e) exp) = do -- figure out how to handle recursive 
 compileBody (Case scrut alts) = mdo
   scrutOp <- compileBody scrut
 
-  let (tagIx, scrutTy) =
-        if isJust $ find isConAlt alts
-        then (0, ptr $ T.StructureType False [T.i64])
-        else (1, ptr $ T.StructureType False [T.i64, T.i64])
+  let (tagIx, scrutTy) = (0, ptr $ T.StructureType False [T.i64])
 
   scrutHead <- bitcast scrutOp scrutTy
   tagPtr <- gep scrutHead (int32 0 ++ int32 tagIx)

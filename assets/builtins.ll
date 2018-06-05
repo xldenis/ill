@@ -2,19 +2,19 @@
 source_filename = "<string>"
 
 %Bool = type { i64 }
-%Int = type { i64, i64 }
+%Int = type { i64 }
 %String = type { i64, [1 x i32] }
 
 declare i8* @malloc(i64)
 declare i8* @memcpy(i8*, i8*, i64)
 
-define %Bool* @ltInt(%Int* %a, %Int* %b) {
+define %Bool* @ltInt(%Int* %a, %Int* %b) #0 {
 entry:
   %0 = load %Int, %Int* %a, align 8
-  %1 = extractvalue %Int %0, 1
+  %1 = extractvalue %Int %0, 0
 
   %2 = load %Int, %Int* %b, align 8
-  %3 = extractvalue %Int %2, 1
+  %3 = extractvalue %Int %2, 0
 
   %4 = icmp slt i64 %1, %3
 
@@ -28,13 +28,13 @@ entry:
   ret %Bool* %8
 }
 
-define %Bool* @gtInt(%Int* %a, %Int* %b) {
+define %Bool* @gtInt(%Int* %a, %Int* %b) #0 {
 entry:
   %0 = load %Int, %Int* %a, align 8
-  %1 = extractvalue %Int %0, 1
+  %1 = extractvalue %Int %0, 0
 
   %2 = load %Int, %Int* %b, align 8
-  %3 = extractvalue %Int %2, 1
+  %3 = extractvalue %Int %2, 0
 
   %4 = icmp sgt i64 %1, %3
 
@@ -48,13 +48,13 @@ entry:
   ret %Bool* %8
 }
 
-define %Bool* @eqInt(%Int* %a, %Int* %b) {
+define %Bool* @eqInt(%Int* %a, %Int* %b) #0 {
 entry:
   %0 = load %Int, %Int* %a, align 8
-  %1 = extractvalue %Int %0, 1
+  %1 = extractvalue %Int %0, 0
 
   %2 = load %Int, %Int* %b, align 8
-  %3 = extractvalue %Int %2, 1
+  %3 = extractvalue %Int %2, 0
 
   %4 = icmp eq i64 %1, %3
 
@@ -68,13 +68,13 @@ entry:
   ret %Bool* %8
 }
 
-define %Bool* @geqInt(%Int* %a, %Int* %b) {
+define %Bool* @geqInt(%Int* %a, %Int* %b) #0 {
 entry:
   %0 = load %Int, %Int* %a, align 8
-  %1 = extractvalue %Int %0, 1
+  %1 = extractvalue %Int %0, 0
 
   %2 = load %Int, %Int* %b, align 8
-  %3 = extractvalue %Int %2, 1
+  %3 = extractvalue %Int %2, 0
 
   %4 = icmp sge i64 %1, %3
 
@@ -88,13 +88,13 @@ entry:
   ret %Bool* %8
 }
 
-define %Bool* @leqInt(%Int* %a, %Int* %b) {
+define %Bool* @leqInt(%Int* %a, %Int* %b) #0 {
 entry:
   %0 = load %Int, %Int* %a, align 8
-  %1 = extractvalue %Int %0, 1
+  %1 = extractvalue %Int %0, 0
 
   %2 = load %Int, %Int* %b, align 8
-  %3 = extractvalue %Int %2, 1
+  %3 = extractvalue %Int %2, 0
 
   %4 = icmp sle i64 %1, %3
 
@@ -108,3 +108,4 @@ entry:
   ret %Bool* %8
 }
 
+attributes #0 = { inlinehint }
