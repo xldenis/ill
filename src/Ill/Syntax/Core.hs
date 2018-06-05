@@ -33,6 +33,11 @@ data Core n
 
 instance Data a => Plated (Core a)
 
+unwrapLambda :: Core Var -> (Core Var, [Var])
+unwrapLambda (Lambda b@Id{} e) = (b :) <$> unwrapLambda e
+unwrapLambda (Lambda _ e)      = unwrapLambda e
+unwrapLambda e                 = (e, [])
+
 -- These are convenience classes for when a specific constraint is wanted
 -- TODO: either expand their use or scrap them altogether
 class HasName n where
