@@ -1,0 +1,13 @@
+module SlowFib
+  fn fibs(0)
+    0
+  or fibs(1)
+    1
+  or fibs(n)
+    fibs(n - 1) + fibs(n - 2)
+  end
+
+  fn main()
+    show(fibs(33))
+  end
+end
