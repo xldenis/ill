@@ -8,6 +8,9 @@ import Ill.Prelude
 
 import           Ill.Syntax.Name
 import qualified Ill.Syntax.Core as Core
+import           Ill.Syntax.Core hiding (name)
+import qualified Ill.Syntax.Builtins as Builtins
+import           Ill.Syntax.Type
 
 import           Control.Monad.Fix
 import           Control.Monad.Reader
@@ -23,6 +26,7 @@ import           LLVM.AST.Global
 import           LLVM.AST.FunctionAttribute
 
 import           Data.Word
+import           Data.String
 
 type CodegenM m = (MonadFix m, MonadIRBuilder m,     MonadReader CodegenState m)
 type ModuleM  m = (MonadFix m, MonadModuleBuilder m, MonadReader CodegenState m)
@@ -83,13 +87,83 @@ globalVariable nm ty constant = do
     , initializer = Just constant
     , isConstant = True
     }
+
+sizeofType ty = ConstantOperand $ C.PtrToInt (C.GetElementPtr False (C.Null ty) [C.Int 32 1]) T.i64
+
 ptr x = T.PointerType x (AddrSpace 0)
+
+primInt = ptr $ T.NamedTypeReference "Int"
+primDouble = ptr $ T.NamedTypeReference "Double"
+primBool = ptr $ T.NamedTypeReference "Bool"
+primStr  = ptr $ T.NamedTypeReference "String"
+
+closureType = ptr $ T.StructureType False (ptr T.i8  : T.i8 : T.i8 : [T.ArrayType 1 $ ptr T.i8])
+
+llvmArgType :: Type Name -> AST.Type
+llvmArgType (TVar nm) = ptr T.i8
+llvmArgType (TConstructor nm) = ptr $ T.NamedTypeReference (fromString nm)
+llvmArgType ap@(TAp _ _) = let
+  cons : _ = unwrapProduct ap
+  in llvmArgType cons
+llvmArgType (Forall _ t) = llvmArgType t
+llvmArgType f@(Arrow _ _) =
+  closureType
+  where
+  llvmArgTy' = reverse $ map llvmArgType argTys
+  argTys = init unwrapped
+  unwrapped = unwrapFnType f
+llvmArgType f@(TAp (TAp (TConstructor "->") a) b) =
+  closureType
+  where
+  llvmArgTy' = reverse $ map llvmArgType argTys
+  argTys = init unwrapped
+  unwrapped = unwrapFnType f
+llvmArgType t = error $ show t
 
 data CodegenState = CS
   { globalInfo :: [(Id, BindingInfo)]
   , localInfo  :: [(Id, AST.Operand)]
   , consInfo   :: [(Id, Core.ConstructorEntry)]
   } deriving (Show, Eq)
+
+fromModule mod = CS (infoMap mod) [] (constructors mod)
+
+infoMap mod =
+  map collectBindingInfo (bindings mod) ++
+  map collectConstructorInfo (constructors mod) ++
+  builtinInfo
+
+  where
+
+  builtinInfo :: [(Id, BindingInfo)]
+  builtinInfo = map go Builtins.primitives
+    where
+    go (nm, ty) = let
+      arity = length args
+      tys = unwrapFnType ty
+      args = map llvmArgType $ init tys
+      ret = llvmArgType $ last tys
+      op  = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString nm)
+      in (nm, Info arity args ret op)
+
+  collectConstructorInfo :: (Name, Core.ConstructorEntry) -> (Id, BindingInfo)
+  collectConstructorInfo (nm, cons) = let
+    tys = unwrapFnType (consType cons)
+    args = map llvmArgType $ init tys
+    ret  = llvmArgType $ last tys
+
+    op = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString nm)
+
+    in (nm, Info (consArity cons) args ret op)
+
+  collectBindingInfo :: Core.Bind Core.Var -> (Id, BindingInfo)
+  collectBindingInfo (Core.NonRec v b) = let
+    arity = length . snd $ unwrapLambda b
+    tys   = unwrapN arity (idTy v)
+    args  = map llvmArgType $ init tys
+    ret   = llvmArgType $ last tys
+    op    = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString $ varName v)
+    in (varName v, Info arity args ret op)
 
 data BindingInfo = Info
   { arity   :: Int
@@ -102,7 +176,3 @@ bindingType bi = ptr $  T.FunctionType (retTy bi) (argTys bi) False
 
 updateLocals f (CS c l i) = CS c (f l) i
 
-primInt = ptr $ T.NamedTypeReference "Int"
-primDouble = ptr $ T.NamedTypeReference "Double"
-primBool = ptr $ T.NamedTypeReference "Bool"
-primStr  = ptr $ T.NamedTypeReference "String"

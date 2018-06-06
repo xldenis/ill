@@ -206,14 +206,14 @@ module Prelude
 
   impl Foldable Maybe
     fn foldr(f, z, Just x)
-      f(z, x)
+      f(x, z)
     or foldr(f, z, Nothing)
       z
     end
 
-    fn foldr(f, z, Just x)
-      f(x, z)
-    or foldr(f, z, Nothing)
+    fn foldl(f, z, Just x)
+      f(z, x)
+    or foldl(f, z, Nothing)
       z
     end
   end
