@@ -1,0 +1,20 @@
+module DoublePrimitives
+
+  fn test_double_operations_defined(a, b)
+    c = plusDouble(a, b)
+    d = minusDouble(a, c)
+    e = multDouble(d, e)
+    f = divDouble(e, f)
+    g = eqDouble(f, a)
+
+    h = ltDouble(f, e)
+    i = gtDouble(e, f)
+    j = leqDouble(c, d)
+    k = geqDouble(a, b)
+
+    m = maxDouble(a, c)
+    n = minDouble(b, f)
+
+    j
+  end
+end

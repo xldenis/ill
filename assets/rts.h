@@ -12,10 +12,39 @@ typedef struct {
   uint64_t val;
 } Int;
 
-String* showInt(Int* x);
+typedef struct {
+  double val;
+} Double;
+
+typedef struct {
+  uint64_t tag;
+} Bool;
+
 String* mkString(size_t x);
+
 Int* plusInt(Int* a, Int* b);
 Int* minusInt(Int* a, Int* b);
+
+String* showInt(Int* x);
+
+Bool* ltInt(Int* a, Int* b);
+Bool* gtInt(Int* a, Int* b);
+Bool* eqInt(Int* a, Int* b);
+Bool* geqInt(Int* a, Int* b);
+Bool* leqInt(Int* a, Int* b);
+
+
+Double* plusDouble(Double* a, Double* b);
+Double* minusDouble(Double* a, Double* b);
+
+String* showDouble(Double* x);
+
+Bool* ltDouble(Double* a, Double* b);
+Bool* gtDouble(Double* a, Double* b);
+Bool* eqDouble(Double* a, Double* b);
+Bool* geqDouble(Double* a, Double* b);
+Bool* leqDouble(Double* a, Double* b);
+
 String* omgDebug(String* a);
 
 String* plusStr(String* a, String* b);

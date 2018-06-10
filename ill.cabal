@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d561838aa82953572eefe43943c6573f721828b72860648edc19cce4f843a7d7
+-- hash: 2df4c65e2088eb09f84ea9e6cc9da21ec40334399eec04d3e2973934ebfdc770
 
 name:           ill
 version:        0.1.0.0
@@ -19,7 +19,6 @@ license-file:   LICENSE
 build-type:     Simple
 cabal-version:  >= 1.10
 data-files:
-    assets/builtins.ll
     assets/prelude.ill
     assets/rts.ll
 

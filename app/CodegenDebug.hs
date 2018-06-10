@@ -37,16 +37,13 @@ codegen toPrint ast = case typeCheckModule ast of
     when toPrint $ putStrLn (prettyModule core)
 
     withContext $ \ctx -> do
-      path <- getDataFileName "assets/builtins.ll"
       cPath <- getDataFileName "assets/rts.ll"
       withModuleFromAST ctx (compileModule core) $ \mod -> do
-        withModuleFromLLVMAssembly ctx (File path) $ \builtins -> do
-          withModuleFromLLVMAssembly ctx (File cPath) $ \cBuiltins -> do
-            withPassManager defaultCuratedPassSetSpec $ \pm -> do
-              runPassManager pm mod
-              linkModules mod builtins
-              linkModules mod cBuiltins
-              writeLLVMAssemblyToFile (File "example.ll") mod
+        withModuleFromLLVMAssembly ctx (File cPath) $ \builtins -> do
+          withPassManager defaultCuratedPassSetSpec $ \pm -> do
+            runPassManager pm mod
+            linkModules mod builtins
+            writeLLVMAssemblyToFile (File "example.ll") mod
 
 
 

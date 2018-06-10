@@ -59,6 +59,7 @@ compileModule mod =  buildModule "example" . flip runReaderT (fromModule mod) $ 
   declareBuiltins = do
     extern "malloc"   [T.i64] (ptr T.i8)
     extern "memcpy"   [ptr T.i8, ptr T.i8, T.i64] (ptr T.i8)
+
     extern "ltInt"    [primInt, primInt] primBool
     extern "gtInt"    [primInt, primInt] primBool
     extern "eqInt"    [primInt, primInt] primBool
@@ -66,8 +67,19 @@ compileModule mod =  buildModule "example" . flip runReaderT (fromModule mod) $ 
     extern "leqInt"   [primInt, primInt] primBool
     extern "minusInt" [primInt, primInt] primInt
     extern "plusInt"  [primInt, primInt] primInt
-    extern "plusStr"  [primStr, primStr] primStr
     extern "showInt"  [primInt] primStr
+
+    extern "ltDouble"    [primDouble, primDouble] primBool
+    extern "gtDouble"    [primDouble, primDouble] primBool
+    extern "eqDouble"    [primDouble, primDouble] primBool
+    extern "geqDouble"   [primDouble, primDouble] primBool
+    extern "leqDouble"   [primDouble, primDouble] primBool
+    extern "minusDouble" [primDouble, primDouble] primDouble
+    extern "plusDouble"  [primDouble, primDouble] primDouble
+    extern "showDouble"  [primDouble] primStr
+
+    extern "plusStr"  [primStr, primStr] primStr
+
     extern "omgDebug" [primStr] primStr
 
     typedef "String" (Just $ T.StructureType False [T.i64, ptr T.i8])
