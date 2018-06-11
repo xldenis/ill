@@ -178,6 +178,11 @@ typeCheck (BoundModules
     unsatisfiedSupers <- reduce cons
     when (not $ null unsatisfiedSupers) . internalError $ "unsatisfied supertraits in instance: " ++ show unsatisfiedSupers
 
+    let missingTraitMethods = map fst (methodSigs trait) \\ map valueName ds
+
+    when (not (null missingTraitMethods)) $
+      internalError . intercalate "\n" $ ["The trait implementation" ++ show nm ++ " " ++ show args ++ "is missing required methods"] ++ missingTraitMethods
+
     let constraints' = (nm, args) : supers
         argVars    = nub $ freeVariables args
         sigTys     = map (fmap (generalizeWithout argVars . constrain constraints' . applyTypeVars [args])) (methodSigs trait)
