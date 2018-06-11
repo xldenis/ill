@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Infer where
 
+import Ill.Options
 import Ill.Syntax
 import Ill.Infer
 import Ill.Infer.Monad
@@ -10,48 +11,49 @@ import Ill.Syntax.Pretty
 
 import Control.Monad.State (runStateT)
 import Control.Monad.Except (runExcept)
-import Data.List (nub)
 
-import Prelude hiding (putStrLn, putStr)
+import Data.List (nub)
 import Data.Text.Lazy.IO
 import Data.Text.Lazy hiding (map)
 import qualified Data.Map as M
 
-infer m = let
-  typed = runTC m
-  in case typed of
+import Prelude hiding (putStrLn, putStr)
+
+infer :: GlobalOptions -> Module SourceSpan -> IO ()
+infer gOpts m = case runTC m of
     Left e ->
       case e of
-        otherwise -> putStrLn $ prettyType e
+        otherwise -> putStrLn . renderError gOpts $ prettyError e
     Right (ts, checkState) -> do
       let typeToInsts = instanceMap (traitDictionaries $ env checkState)
       putStrLn "\nTraits\n"
-      void $ forM (traits . env $ checkState) $ putStrLn . prettyTraitInfo
+      void $ forM (traits . env $ checkState) $ putStrLn . prettyTraitInfo gOpts
 
-      printBG typeToInsts ts
+      printBG gOpts typeToInsts ts
 
-runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
+runTC (Module _ ds) = bindingGroups ds >>= execCheck . typeCheck
 
 unCheck c = execCheck c
 
-printBG m ((ValueBG ds):bgs) = printTypes m ds >> printBG m bgs
-printBG m ((DataBG  ds):bgs) = printTypes m ds >> printBG m bgs
-printBG m (_ : bgs) = printBG m bgs
-printBG _ []        = return ()
+printBG :: GlobalOptions -> M.Map String [InstanceEntry] -> [BindingGroup TypedAnn] -> IO ()
+printBG opts m ((ValueBG ds):bgs) = printTypes opts m ds >> printBG opts m bgs
+printBG opts m ((DataBG  ds):bgs) = printTypes opts m ds >> printBG opts m bgs
+printBG opts m (_ : bgs) = printBG opts m bgs
+printBG opts _ []        = return ()
 
-printTypes :: M.Map String [InstanceEntry] -> [Decl TypedAnn] -> IO ()
-printTypes m ((a :< Value n _):ts)   = putStr (pack n <> ": ") >> putStrLn (prettyType $ ty a) >> printTypes m ts
-printTypes m ((a :< Data  n _ _):ts) = putStr (pack n <> ": ") >> print (nest 2 $ (pretty $ ty a) `above` tyInsts) >> printTypes m ts
+printTypes :: GlobalOptions -> M.Map String [InstanceEntry] -> [Decl TypedAnn] -> IO ()
+printTypes opts m ((a :< Value n _):ts)   = putStr (pack n <> ": ") >> putStrLn (renderError opts . pretty $ ty a) >> printTypes opts m ts
+printTypes opts m ((a :< Data  n _ _):ts) = putStr (pack n <> ": ") >> print (nest 2 $ (pretty $ ty a) `above` tyInsts) >> printTypes opts m ts
   where tyInsts = prettyTraitInsts $ M.findWithDefault [] n m
-printTypes m (_ : ts) = printTypes m ts
-printTypes _ [] = return ()
+printTypes opts m (_ : ts) = printTypes opts m ts
+printTypes _ _ [] = return ()
 
-prettyType a = renderIll defaultRenderArgs (pretty $ a)
+renderError opts = renderIll (renderArgs opts)
 
-prettyTraitInfo (nm, TraitEntry supers args mems) =
+prettyTraitInfo opts (nm, TraitEntry supers args mems) =
   let topRow = pretty nm <+> (hsep $ map pretty args)
       mems'  = map (\(memNm, ty) -> pretty memNm <+> "::" <+> pretty ty) mems
-  in renderIll defaultRenderArgs (nest 2 $ topRow `above` vsep mems')
+  in renderIll (renderArgs opts) (nest 2 $ topRow `above` vsep mems')
 
 prettyTraitInsts (insts) = vsep insts'
   where insts' = map (pretty . instHead) (nub insts)

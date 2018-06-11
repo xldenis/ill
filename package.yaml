@@ -59,6 +59,7 @@ executables:
       - bytestring
       - temporary
       - process
+      - terminal-size
 tests:
   ill-test:
     main: Spec.hs

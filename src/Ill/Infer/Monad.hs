@@ -5,6 +5,7 @@
 module Ill.Infer.Monad
 ( module Ill.Infer.Monad
 , module Control.Monad.Unify
+, module Ill.Error
 , runWriterT
 ) where
 
@@ -13,6 +14,7 @@ import           Ill.Prelude
 import           Ill.Error
 import           Ill.Parser.Lexer     (SourceSpan (..))
 import           Ill.Syntax
+import           Ill.Syntax.Pretty
 
 import           Control.Monad.Except
 import           Control.Monad.State
@@ -23,6 +25,7 @@ import           Ill.Syntax.Builtins
 import           Data.Map (Map, insert, union, fromList, (!?), (!), insertWith, adjust)
 
 import           Data.Data
+import           Data.Bifunctor (first)
 
 data Environment = Environment
   { names             :: Map Name (Type Name)
@@ -61,13 +64,131 @@ data CheckState = CheckState
   , nextVar :: Int
   } deriving (Show, Eq)
 
-newtype Check a = Check { runCheck :: StateT CheckState (Except MultiError) a}
-  deriving (Functor, Applicative, Monad, MonadError MultiError, MonadState CheckState)
+newtype Check a = Check { runCheck :: StateT CheckState (Except CheckError) a}
+  deriving (Functor, Applicative, Monad, MonadError CheckError, MonadState CheckState)
 
-execCheck c = runExcept $ flip runStateT defaultCheckEnv $ (runCheck c)
+execCheck c = first fromCheckError . runExcept $ flip runStateT defaultCheckEnv $ (runCheck c)
 
 defaultCheckEnv = CheckState (Environment (fromList
   builtins) mempty mempty mempty mempty) 0
+
+
+-- | Errors
+
+data CheckError
+  = UnificationError (Type Name) (Type Name)
+  | InternalError String
+  | UndefinedType String
+  | UndefinedTrait String
+  | UndefinedVariable String
+  | UndefinedConstructor String
+  | NotImplementedError String
+  | KindUnificationError Kind Kind
+  | KindOccursError Kind
+  | TypeOccursError (Type Name)
+  | MissingTraitImpl [Constraint Name]
+  | ErrorInExpression (Expr SourceSpan) (CheckError)
+  | ErrorInPattern (Pat SourceSpan) (CheckError)
+  | ErrorInDecl Name CheckError
+  | InsufficientConstraints [Constraint Name]
+  | AmbiguousType [Name] (Type Name)
+  | MissingSuperTraits [Constraint Name] Name (Type Name)
+  | MissingTraitImplMethods Name (Type Name) [(Name, Type Name)]
+  | UnknownTraitMethods Name (Type Name) [Name]
+  deriving (Show)
+
+notImplementedError :: (MonadError CheckError m) => String -> m a
+notImplementedError = throwError . NotImplementedError
+
+fromCheckError :: CheckError -> Error a
+fromCheckError err = Error
+  { errHeader  = pretty (header err)
+  , errSummary = pretty err
+  , errKind    = "typechecker"
+  , errHints   = hints err
+  }
+
+  where
+  hints (AmbiguousType{}) =
+    [ wrappedWords "An ambiguous variable is a type-variable that appears in a constraint but doesn't in the type itself.\
+      \ That means that we can't ever figure out a value for it since nothing 'ties' it to the type."
+    ]
+  hints (InsufficientConstraints{}) =
+    [ wrappedWords "Try adding the missing constraints to the signature of the declaration\
+      \ or remove calls to the methods that introduce the constraints."
+    ]
+  hints (UnknownTraitMethods _ _ nms) =
+    [ wrappedWords "Define helper methods outside of trait implementations."
+    ]
+  hints (ErrorInExpression _ e)    = hints e
+  hints (ErrorInPattern _ e)       = hints e
+  hints (ErrorInDecl _ e)          = hints e
+
+  hints _ = []
+
+  wrappedWords = fillSep . map pretty . words
+
+  header UnificationError{}         = "Unification Error"
+  header InternalError{}            = "Internal Error"
+  header UndefinedType{}            = "UndefinedType"
+  header UndefinedTrait{}           = "Undefined Trait"
+  header UndefinedVariable{}        = "Undefined Variable"
+  header UndefinedConstructor{}     = "Undefined Constructor"
+  header NotImplementedError{}      = "Not Yet Implemented"
+  header KindUnificationError{}     = "Kind Unification Error"
+  header KindOccursError{}          = "Kind Occurs Error"
+  header TypeOccursError{}          = "Type Occurs Error"
+  header MissingTraitImpl{}         = "Missing Trait Implementation"
+  header InsufficientConstraints{}  = "Insufficient Constraints"
+  header AmbiguousType{}            = "Ambiguous Type"
+  header MissingSuperTraits{}       = "Missing Super Traits for Implementation"
+  header MissingTraitImplMethods{}  = "Trait implementation is missing required methods"
+  header UnknownTraitMethods{}      = "Trait implementation contains unknown methods"
+  header (ErrorInExpression _ e)    = header e
+  header (ErrorInPattern _ e)       = header e
+  header (ErrorInDecl _ e)          = header e
+  -- header e = error $ "Non-exhaustive function header, constructor:" ++ (show e)
+
+instance Pretty CheckError where
+  pretty (InternalError s) = pretty "internal error" <+> pretty s
+  pretty (UnificationError t1 t2) = pretty "Unification error could not" <+> hang 1 doc
+    where doc = vsep [pretty "unify:" <+> pretty t1, pretty "with:" <+> pretty t2]
+  pretty (ErrorInExpression location error) = vcat $
+    [ pretty "Error in the expression at" <+> pretty (extract location) <> pretty ":"
+    , pretty location
+    , (nest 2 $ pretty error)
+    ]
+  pretty (ErrorInPattern location error) = vcat $
+    [ pretty "Error in the pattern at" <+> pretty (extract location) <> pretty ":"
+    , pretty location
+    , (nest 2 $ pretty error)
+    ]
+  pretty (ErrorInDecl name error) = vcat . map (dot' <+>) $
+    [ pretty "Error in the top-level declaration" <+> (ticks (pretty name)) <> pretty ":"
+    , (nest 2 $ pretty error)
+    ]
+  pretty (MissingTraitImpl [p]) = pretty "missing trait impl: " <+> pretty p
+  pretty (InsufficientConstraints cons) = nest 2 $
+    -- what we _do_ have in the context
+    pretty "The context for the declaration is missing necessary constraints:" `above`
+      bulleted (map pretty cons)
+  pretty (AmbiguousType ambiguities ty) =
+    pretty "The following type variables are ambiguous:"
+      <+> list (map pretty ambiguities)
+      <+> nest 2 (hardline <> dot' <+> pretty "Full type:" <+> pretty ty)
+  pretty (MissingSuperTraits supers traitNm args) =
+    pretty "The trait implementation for" <+> pretty traitNm <+> pretty args <+> pretty "has unsatisfied super-trait constraints:"
+    `above` bulleted (map pretty supers)
+  pretty (MissingTraitImplMethods traitNm args methods) =
+    pretty "The trait implementation for" <+> pretty traitNm <+> pretty args <+> pretty "has missing methods:"
+    `above` bulleted (map (\(nm, ty) -> pretty nm <+> pretty "::" <+> pretty ty) methods)
+  pretty (UnknownTraitMethods traitNm args methodNames) =
+    pretty "The trait implementation for" <+> pretty traitNm <+> pretty args <+> pretty "has unknown methods:"
+    `above` bulleted (map pretty methodNames)
+
+  pretty s = pretty $ show s
+
+-- | Helper functions for inference
 
 putEnv :: MonadState CheckState m => Environment -> m ()
 putEnv e = modify (\s -> s { env  = e })
@@ -92,28 +213,28 @@ liftUnify action = do
   let uust = unifyCurrentSubstitution ust
   return (a, uust)
 
-lookupVariable :: (MonadError MultiError m, MonadState CheckState m) => Name -> m (Type Name)
+lookupVariable :: (MonadError CheckError m, MonadState CheckState m) => Name -> m (Type Name)
 lookupVariable name = do
   env <- getEnv
   case names env !? name of
     Nothing -> throwError $ UndefinedVariable name
     Just a  -> return a
 
-lookupConstructor :: (MonadError MultiError m, MonadState CheckState m) => Name -> m ConstructorEntry
+lookupConstructor :: (MonadError CheckError m, MonadState CheckState m) => Name -> m ConstructorEntry
 lookupConstructor name = do
   env <- getEnv
   case constructors env !? name of
     Nothing -> throwError $ UndefinedConstructor name
     Just a  -> return a
 
-lookupTypeVariable ::  (MonadError MultiError m, MonadState CheckState m) => Name -> m Kind
+lookupTypeVariable ::  (MonadError CheckError m, MonadState CheckState m) => Name -> m Kind
 lookupTypeVariable name = do
   env <- getEnv
   case types env !? name of
     Nothing -> throwError $ UndefinedType name
     Just a  -> return a
 
-lookupTrait :: (MonadError MultiError m, MonadState CheckState m) => Name -> m TraitEntry
+lookupTrait :: (MonadError CheckError m, MonadState CheckState m) => Name -> m TraitEntry
 lookupTrait name = do
   env <- getEnv
   case lookup name (traits env) of

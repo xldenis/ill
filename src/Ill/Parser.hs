@@ -5,6 +5,7 @@ module Ill.Parser
 , parseErrorPretty
 , parseErrorPretty'
 , runParser
+, ParseError
 ) where
 
 import           Ill.Prelude

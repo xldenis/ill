@@ -6,6 +6,7 @@ module Ill.Infer
 , ConstructorEntry(..)
 , TraitEntry(..)
 , CheckState(..)
+, module Ill.Error
 ) where
 
 {-
@@ -50,9 +51,9 @@ import           Ill.Infer.Types
 import           Ill.Parser.Lexer     (SourceSpan (..))
 import           Ill.Syntax
 import           Ill.Syntax.Type
-import Data.Bitraversable
-import Control.Lens.Plated
-import Data.Bifunctor (bimap)
+import           Data.Bitraversable
+import           Control.Lens.Plated
+import           Data.Bifunctor (bimap)
 
 type RawDecl = Decl SourceSpan
 
@@ -61,9 +62,9 @@ type RawDecl = Decl SourceSpan
   2. error messages suck
 -}
 
-typeCheckModule :: Module SourceSpan -> Either MultiError (Module TypedAnn, Environment)
+typeCheckModule :: Module SourceSpan -> Either (Error a) (Module TypedAnn, Environment)
 typeCheckModule (Module nm ds) = do
-  typecheckedGroups <- execCheck (bindingGroups ds >>= typeCheck)
+  typecheckedGroups <- bindingGroups ds >>= execCheck . typeCheck
   (typcheckedDecls, env) <-  pure $ bimap fromBindingGroups env typecheckedGroups
   return (Module nm typcheckedDecls, env)
 
@@ -91,11 +92,11 @@ typeCheck (BoundModules
       return $ explicit ++ implicit
 
     subbedValues <- appSubs inferredVals
-    values <- forM subbedValues $ \(ann :< v) -> do
+    values <- forM subbedValues $ \(ann :< v) -> rethrow (ErrorInDecl (valueName v)) $ do
       let t = fromTyAnn ann
 
       t' <- flattenConstraints <$> simplify' t
-      when (ambiguous t') $ internalError $ "ambigious type: " ++ show (ambiguities $ t') ++ valueName v ++ (show $ pretty (fromTyAnn ann))
+      when (ambiguous t') . throwError $ AmbiguousType (ambiguities t') t'
 
       let generalizedType = generalize t'
       addValue (valueName v) generalizedType
@@ -176,12 +177,13 @@ typeCheck (BoundModules
         cons = map (fmap (replaceTypeVars subs)) (superTraits trait)
 
     unsatisfiedSupers <- reduce cons
-    when (not $ null unsatisfiedSupers) . internalError $ "unsatisfied supertraits in instance: " ++ show unsatisfiedSupers
+    when (not $ null unsatisfiedSupers) . throwError $ MissingSuperTraits unsatisfiedSupers nm args
 
     let missingTraitMethods = map fst (methodSigs trait) \\ map valueName ds
 
-    when (not (null missingTraitMethods)) $
-      internalError . intercalate "\n" $ ["The trait implementation" ++ show nm ++ " " ++ show args ++ "is missing required methods"] ++ missingTraitMethods
+    when (not (null missingTraitMethods)) $ do
+      let missingTraitMethodsDetailed = filter (\(name, _) -> name `elem` missingTraitMethods) (methodSigs trait)
+      throwError $ MissingTraitImplMethods nm args missingTraitMethodsDetailed
 
     let constraints' = (nm, args) : supers
         argVars    = nub $ freeVariables args
@@ -192,8 +194,7 @@ typeCheck (BoundModules
     vals' <- liftUnify $ do
       (ut, et, dict, untypedDict) <- typeDictionary (annotated ++ ds)
 
-      when (not (null ut) || not (null untypedDict)) $ do
-        internalError . intercalate "\n" $ [ "The trait " ++ nm ++ " does not contain the methods:" ] ++ map valueName ut
+      when (not (null ut) || not (null untypedDict)) . throwError $ UnknownTraitMethods nm args (map valueName ut)
 
       {-
         unncessary since all traits are bound already
@@ -278,7 +279,7 @@ typeForBindingGroupEl (a :< Value name els) dict = rethrow (ErrorInDecl name) $ 
     (patDict, pats') <- inferPats (zip patTys pats)
     (val', cons) <- runWriterT $ do
       val' <- bindNames dict $ bindNames patDict (infer val)
-      typeOf val' `constrainedUnification` retTy
+      typeOf val' =??= retTy
       return val'
 
     return ((pats', val'), cons)
@@ -311,7 +312,7 @@ checkBindingGroupEl ty (a :< Value name els) dict = rethrow (ErrorInDecl name) $
     (patDict, pats') <- inferPats patTys
     (val', cons) <- runWriterT $ do
       val' <- bindNames (patDict ++ dict) (check retTy val)
-      retTy `constrainedUnification` typeOf val'
+      retTy =??= typeOf val'
       return val'
 
     return (cons, (pats', val'))

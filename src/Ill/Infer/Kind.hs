@@ -9,7 +9,6 @@ import Ill.Prelude
 import           Control.Monad.Except
 import           Control.Monad.Trans
 import           Control.Monad.Unify
-import           Ill.Error
 
 import qualified Data.HashMap.Strict  as H
 
@@ -42,7 +41,7 @@ instance Unifiable Check Kind where
     k2 =?= k4
   a =?= b = throwError $ KindUnificationError a b
 
-instance UnificationError Kind MultiError where
+instance UnificationError Kind CheckError where
   occursCheckFailed t = KindOccursError t
 
 -- kindsOfAll :: _

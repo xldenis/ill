@@ -96,6 +96,7 @@ checkSufficientConstraints :: [Constraint Name] -> [Constraint Name] -> Check ()
 checkSufficientConstraints assumed inferred = do
   inf' <- reduce inferred
   env <- getEnv
+
   let bad = filter (not . entails (traits env) (traitDictionaries env) assumed) inf'
 
-  when (not (null bad)) $ internalError (show bad)
+  when (not (null bad)) $ throwError $ InsufficientConstraints bad

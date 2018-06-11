@@ -8,6 +8,7 @@ import Data.Function ((&))
 import Data.Text.Lazy hiding (map)
 import Data.Text.Lazy.IO
 
+import Ill.Options
 import Ill.BindingGroup
 import Ill.CoreLint
 import Ill.Desugar
@@ -24,9 +25,9 @@ import Data.Maybe (maybeToList)
 
 import Prelude hiding (putStrLn, putStr)
 
-coreDebug :: Maybe String -> Bool -> Module SourceSpan -> IO ()
-coreDebug filter onlyLint ast = case typeCheckModule ast of
-  Left err -> putStrLn $ prettyType err
+coreDebug :: Maybe String -> Bool -> GlobalOptions -> Module SourceSpan -> IO ()
+coreDebug filter onlyLint gOpts ast = case typeCheckModule ast of
+  Left err -> putStrLn . renderError gOpts $ prettyError err
   Right (mod, env) -> do
     let desugared = defaultPipeline env mod
         core = compileCore desugared
@@ -34,7 +35,7 @@ coreDebug filter onlyLint ast = case typeCheckModule ast of
 
     unless onlyLint $ do
       putStrLn $ pack "\n\nCORE OUTPUT\n\n"
-      putStrLn $ renderIll cliRenderArgs (vcat $ map pretty $ binds)
+      putStrLn $ renderError gOpts (vcat $ map pretty $ binds)
 
     case runLinter core of
       Left err -> putStrLn $ pack err
@@ -44,7 +45,7 @@ coreDebug filter onlyLint ast = case typeCheckModule ast of
   where
   cliRenderArgs = defaultRenderArgs { width = 90 }
 
-prettyType a = renderIll defaultRenderArgs (pretty $ a)
+renderError opts = renderIll (renderArgs opts)
 
 filterBindings :: Maybe String -> [Bind Var] -> [Bind Var]
 filterBindings Nothing binds = binds

@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Ill.Parser
+import Ill.Parser as Parser
 import Ill.Syntax.Pretty
 import Ill.Syntax (Module(..))
 import Ill.Parser.Lexer (SourceSpan)
@@ -16,8 +16,11 @@ import Interpreter
 import CoreDebug
 import CodegenDebug
 import Compile
+import Ill.Options
 
 import Options.Applicative.Simple
+import Data.Void
+import qualified System.Console.Terminal.Size as Terminal
 
 import Paths_ill
 
@@ -67,30 +70,38 @@ options = do
       "compile a module into an executable binary"
       compileC (Compile <$> fileArg <*> outputFileArg <*> (flag False True $ long "emit-llvm"))
 
-codegenC (Codegen f toPrint) = commandWrapper f (codegen toPrint)
-format (Format f) = commandWrapper f (T.putStrLn . renderIll defaultRenderArgs . pretty)
-inferC (Infer f)  = commandWrapper f (infer)
-run    (Run f)    = commandWrapper f (runInterpreter)
-core   (Core f filter lint) = commandWrapper f (coreDebug filter lint)
-desugarC (Desugar s f) = commandWrapper f (desugar s)
-compileC (Compile file oFile emitLlvm) = commandWrapper file (compile oFile emitLlvm)
-commandWrapper file com parsedPrelude = do
+codegenC (Codegen f toPrint)            = commandWrapper f (codegen toPrint)
+format   (Format f)                     = commandWrapper f (\gOpts -> T.putStrLn . renderIll (renderArgs gOpts) . pretty)
+inferC   (Infer f)                      = commandWrapper f (infer)
+run      (Run f)                        = commandWrapper f (runInterpreter)
+core     (Core f filter lint)           = commandWrapper f (coreDebug filter lint)
+desugarC (Desugar s f)                  = commandWrapper f (desugar s)
+compileC (Compile file oFile emitLlvm)  = commandWrapper file (compile oFile emitLlvm)
+
+commandWrapper :: FilePath -> (GlobalOptions -> Module SourceSpan -> IO ()) -> GlobalOptions -> Either (Parser.ParseError Char Void) (Module SourceSpan) -> IO ()
+commandWrapper file com gOpts parsedPrelude = do
   stream <- T.readFile file
   let parsed = runParser illParser (file) stream
   let joined = (,) <$> parsedPrelude <*> parsed
   case joined of
     Left err -> putStrLn $ parseErrorPretty' stream err
-    Right (prelude, ast) -> com (mergeModules prelude ast)
+    Right (prelude, ast) -> com gOpts (mergeModules prelude ast)
 
 main :: IO ()
 main = do
   (opts, cmd) <- options
+
+  term <- Terminal.size
+  let renderArgs = case term of
+        Just term -> defaultRenderArgs { width = Terminal.width term }
+        Nothing -> defaultRenderArgs
+      gOpts = GlobalOpts renderArgs
 
   parsedPrelude <- case opts of
     True -> do
       preludePath <- getDataFileName "assets/prelude.ill"
       parseFromFile moduleParser preludePath
     False -> pure $ pure (Module "Prelude" [])
-  cmd parsedPrelude
+  cmd gOpts parsedPrelude
 
 mergeModules (Module _ ds) (Module n ds2) = Module n (ds ++ ds2)

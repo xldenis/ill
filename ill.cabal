@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ef986b4f3e3702fb8510b8487121fd19aaf8ab4060e3be1390f7cb18bfab35f8
+-- hash: 73a1eb65e1c825d653254aec925a3fca1e170c2ae43f6a0abbcd6956128065d5
 
 name:           ill
 version:        0.1.0.0
@@ -103,6 +103,7 @@ executable ill
       Compile
       CoreDebug
       DesugarDebug
+      Ill.Options
       Infer
       Interpreter
       Paths_ill
@@ -123,6 +124,7 @@ executable ill
     , prettyprinter-ansi-terminal
     , process
     , temporary
+    , terminal-size
     , text
   default-language: Haskell2010
 

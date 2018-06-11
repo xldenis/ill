@@ -11,53 +11,30 @@ import           Ill.Syntax.Pretty
 
 import Control.Comonad (extract)
 
-data MultiError
-  = UnificationError (Type Name) (Type Name)
-  | InternalError String
-  | UndefinedType String
-  | UndefinedTrait String
-  | UndefinedVariable String
-  | UndefinedConstructor String
-  | NotImplementedError String
-  | KindUnificationError Kind Kind
-  | KindOccursError Kind
-  | TypeOccursError (Type Name)
-  | MissingTraitImpl [Constraint Name]
-  | ErrorInExpression (Expr SourceSpan) (MultiError)
-  | ErrorInPattern (Pat SourceSpan) (MultiError)
-  | ErrorInDecl Name MultiError
-  deriving (Show, Eq)
+{-
+  Taken from https://github.com/jaspervdj/talks/blob/master/2017-skillsmatter-errors/slides.md#which-is-the-best-representation-2
 
-prettyInternal :: (MonadError MultiError m, Pretty a) => a -> m b
-prettyInternal = throwError . InternalError . show . pretty
+  Should probably migrate to a custom annotation type that is then interpreted into the relevant
+  pretty printer backend annotation. Would also help standardize the specific styles that are
+  used.
 
-internalError :: (MonadError MultiError m) => String -> m a
-internalError = throwError . InternalError
+-}
 
-notImplementedError :: (MonadError MultiError m) => String -> m a
-notImplementedError = throwError . NotImplementedError
+type Error' = Error AnsiStyle
 
+data Error a = Error
+  { errHeader  :: Doc a -- name of error (subject)
+  , errKind    :: String -- subsystem (sender)
+  , errSummary :: Doc a -- details of error (body)
+  , errHints   :: [Doc a] -- solutions
+  }
+
+prettyError :: Error AnsiStyle -> Doc AnsiStyle
+prettyError err = nest 2 $ (annotate bold $ errHeader err)
+    `above` (errSummary err)
+    `above` bulleted (map (\d -> align $ hint<+> d) (errHints err))
+  where
+  hint = annotate (color Magenta <> bold) (pretty "hint:")
 rethrow :: MonadError e m => (e -> e) -> m a -> m a
 rethrow f action = action `catchError` (throwError . f )
 
-instance Pretty MultiError where
-  pretty (InternalError s) = pretty "internal error" <+> pretty s
-  pretty (UnificationError t1 t2) = pretty "Unification error could not" <+> hang 1 doc
-    where doc = vsep [pretty "unify:" <+> pretty t1, pretty "with:" <+> pretty t2]
-  pretty (ErrorInExpression location error) = vcat $
-    [ pretty "Error in the expression at" <+> pretty (extract location) <> pretty ":"
-    , pretty location
-    , (nest 2 $ pretty error)
-    ]
-  pretty (ErrorInPattern location error) = vcat $
-    [ pretty "Error in the pattern at" <+> pretty (extract location) <> pretty ":"
-    , pretty location
-    , (nest 2 $ pretty error)
-    ]
-  pretty (ErrorInDecl name error) = vcat $
-    [ pretty "Error in the decl " <+> pretty name <> pretty ":"
-    -- , pretty location
-    , (nest 2 $ pretty error)
-    ]
-  pretty (MissingTraitImpl [p]) = pretty "missing trait impl: " <+> pretty p
-  pretty s = pretty $ show s

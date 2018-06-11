@@ -27,9 +27,9 @@ import Prelude hiding (putStrLn, putStr)
 
 import qualified Ill.Interpret as Interp
 
-runInterpreter mod = do
+runInterpreter gOpts mod = do
   case  compileToCore mod of
-    Left err -> putStrLn $ err
+    Left err -> putStrLn $ renderError (prettyError err)
     Right (coreMod) -> do
       let boundConstructors = map (fmap consArity) $ Core.constructors coreMod
 
@@ -38,11 +38,11 @@ runInterpreter mod = do
 
       print (Interp.showish val)
 
-prettyType a = renderIll defaultRenderArgs (pretty $ a)
+renderError = renderIll defaultRenderArgs
 
 compileToCore mod =  do
   case typeCheckModule mod of
     Right (typed, e) -> let
       desugared = defaultPipeline e typed
       in Right (compileCore desugared)
-    Left err -> Left $ prettyType err
+    Left err -> Left err

@@ -4,6 +4,7 @@ module Ill.Infer.Types
 ( infer
 , check
 , constrainedUnification
+, (=??=)
 , inferPats
 ) where
 
@@ -19,7 +20,6 @@ import           Data.Bifunctor
 
 import           Ill.Infer.Monad
 import           Ill.Syntax hiding (typeOf)
-import           Ill.Error
 import           Ill.Parser.Lexer    (SourceSpan (..))
 
 typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
@@ -149,8 +149,9 @@ check' expected (a :< Body es) = do
   let totalConstraints = nub $ concatMap (constraints . typeOf) tys
 
   cons <- (typeOf $ last tys) =??= expected
+  tell totalConstraints
 
-  return $ Ann a (constrain totalConstraints $ typeOf $ last tys) :< Body tys
+  return $ Ann a (typeOf $ last tys) :< Body tys
 check' expected (a :< Apply f args) = do
   f' <- infer f
   fTy <- lift $ instantiate (typeOf f')
@@ -158,7 +159,7 @@ check' expected (a :< Apply f args) = do
   subst <- lift $ unifyCurrentSubstitution <$> UnifyT get
   let fTy' = subst $? fTy
 
-  let (_, ty')  = unconstrained fTy'
+  let (conses, ty')  = unconstrained fTy'
       unwrapped = unwrapN (length args) ty'
       argTys    = init unwrapped
       retTy     = last unwrapped
@@ -166,7 +167,7 @@ check' expected (a :< Apply f args) = do
   args' <- mapM (uncurry check) (zip argTys args)
 
   retTy =??= expected
-
+  tell conses
   return $ Ann a retTy :< Apply f' args'
 check' expected (a :< Literal lit) = do
   let ty = litType lit
@@ -208,7 +209,7 @@ instance Partial (Type a) where
   ($?) sub (Forall vars ty)  = Forall vars $ sub $? ty
   ($?) sub other             = other
 
-instance UnificationError (Type Name) MultiError where
+instance UnificationError (Type Name) CheckError where
   occursCheckFailed t = TypeOccursError t
 
 instance Unifiable Check (Type Name) where
@@ -283,7 +284,6 @@ inferPat' ty (a :< PLit lit) = do
   return ([], Ann a litTy :< PLit lit)
 inferPat' ty (a :< Wildcard) = do
   return ([], Ann a ty :< Wildcard)
-inferPat' ty pat = prettyInternal (ty, pat)
 
 instantiate :: Type Name -> UnifyT (Type Name) Check (Type Name)
 instantiate (Forall vars ty) = do

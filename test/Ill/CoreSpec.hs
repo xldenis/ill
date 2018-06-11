@@ -20,11 +20,11 @@ import Ill.Desugar
 import Ill.Syntax.Pretty
 import Ill.BindingGroup
 import Ill.CoreLint
+import Ill.Error (prettyError)
 
 import Data.Text.Lazy.IO as T
 import Data.Maybe
 import Data.Bifunctor
--- import Data.Function
 
 import Control.Arrow
 import Control.Monad
@@ -32,14 +32,14 @@ import Control.Monad
 import System.Directory
 import System.FilePath
 
-runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck)
+runTC (Module _ ds) = bindingGroups ds >>= execCheck . typeCheck
 
 mkVar nm = Id { varName = nm, C.idTy = tNil, usage = Used }
 
 moduleToCore :: Environment -> Module TypedAnn -> CoreModule
 moduleToCore e = (defaultPipeline e) >>> compileCore
 
-runTC' (Module _ ds) = execCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
+runTC' (Module _ ds) = bindingGroups ds >>= execCheck . typeCheck >>= pure . bimap fromBindingGroups env
 
 coreLintSpec path = do
   parsed <- parseFromFile moduleParser path
@@ -48,7 +48,7 @@ coreLintSpec path = do
       "the parser is expected to succeed, but it failed with:\n" ++
       showParseError e
     Right ast -> case typeCheckModule ast of
-      Left err -> expectationFailure . show $ pretty err
+      Left err -> expectationFailure . show $ prettyError err
       Right (typed, env) -> do
         case runLinter (moduleToCore env typed) of
           Left err -> expectationFailure err

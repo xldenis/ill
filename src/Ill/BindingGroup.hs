@@ -6,7 +6,7 @@ import           Ill.Syntax.Expression
 import           Ill.Syntax.Pattern
 
 import           Ill.Syntax
-import Ill.Error
+import           Ill.Error as Ill
 
 import           Control.Monad.Error.Class
 
@@ -48,7 +48,7 @@ fromBindingGroups bgs = fromBG =<< bgs
   fromBG (DataBG  ds) = ds
   fromBG (OtherBG d) = pure d
 
-bindingGroups :: MonadError MultiError m => [Decl a] -> m (BoundModules a)
+bindingGroups :: MonadError (Ill.Error b) m => [Decl a] -> m (BoundModules a)
 bindingGroups ds = do
   let dataDecls = filter isDataDecl ds
       valueDecls = filter isValue ds ++ filter isSignature ds
@@ -73,7 +73,7 @@ sccToDecl (AcyclicSCC d)  = [d]
 sccToDecl (CyclicSCC [d]) = [d]
 sccToDecl (CyclicSCC ds)  = ds
 
-sortedInstances :: MonadError MultiError m => [Decl a] -> [Decl a] -> m [BindingGroup a]
+sortedInstances :: MonadError (Ill.Error b) m => [Decl a] -> [Decl a] -> m [BindingGroup a]
 sortedInstances decls impls = let
   groupedByTrait = map (\x -> (traitName $ head x, x)) $ groupBy (\x y -> traitName x == traitName y)  (sortOn traitName impls)
 
@@ -87,7 +87,14 @@ sortedInstances decls impls = let
   traitDictToTuple _ = error "non trait decl was found when sorting traits"
   checkDag (AcyclicSCC d)  = return $ map OtherBG d
   checkDag (CyclicSCC [d]) = return $ map OtherBG d
-  checkDag _ = throwError $ InternalError "cycle in traits"
+  checkDag _ = throwError $ Error
+    { errKind = "binding-group"
+    , errHeader = pretty "Cycle in trait implementations"
+    , errSummary = pretty "put traits that actually form the cycle here!"
+    , errHints = []
+    }
+
+
 -- Check for type synonym cycles in SCC
 dataBindingGroups :: [Decl a] -> [BindingGroup a]
 dataBindingGroups ds = let

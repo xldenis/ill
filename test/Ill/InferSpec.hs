@@ -25,7 +25,7 @@ spec = do
   filesShouldNotCheck "test/typechecker/failure"
   describe "unifyTypes" $ do
     it "" $ do
-      let tc = runTC $ do
+      let tc = execCheck $ do
                 u <- liftUnify $ do
                   tvar1 <- fresh
 
@@ -34,10 +34,10 @@ spec = do
 
                   t1 =?= t2
                 return $ fst u
-      (fst <$> tc) `shouldBe` Right ()
 
-runTC :: Check a -> Either MultiError (a, CheckState)
-runTC t = runExcept $ runStateT (runCheck t) defaultCheckEnv
+      case fst <$> tc of
+        Right () -> return ()
+        Left err -> expectationFailure . show $ prettyError err
 
 filesShouldNotCheck :: FilePath -> Spec
 filesShouldNotCheck dir = do
@@ -49,7 +49,7 @@ filesShouldNotCheck dir = do
         res <- parseFromFile (illParser <* eof) f
         shouldSucceed res
         let Right (Module _ ds) = res
-        case runTC (bindingGroups ds >>= typeCheck) of
+        case bindingGroups ds >>= execCheck . typeCheck of
           Left _ -> return ()
           Right _ -> expectationFailure $
             "module should have errored but instead typechecked."
@@ -64,7 +64,7 @@ filesShouldCheck dir = do
         res <- parseFromFile (illParser <* eof) f
         shouldSucceed res
         let Right (Module _ ds) = res
-        case runTC (bindingGroups ds >>= typeCheck) of
+        case bindingGroups ds >>= execCheck . typeCheck of
           Right _ -> return ()
           Left err -> expectationFailure $
-            "module should have typechecked but instead returned: " ++ (show $ pretty err)
+            "module should have typechecked but instead returned: " ++ (show $ prettyError err)

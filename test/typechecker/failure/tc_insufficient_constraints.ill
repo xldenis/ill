@@ -1,0 +1,11 @@
+module InsufficientConstraints
+  trait Show a
+    show :: a -> String
+  end
+
+
+  noShow :: a -> String
+  fn noShow(a)
+    show(a)
+  end
+end

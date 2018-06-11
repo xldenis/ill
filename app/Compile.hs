@@ -1,46 +1,46 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Compile where
 
-import Data.Bifunctor (first, bimap)
+import           Ill.BindingGroup
+import           Ill.CoreLint
+import           Ill.Desugar
+import           Ill.Options
 
-import Ill.BindingGroup
-import Ill.CoreLint
-import Ill.Desugar
+import           Ill.Infer
+import           Ill.Infer.Monad
 
-import Ill.Infer
-import Ill.Infer.Monad
+import           Ill.Syntax            as S
+import           Ill.Syntax.Core
+import           Ill.Syntax.Pretty
 
-import Ill.Syntax as S
-import Ill.Syntax.Core
-import Ill.Syntax.Pretty
+import           Ill.Codegen
 
-import Ill.Codegen
+import           Prelude               hiding (putStr, putStrLn)
 
-import Prelude hiding (putStrLn, putStr)
-
-import Data.Text.Lazy.IO
+import           Control.Monad         (when)
 import qualified Data.ByteString.Char8 as BS
-import Control.Monad (when)
+import           Data.Text.Lazy.IO
+import           Data.Bifunctor        (bimap, first)
 
-import LLVM.Module
-import LLVM.Context
-import LLVM.PassManager
-import LLVM.Transforms
-import LLVM.AST (moduleDataLayout)
+import           LLVM.AST              (moduleDataLayout)
+import           LLVM.Context
+import           LLVM.Module
+import           LLVM.PassManager
+import           LLVM.Transforms
 
-import qualified LLVM.Relocation as R
-import qualified LLVM.CodeModel as CM
-import qualified LLVM.CodeGenOpt as CGO
-import LLVM.Target
+import qualified LLVM.CodeGenOpt       as CGO
+import qualified LLVM.CodeModel        as CM
+import qualified LLVM.Relocation       as R
+import           LLVM.Target
 
-import Paths_ill
+import           Paths_ill
 
-import System.IO.Temp
-import System.Process
+import           System.IO.Temp
+import           System.Process
 
-compile :: Maybe String -> Bool -> S.Module SourceSpan -> IO ()
-compile outputFile emitLlvm ast = case typeCheckModule ast of
-  Left err -> putStrLn $ prettyType err
+compile :: Maybe String -> Bool -> GlobalOptions -> S.Module SourceSpan -> IO ()
+compile outputFile emitLlvm gOpts ast = case typeCheckModule ast of
+  Left err -> putStrLn . render gOpts $ prettyError err
   Right (mod, env) -> do
     let desugared = defaultPipeline env mod
         core = compileCore desugared
@@ -77,4 +77,4 @@ assemble objFile outFile = do
     $ concatMap words (lines ldFlags)
     ++ maybe [objFile] (\file -> [objFile, "-o", file]) outFile
 
-prettyType a = renderIll defaultRenderArgs (pretty $ a)
+render gOpts = renderIll (renderArgs gOpts)

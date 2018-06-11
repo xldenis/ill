@@ -2,6 +2,7 @@ module CodegenDebug where
 
 import Data.Bifunctor (first, bimap)
 
+import Ill.Options
 import Ill.BindingGroup
 import Ill.CoreLint
 import Ill.Desugar
@@ -27,8 +28,8 @@ import LLVM.PassManager
 
 import Paths_ill
 
-codegen toPrint ast = case typeCheckModule ast of
-  Left err -> putStrLn $ prettyType err
+codegen toPrint gOpts ast = case typeCheckModule ast of
+  Left err -> putStrLn $ render gOpts (prettyError err)
   Right (mod, env) -> do
     let desugared = defaultPipeline env mod
         core = compileCore desugared
@@ -49,4 +50,4 @@ codegen toPrint ast = case typeCheckModule ast of
 
       return ()
 
-prettyType a = renderIll defaultRenderArgs (pretty $ a)
+render opts = renderIll (renderArgs opts)

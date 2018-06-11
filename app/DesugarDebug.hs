@@ -4,6 +4,7 @@ import Ill.Syntax
 import Ill.Syntax.Core (bindings)
 import Ill.Infer
 import Ill.Infer.Monad
+import Ill.Options
 
 import Data.Function
 
@@ -21,15 +22,14 @@ import Ill.Syntax.Pretty
 
 import Data.Bifunctor (first, bimap)
 
-desugar :: String -> Module SourceSpan -> IO ()
-desugar stage ast = case typeCheckModule ast of
-  Left err -> putStrLn $ prettyType err
+desugar :: String -> GlobalOptions -> Module SourceSpan -> IO ()
+desugar stage gOpts ast = case typeCheckModule ast of
+  Left err -> putStrLn . render gOpts $ prettyError err
   Right (mod, env) -> do
     let pipeline = stageToPipeline stage
         desugared = pipeline env mod
 
-    -- print (map pretty $ traitDictionaries env)
-    putStrLn $ renderIll' (pretty desugared)
+    putStrLn $ render gOpts (pretty desugared)
   where
   cliRenderArgs = defaultRenderArgs { width = 50}
 
@@ -39,4 +39,5 @@ stageToPipeline "traits" e = desugarTraits e . stageToPipeline "binop" e
 stageToPipeline "cases"  e = desugarPatterns . stageToPipeline "traits" e
 stageToPipeline _ _ = id
 
-prettyType a = renderIll defaultRenderArgs (pretty $ a)
+render :: GlobalOptions -> Doc AnsiStyle -> Text
+render opts = renderIll (renderArgs opts)

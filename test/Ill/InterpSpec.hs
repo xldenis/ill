@@ -30,7 +30,7 @@ import Data.Maybe
 import Data.Bifunctor
 import Data.List (find)
 
-runTC (Module _ ds) = unCheck (bindingGroups ds >>= typeCheck) >>= pure . bimap fromBindingGroups env
+runTC (Module _ ds) = bindingGroups ds >>= execCheck . typeCheck >>= pure . bimap fromBindingGroups env
 
 -- unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
 

@@ -2,16 +2,18 @@
 module Ill.Syntax.Pretty
 ( module Data.Text.Prettyprint.Doc
 , module Ill.Syntax.Pretty
+, module Data.Text.Prettyprint.Doc.Render.Terminal
 , intersperse
 ) where
 
 import Ill.Prelude
 
-import Data.Text.Lazy hiding (intersperse)
-import Data.Text.Prettyprint.Doc.Render.Text
+import Data.Text.Lazy hiding (intersperse, map)
+-- import Data.Text.Prettyprint.Doc.Render.Text
 
 import Data.Text.Prettyprint.Doc hiding (width)
 import Data.Text.Prettyprint.Doc.Internal (Doc(..), PageWidth(..))
+import Data.Text.Prettyprint.Doc.Render.Terminal
 
 -- Use this from upstream when released
 class Pretty1 f where
@@ -19,7 +21,6 @@ class Pretty1 f where
         :: (a -> Doc ann)
         -> f a
         -> Doc ann
-
 parensIf :: Bool -> Doc a -> Doc a
 parensIf = conditionally parens
 
@@ -31,10 +32,10 @@ data RenderArgs = RenderArgs {ribbon :: Double, width :: Int}
 defaultRenderArgs :: RenderArgs
 defaultRenderArgs = RenderArgs {ribbon = 1.0, width = 100}
 
-renderIll :: RenderArgs -> Doc a -> Text
+renderIll :: RenderArgs -> Doc AnsiStyle -> Text
 renderIll RenderArgs{ribbon , width} doc = renderLazy (layoutPretty (LayoutOptions $ AvailablePerLine width ribbon) doc)
 
-renderIll' :: Doc a -> Text
+renderIll' :: Doc AnsiStyle -> Text
 renderIll' = renderIll defaultRenderArgs
 
 {-
@@ -63,3 +64,12 @@ vsep' = concatWith (\x y -> x <> hardline <> y)
 
 text :: Text -> Doc a
 text = pretty
+
+ticks :: Doc a -> Doc a
+ticks = enclose (pretty '`') (pretty '`')
+
+dot' :: Doc a
+dot' = pretty '•'
+
+bulleted :: [Doc a] -> Doc a
+bulleted = vcat . map (dot' <+>)
