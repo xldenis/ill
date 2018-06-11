@@ -126,6 +126,12 @@ module Prelude
     end
   end
 
+  impl MultSemigroup Int
+    fn times(a, b)
+      multInt(a, b)
+    end
+  end
+
   impl Semigroup String
     fn plus(a, b)
       plusStr(a, b) # primitive function
@@ -194,6 +200,12 @@ module Prelude
     end
   end
 
+  impl MultMonoid Int
+    fn one ()
+      1
+    end
+  end
+
   impl Group Int
     fn minus(a, b)
       minusInt(a, b)
@@ -245,6 +257,7 @@ module Prelude
   end
 
   impl Semigroup Bool
+    # The additive semigroup for Bool is `or`
     fn plus(False, False)
       False
     or plus(_, _)
@@ -252,12 +265,36 @@ module Prelude
     end
   end
 
+  impl Monoid Bool
+    fn zero ()
+      False
+    end
+  end
+
   impl MultSemigroup Bool
+    # The multiplicative semigroup for Bool is `and`
     fn times(True, True)
       True
     or times(_, _)
       False
     end
+  end
+
+  impl MultMonoid Bool
+    fn one ()
+      True
+    end
+  end
+
+  # Commented out because it can't parse since `or` is a reserved keyword
+  # or :: Bool -> Bool -> Bool
+  # fn or(a, b)
+  #   plus(a, b)
+  # end
+
+  and :: Bool -> Bool -> Bool
+  fn and(a, b)
+    times(a, b)
   end
 
   not :: Bool -> Bool
