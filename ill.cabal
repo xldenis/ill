@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2df4c65e2088eb09f84ea9e6cc9da21ec40334399eec04d3e2973934ebfdc770
+-- hash: ef986b4f3e3702fb8510b8487121fd19aaf8ab4060e3be1390f7cb18bfab35f8
 
 name:           ill
 version:        0.1.0.0
@@ -100,6 +100,7 @@ executable ill
   main-is: Main.hs
   other-modules:
       CodegenDebug
+      Compile
       CoreDebug
       DesugarDebug
       Infer
@@ -114,11 +115,14 @@ executable ill
     , containers
     , ill
     , llvm-hs
+    , llvm-hs-pure
     , megaparsec
     , mtl
     , optparse-simple
     , prettyprinter
     , prettyprinter-ansi-terminal
+    , process
+    , temporary
     , text
   default-language: Haskell2010
 

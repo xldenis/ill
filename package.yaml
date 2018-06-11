@@ -55,7 +55,10 @@ executables:
       - ill
       - optparse-simple
       - llvm-hs
+      - llvm-hs-pure
       - bytestring
+      - temporary
+      - process
 tests:
   ill-test:
     main: Spec.hs

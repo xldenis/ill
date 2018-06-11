@@ -42,7 +42,7 @@ byte = pure . ConstantOperand . C.Int 8
 
 malloc :: MonadIRBuilder m => AST.Operand -> m AST.Operand
 malloc size =
-  call (ConstantOperand $ C.GlobalReference mallocTy "malloc") [(size, [])]
+  call (ConstantOperand $ C.GlobalReference mallocTy "GC_malloc") [(size, [])]
   where mallocTy = ptr $ T.FunctionType (ptr T.i8) [T.i64] False
 
 memcpy :: MonadIRBuilder m => AST.Operand -> AST.Operand -> AST.Operand -> m AST.Operand

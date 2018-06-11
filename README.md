@@ -36,10 +36,6 @@ Here are a few of the fixed aspects of the language:
 
 Notice that laziness is _not_ a fixed requirement. If possible, I'd like to provide both lazy and strict backends to the language so the approaches can easily be compared to each other.
 
-## Contributions
-
-I'll happily accept contributions in the form of pull requests. This is a personal project though so I won't guarantee code quality (yet) or documentation.
-
 ## State of the Compiler
 
 So far, I've advanced quite a lot in development. Here are the finished phases
@@ -54,59 +50,25 @@ So far, I've advanced quite a lot in development. Here are the finished phases
   - A full desugaring of terms to the Core representation
 - Core Linter
 - Call-By-Need interpreter
-
+- Code generation
+- Garbage collection
 Here are some of the major phases that remain to be done:
 
 - Renaming
   - There is no renaming currently since programs can only consist of one module.
-- Eta-expansion of core
-  - Required to simplify code generation
-- Code generation
-  - This will involve more sub-phases but those haven't been decided on
 - Module build system
   - Some system to find, and organize the module build plan.
 
+## Installation
 
-## Example Syntax:
+To install Ill, clone this repository and build it using `stack`.
 
+To build Ill, you will need the following dependencies
 
-```
-name :: Nnt -> Int
-fn name(args)
-  x = 1
-  x, y = 2, 4 # multi-assign
-  y
-end # returns 4
+- LLVM 6
+- The Boehm–Demers–Weiser garbage collector (libgc)
+- pkg-config
 
-fn name(args) # inferred types
-  body = 2
-end # returns 2
+## Contributions
 
-fn (args) # lambda
-
-end
-```
-
-## Literals
-
-- ~~Array: `[]`~~ _Not Yet Implemented_
-- Integers: `1`
-- Floats: `2`
-- Literal Strings `'string \n'`
-- Escaped strings `"string \n"`
-
-## Function definition
-
-There are two different manners to declare functions, either anonymous functions (lambda) or named functions. A function signature consists of the argument list and the return type.
-
-### Argument list
-
-Arguments are patterned matched and can take several forms.
-
-- Variables `a`
-- Destructors `Node t1 t2`
-- Wildcards `_`
-
-Additionally they can have type hints or annotations `fn (x :: int, Node a b :: Tree Int)`
-
-
+I'll happily accept contributions in the form of pull requests. This is a personal project though so I won't guarantee code quality (yet) or documentation.

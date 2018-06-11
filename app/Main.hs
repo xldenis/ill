@@ -15,6 +15,7 @@ import DesugarDebug
 import Interpreter
 import CoreDebug
 import CodegenDebug
+import Compile
 
 import Options.Applicative.Simple
 
@@ -27,11 +28,18 @@ data Desugar = Desugar String String
 data Run = Run String
 data Core = Core String (Maybe String) Bool
 data Codegen = Codegen String Bool
+data Compile = Compile
+  { compileFile :: String
+  , compileOutputFile :: Maybe String
+  , compileEmitLlvm :: Bool
+  }
 
 fileArg = strArgument (metavar "FILE" <> help "location of source file")
 stageArg = strArgument (metavar "STAGE")
 filterArg = optional . strOption $ long "filter" <> metavar "FILTER" <> short 'f'
   <> help "only print the binding that exactly matches the filter provided"
+outputFileArg = optional . strOption $ long "output-file" <> metavar "FILTER" <> short 'o'
+  <> help "provide  a name for the final executable"
 
 globalFlags = flag True False (long "no-default-prelude" <> help "Disable the implicit prelude module")
 
@@ -55,6 +63,9 @@ options = do
     addCommand "codegen"
       "run the code generator and prettyprint llvm ir"
       codegenC (Codegen <$> fileArg <*> (flag False True $ long "print-ir"))
+    addCommand "compile"
+      "compile a module into an executable binary"
+      compileC (Compile <$> fileArg <*> outputFileArg <*> (flag False True $ long "emit-llvm"))
 
 codegenC (Codegen f toPrint) = commandWrapper f (codegen toPrint)
 format (Format f) = commandWrapper f (T.putStrLn . renderIll defaultRenderArgs . pretty)
@@ -62,7 +73,7 @@ inferC (Infer f)  = commandWrapper f (infer)
 run    (Run f)    = commandWrapper f (runInterpreter)
 core   (Core f filter lint) = commandWrapper f (coreDebug filter lint)
 desugarC (Desugar s f) = commandWrapper f (desugar s)
-
+compileC (Compile file oFile emitLlvm) = commandWrapper file (compile oFile emitLlvm)
 commandWrapper file com parsedPrelude = do
   stream <- T.readFile file
   let parsed = runParser illParser (file) stream
