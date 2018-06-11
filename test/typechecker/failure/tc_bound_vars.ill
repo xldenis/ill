@@ -1,0 +1,16 @@
+module BoundVars
+  data B phantom = B
+
+
+  trait Omg a
+    func :: a -> B b
+  end
+
+  data Ty a = Omg (B a)
+
+  impl Omg (Ty b)
+    fn func(Omg b)
+      b
+    end
+  end
+end
