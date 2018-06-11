@@ -10,6 +10,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 
 import           Data.IORef
+import           Data.Fixed
 
 type Thunk = () -> IO Value
 
@@ -59,19 +60,34 @@ mkEnvForModule cons funcs = do
   return $ env
 
 primops =
-  [ ("showInt", (1, showInt))
-  , ("plusStr", (2, plusStr))
-  , ("minusInt", (2, minusInt))
-  , ("plusInt", (2, plusInt))
-  , ("gtInt",   (2, gtInt))
-  , ("multInt", (2, multInt))
-  -- , ("divInt", (2, divInt))
-  , ("eqInt", (2, eqInt))
-  , ("ltInt", (2, ltInt))
-  , ("leqInt", (2, leqInt))
-  , ("geqInt", (2, geqInt))
-  , ("maxInt", (2, maxInt))
-  , ("minInt", (2, minInt))
+  [ ("showInt",      (1, showInt))
+  , ("plusStr",      (2, plusStr))
+  , ("minusInt",     (2, minusInt))
+  , ("plusInt",      (2, plusInt))
+  , ("gtInt",        (2, gtInt))
+  , ("multInt",      (2, multInt))
+  , ("divInt",       (2, divInt))
+  , ("eqInt",        (2, eqInt))
+  , ("ltInt",        (2, ltInt))
+  , ("leqInt",       (2, leqInt))
+  , ("geqInt",       (2, geqInt))
+  , ("maxInt",       (2, maxInt))
+  , ("minInt",       (2, minInt))
+  , ("modInt",       (2, modInt))
+  , ("showDouble",   (1, showDouble))
+  , ("plusStr",      (2, plusStr))
+  , ("minusDouble",  (2, minusDouble))
+  , ("plusDouble",   (2, plusDouble))
+  , ("gtDouble",     (2, gtDouble))
+  , ("multDouble",   (2, multDouble))
+  , ("divDouble",    (2, divDouble))
+  , ("eqDouble",     (2, eqDouble))
+  , ("ltDouble",     (2, ltDouble))
+  , ("leqDouble",    (2, leqDouble))
+  , ("geqDouble",    (2, geqDouble))
+  , ("maxDouble",    (2, maxDouble))
+  , ("minDouble",    (2, minDouble))
+  , ("modDouble",    (2, modDouble))
   ]
 
   where
@@ -80,6 +96,8 @@ primops =
   minInt   = liftBinInt $ \a b -> VLit . Integer $ min a b
   minusInt = liftBinInt $ \a b -> VLit . Integer $ a - b
   plusInt  = liftBinInt $ \a b -> VLit . Integer $ a + b
+  divInt   = liftBinInt $ \a b -> VLit . Integer $ a `div` b
+  modInt   = liftBinInt $ \a b -> VLit . Integer $ a `mod` b
 
   eqInt  = liftBinInt $ \a b -> liftCmp $ a == b
   leqInt = liftBinInt $ \a b -> liftCmp $ a <= b
@@ -87,11 +105,29 @@ primops =
   ltInt  = liftBinInt $ \a b -> liftCmp $ a < b
   gtInt  = liftBinInt $ \a b -> liftCmp $ a > b
 
+  multDouble  = liftBinDouble $ \a b -> VLit . Double $ a * b
+  maxDouble   = liftBinDouble $ \a b -> VLit . Double $ max a b
+  minDouble   = liftBinDouble $ \a b -> VLit . Double $ min a b
+  minusDouble = liftBinDouble $ \a b -> VLit . Double $ a - b
+  plusDouble  = liftBinDouble $ \a b -> VLit . Double $ a + b
+  divDouble   = liftBinDouble $ \a b -> VLit . Double $ a / b
+  modDouble   = liftBinDouble $ \a b -> VLit . Double $ a `mod'` b
+
+  eqDouble  = liftBinDouble $ \a b -> liftCmp $ a == b
+  leqDouble = liftBinDouble $ \a b -> liftCmp $ a <= b
+  geqDouble = liftBinDouble $ \a b -> liftCmp $ a >= b
+  ltDouble  = liftBinDouble $ \a b -> liftCmp $ a < b
+  gtDouble  = liftBinDouble $ \a b -> liftCmp $ a > b
+
   plusStr [VLit (RawString a), VLit (RawString b)] = VLit . RawString $ a ++ b
   showInt [VLit (Integer a)] = VLit $ RawString (show a)
+  showDouble [VLit (Double  a)] = VLit $ RawString (show a)
 
   liftBinInt f [VLit (Integer a), VLit (Integer b)] = f a b
   liftBinInt _ args = error . show $ pretty "ruh roh spaghettioes" <+> hsep (map showish args)
+
+  liftBinDouble f [VLit (Double a), VLit (Double b)] = f a b
+  liftBinDouble _ args = error . show $ pretty "ruh roh spaghettioes" <+> hsep (map showish args)
 
   liftCmp b = case b of
     True -> VConstructed "True" []

@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "rts.h"
 
@@ -51,6 +52,21 @@ Int* minusInt(Int* a, Int* b)
     return mkInt(a->val - b->val);
 }
 
+Int* multInt(Int* a, Int* b)
+{
+    return mkInt(a->val * b->val);
+}
+
+Int* divInt(Int* a, Int* b)
+{
+    return mkInt(a->val / b->val);
+}
+
+Int* modInt(Int* a, Int* b)
+{
+    return mkInt(a->val % b->val);
+}
+
 Bool* ltInt(Int* a, Int* b)
 {
     return MKBOOL(a->val < b->val);
@@ -92,6 +108,21 @@ Double* plusDouble(Double* a, Double* b)
 Double* minusDouble(Double* a, Double* b)
 {
     return mkDouble(a->val - b->val);
+}
+
+Double* multDouble(Double* a, Double* b)
+{
+    return mkDouble(a->val * b->val);
+}
+
+Double* divDouble(Double* a, Double* b)
+{
+    return mkDouble(a->val / b->val);
+}
+
+Double* modDouble(Double* a, Double* b)
+{
+    return mkDouble(fmod(a->val, b->val));
 }
 
 Bool* ltDouble(Double* a, Double* b)

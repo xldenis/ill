@@ -28,6 +28,7 @@ import           Ill.Syntax.Literal
 import           Ill.Syntax.Name
 import           Ill.Syntax.Pretty
 import           Ill.Syntax.Type
+import qualified Ill.Syntax.Builtins       as Builtins
 
 import           LLVM.AST.AddrSpace
 import           LLVM.AST.Operand (Operand(..))
@@ -56,31 +57,17 @@ compileModule mod =  buildModule "example" . flip runReaderT (fromModule mod) $ 
   isLambda (NonRec _ Lambda{}) = True
   isLambda _                   = False
 
+  builtinExtern (nm, ty) = extern (fromString nm) (map llvmArgType args) (llvmArgType ret)
+    where
+    tys = unwrapFnType ty
+    args = init tys
+    ret  = last tys
+
   declareBuiltins = do
-    extern "malloc"   [T.i64] (ptr T.i8)
+    extern "GC_malloc"   [T.i64] (ptr T.i8)
     extern "memcpy"   [ptr T.i8, ptr T.i8, T.i64] (ptr T.i8)
 
-    extern "ltInt"    [primInt, primInt] primBool
-    extern "gtInt"    [primInt, primInt] primBool
-    extern "eqInt"    [primInt, primInt] primBool
-    extern "geqInt"   [primInt, primInt] primBool
-    extern "leqInt"   [primInt, primInt] primBool
-    extern "minusInt" [primInt, primInt] primInt
-    extern "plusInt"  [primInt, primInt] primInt
-    extern "showInt"  [primInt] primStr
-
-    extern "ltDouble"    [primDouble, primDouble] primBool
-    extern "gtDouble"    [primDouble, primDouble] primBool
-    extern "eqDouble"    [primDouble, primDouble] primBool
-    extern "geqDouble"   [primDouble, primDouble] primBool
-    extern "leqDouble"   [primDouble, primDouble] primBool
-    extern "minusDouble" [primDouble, primDouble] primDouble
-    extern "plusDouble"  [primDouble, primDouble] primDouble
-    extern "showDouble"  [primDouble] primStr
-
-    extern "plusStr"  [primStr, primStr] primStr
-
-    extern "omgDebug" [primStr] primStr
+    forM Builtins.primitives builtinExtern
 
     typedef "String" (Just $ T.StructureType False [T.i64, ptr T.i8])
 

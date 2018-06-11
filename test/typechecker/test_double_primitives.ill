@@ -12,9 +12,6 @@ module DoublePrimitives
     j = leqDouble(c, d)
     k = geqDouble(a, b)
 
-    m = maxDouble(a, c)
-    n = minDouble(b, f)
-
     j
   end
 end

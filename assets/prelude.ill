@@ -27,8 +27,16 @@ module Prelude
     plus :: a -> a -> a
   end
 
+  trait MultSemigroup a
+    times :: a -> a -> a
+  end
+
   trait Semigroup a | Monoid a
     zero :: a
+  end
+
+  trait MultSemigroup a | MultMonoid a
+    one :: a
   end
 
   trait Monoid a | Group a
@@ -80,6 +88,11 @@ module Prelude
     bind :: m a -> (a -> m b) -> m b
   end
 
+  trait Integral a
+    div :: a -> a -> a
+    mod :: a -> a -> a
+  end
+
   impl Eq Int
     fn eq(a, b)
       eqInt(a, b) # primitive function
@@ -100,6 +113,11 @@ module Prelude
     fn geq (a, b) geqInt(a, b) end
     fn max (a, b) if geqInt(a,b) then a else b end end
     fn min (a, b) if leqInt(a,b) then a else b end end
+  end
+
+  impl Integral Int
+    fn div (a, b) divInt(a, b) end
+    fn mod (a, b) modInt(a, b) end
   end
 
   impl Semigroup Int
@@ -224,6 +242,29 @@ module Prelude
     or fmap(_, Left e)
       Left(e)
     end
+  end
+
+  impl Semigroup Bool
+    fn plus(False, False)
+      False
+    or plus(_, _)
+      True
+    end
+  end
+
+  impl MultSemigroup Bool
+    fn times(True, True)
+      True
+    or times(_, _)
+      False
+    end
+  end
+
+  not :: Bool -> Bool
+  fn not(True)
+    False
+  or not(False)
+    True
   end
 
   intersperse :: a -> List a -> List a

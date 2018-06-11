@@ -24,7 +24,9 @@ String* mkString(size_t x);
 
 Int* plusInt(Int* a, Int* b);
 Int* minusInt(Int* a, Int* b);
-
+Int* multInt(Int* a, Int* b);
+Int* divInt(Int* a, Int* b);
+Int* modInt(Int* a, Int* b);
 String* showInt(Int* x);
 
 Bool* ltInt(Int* a, Int* b);
@@ -36,6 +38,9 @@ Bool* leqInt(Int* a, Int* b);
 
 Double* plusDouble(Double* a, Double* b);
 Double* minusDouble(Double* a, Double* b);
+Double* multDouble(Double* a, Double* b);
+Double* divDouble(Double* a, Double* b);
+Double* modDouble(Double* a, Double* b);
 
 String* showDouble(Double* x);
 

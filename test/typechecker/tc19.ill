@@ -19,7 +19,7 @@ module TC19
   end
 
   impl Ord Int
-    fn min () minInt end
+    fn min (a, b) if leqInt(a,b) then a else b end end
   end
 
   impl Eq Bool

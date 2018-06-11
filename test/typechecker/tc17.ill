@@ -78,8 +78,8 @@ module TC17
     fn ge () gtInt end
     fn leq () leqInt end
     fn geq () geqInt end
-    fn max () maxInt end
-    fn min () minInt end
+    fn max (a, b) if geqInt(a,b) then a else b end end
+    fn min (a, b) if leqInt(a,b) then a else b end end
   end
 
   impl Semigroup Int

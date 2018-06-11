@@ -1,0 +1,15 @@
+module Prime
+  fn isPrime(n)
+    isPrime2(n, div(n, 2))
+  end
+
+  fn isPrime2(n, 1)
+    True
+  or isPrime2(n, m)
+    not(mod(n, m) == 0) * isPrime2(n, m - 1)
+  end
+
+  fn main ()
+    show(isPrime(224737))
+  end
+end
