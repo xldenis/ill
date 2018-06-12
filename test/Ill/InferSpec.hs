@@ -18,6 +18,7 @@ import Ill.Infer.Monad
 import Ill.Syntax
 import Ill.Parser (illParser)
 import Ill.BindingGroup
+import Ill.Renamer
 
 spec :: Spec
 spec = do
@@ -49,7 +50,8 @@ filesShouldNotCheck dir = do
         res <- parseFromFile (illParser <* eof) f
         shouldSucceed res
         let Right (Module _ ds) = res
-        case bindingGroups ds >>= execCheck . typeCheck of
+            m = Module "Prelude" ds
+        case bindingGroups m >>= (renameModule >=> typeCheckModule) of
           Left _ -> return ()
           Right _ -> expectationFailure $
             "module should have errored but instead typechecked."
@@ -64,7 +66,8 @@ filesShouldCheck dir = do
         res <- parseFromFile (illParser <* eof) f
         shouldSucceed res
         let Right (Module _ ds) = res
-        case bindingGroups ds >>= execCheck . typeCheck of
+            m = Module "Prelude" ds
+        case bindingGroups m >>= (renameModule >=> typeCheckModule) of
           Right _ -> return ()
           Left err -> expectationFailure $
             "module should have typechecked but instead returned: " ++ (show $ prettyError err)

@@ -12,6 +12,7 @@ import Ill.Options
 import Ill.BindingGroup
 import Ill.CoreLint
 import Ill.Desugar
+import Ill.Renamer
 
 import Ill.Infer
 import Ill.Infer.Monad
@@ -25,8 +26,8 @@ import Data.Maybe (maybeToList)
 
 import Prelude hiding (putStrLn, putStr)
 
-coreDebug :: Maybe String -> Bool -> GlobalOptions -> Module SourceSpan -> IO ()
-coreDebug filter onlyLint gOpts ast = case typeCheckModule ast of
+coreDebug :: Maybe String -> Bool -> GlobalOptions -> RenamedModule SourceSpan -> IO ()
+coreDebug filter onlyLint gOpts ast = case (typeCheckModule) ast of
   Left err -> putStrLn . renderError gOpts $ prettyError err
   Right (mod, env) -> do
     let desugared = defaultPipeline env mod
@@ -50,4 +51,4 @@ renderError opts = renderIll (renderArgs opts)
 filterBindings :: Maybe String -> [Bind Var] -> [Bind Var]
 filterBindings Nothing binds = binds
 filterBindings (Just f) binds = maybeToList $ L.find finder binds
-  where finder (NonRec v _) = varName v == f
+  where finder (NonRec v _) = qualName (varName v) == f

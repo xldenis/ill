@@ -12,13 +12,13 @@ import Ill.Parser.Type
 import Ill.Parser.Expression
 
 
-declaration :: Parser (Decl SourceSpan)
+declaration :: Parser (Decl Name SourceSpan)
 declaration = choice
   [ dataDeclaration, typeSynonymDeclaration, importDeclaration,
     valueDeclaration, signatureDeclaration, traitDeclaration, implDeclaration
   ]
 
-dataDeclaration :: Parser (Decl SourceSpan)
+dataDeclaration :: Parser (Decl Name SourceSpan)
 dataDeclaration = label "data type" . withLoc $ do
   symbol "data"
   name <- upperIdent
@@ -27,7 +27,7 @@ dataDeclaration = label "data type" . withLoc $ do
   types <- typeProduct `sepBy1` (lexeme $ char '|')
   return $ Data name vars types
 
-typeSynonymDeclaration :: Parser (Decl SourceSpan)
+typeSynonymDeclaration :: Parser (Decl Name SourceSpan)
 typeSynonymDeclaration = label "type synonym" .  withLoc $ do
   try $ symbol "type"
   alias <- upperIdent
@@ -36,7 +36,7 @@ typeSynonymDeclaration = label "type synonym" .  withLoc $ do
   aliasee <- typeProduct
   return $ TypeSynonym alias vars aliasee
 
-traitDeclaration :: Parser (Decl SourceSpan)
+traitDeclaration :: Parser (Decl Name SourceSpan)
 traitDeclaration = label "trait declaration" . withLoc $ do
   symbol "trait"
   supers <- constraintP <|> (pure [])
@@ -46,7 +46,7 @@ traitDeclaration = label "trait declaration" . withLoc $ do
   body <- manyTill (signatureDeclaration <* (sep <* scn)) $ symbol "end"
   return $ TraitDecl supers name arg body
 
-implDeclaration :: Parser (Decl SourceSpan)
+implDeclaration :: Parser (Decl Name SourceSpan)
 implDeclaration = label "trait implementation" . withLoc $ do
   symbol "impl"
   trt <- fullType
@@ -65,12 +65,12 @@ implDeclaration = label "trait implementation" . withLoc $ do
   body <- manyTill (valueDeclaration <* sep <* scn) $ symbol "end"
   return $ TraitImpl constraints className' implVar body
 
-signatureDeclaration :: Parser (Decl SourceSpan)
+signatureDeclaration :: Parser (Decl Name SourceSpan)
 signatureDeclaration = label "value signature" . withLoc $ do
   ident <- try $ identifier <* symbol "::"
   Signature ident <$> fullType
 
-valueDeclaration :: Parser (Decl SourceSpan)
+valueDeclaration :: Parser (Decl Name SourceSpan)
 valueDeclaration = label "value" . withLoc $ do
   symbol "fn"
   name <- identifier
@@ -89,7 +89,7 @@ valueDeclaration = label "value" . withLoc $ do
     scn
     return (args, body)
 
-importDeclaration :: Parser (Decl SourceSpan)
+importDeclaration :: Parser (Decl Name SourceSpan)
 importDeclaration = label "import" . withLoc $ do
   symbol "import"
   qual <- qualified

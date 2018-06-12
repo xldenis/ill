@@ -15,6 +15,7 @@ import           Ill.Error
 import           Ill.Parser.Lexer     (SourceSpan (..))
 import           Ill.Syntax
 import           Ill.Syntax.Pretty
+import           Ill.Syntax.Name
 
 import           Control.Monad.Except
 import           Control.Monad.State
@@ -28,35 +29,35 @@ import           Data.Data
 import           Data.Bifunctor (first)
 
 data Environment = Environment
-  { names             :: Map Name (Type Name)
-  , types             :: Map Name Kind
-  , constructors      :: Map Name ConstructorEntry
+  { names             :: Map QualifiedName (Type QualifiedName)
+  , types             :: Map QualifiedName Kind
+  , constructors      :: Map QualifiedName ConstructorEntry
   , traits            :: TraitDict
   , traitDictionaries :: InstanceDict
   } deriving (Show, Eq)
 
-type TraitDict = [(Name, TraitEntry)]
+type TraitDict = [(QualifiedName, TraitEntry)]
 
 data ConstructorEntry = ConstructorEntry
-  { consName :: Name
-  , consType :: Type Name
-  , consTyVars :: [Name]
+  { consName :: QualifiedName
+  , consType :: Type QualifiedName
+  , consTyVars :: [QualifiedName]
   , consArity :: Int
   , consTag :: Int
   } deriving (Show, Eq, Data)
 
 data TraitEntry = TraitEntry
-  { superTraits :: [Constraint Name]
-  , traitVarNm  :: Name
-  , methodSigs :: [(Name, Type Name)]
+  { superTraits :: [Constraint QualifiedName]
+  , traitVarNm  :: QualifiedName
+  , methodSigs :: [(QualifiedName, Type QualifiedName)]
   } deriving (Show, Eq)
 
-type InstanceDict = Map Name [InstanceEntry] -- [(Name, [InstanceEntry])]
+type InstanceDict = Map QualifiedName [InstanceEntry] -- [(Name, [InstanceEntry])]
 
 data InstanceEntry = InstanceEntry
-  { instType        :: Type Name
-  , instConstraints :: [Constraint Name]
-  , instName        :: Name
+  { instType        :: Type QualifiedName
+  , instConstraints :: [Constraint QualifiedName]
+  , instName        :: QualifiedName
   } deriving (Show, Eq)
 
 data CheckState = CheckState
@@ -67,34 +68,32 @@ data CheckState = CheckState
 newtype Check a = Check { runCheck :: StateT CheckState (Except CheckError) a}
   deriving (Functor, Applicative, Monad, MonadError CheckError, MonadState CheckState)
 
-execCheck c = first fromCheckError . runExcept $ flip runStateT defaultCheckEnv $ (runCheck c)
+execCheck c = first fromCheckError . runExcept $ flip runStateT defaultCheckEnv (runCheck c)
 
-defaultCheckEnv = CheckState (Environment (fromList
-  builtins) mempty mempty mempty mempty) 0
-
+defaultCheckEnv = CheckState (Environment (fromList builtins) mempty mempty mempty mempty) 0
 
 -- | Errors
 
 data CheckError
-  = UnificationError (Type Name) (Type Name)
+  = UnificationError (Type QualifiedName) (Type QualifiedName)
   | InternalError String
-  | UndefinedType String
-  | UndefinedTrait String
-  | UndefinedVariable String
-  | UndefinedConstructor String
+  | UndefinedType QualifiedName
+  | UndefinedTrait QualifiedName
+  | UndefinedVariable QualifiedName
+  | UndefinedConstructor QualifiedName
   | NotImplementedError String
   | KindUnificationError Kind Kind
   | KindOccursError Kind
-  | TypeOccursError (Type Name)
-  | MissingTraitImpl [Constraint Name]
-  | ErrorInExpression (Expr SourceSpan) (CheckError)
+  | TypeOccursError (Type QualifiedName)
+  | MissingTraitImpl [Constraint QualifiedName]
+  | ErrorInExpression (Expr  SourceSpan) (CheckError)
   | ErrorInPattern (Pat SourceSpan) (CheckError)
-  | ErrorInDecl Name CheckError
-  | InsufficientConstraints [Constraint Name]
-  | AmbiguousType [Name] (Type Name)
-  | MissingSuperTraits [Constraint Name] Name (Type Name)
-  | MissingTraitImplMethods Name (Type Name) [(Name, Type Name)]
-  | UnknownTraitMethods Name (Type Name) [Name]
+  | ErrorInDecl QualifiedName CheckError
+  | InsufficientConstraints [Constraint QualifiedName]
+  | AmbiguousType [Name] (Type QualifiedName)
+  | MissingSuperTraits [Constraint QualifiedName] QualifiedName (Type QualifiedName)
+  | MissingTraitImplMethods QualifiedName (Type QualifiedName) [(QualifiedName, Type QualifiedName)]
+  | UnknownTraitMethods QualifiedName (Type QualifiedName) [QualifiedName]
   deriving (Show)
 
 notImplementedError :: (MonadError CheckError m) => String -> m a
@@ -213,35 +212,35 @@ liftUnify action = do
   let uust = unifyCurrentSubstitution ust
   return (a, uust)
 
-lookupVariable :: (MonadError CheckError m, MonadState CheckState m) => Name -> m (Type Name)
+lookupVariable :: (MonadError CheckError m, MonadState CheckState m) => QualifiedName -> m (Type QualifiedName)
 lookupVariable name = do
   env <- getEnv
   case names env !? name of
     Nothing -> throwError $ UndefinedVariable name
     Just a  -> return a
 
-lookupConstructor :: (MonadError CheckError m, MonadState CheckState m) => Name -> m ConstructorEntry
+lookupConstructor :: (MonadError CheckError m, MonadState CheckState m) => QualifiedName -> m ConstructorEntry
 lookupConstructor name = do
   env <- getEnv
   case constructors env !? name of
     Nothing -> throwError $ UndefinedConstructor name
     Just a  -> return a
 
-lookupTypeVariable ::  (MonadError CheckError m, MonadState CheckState m) => Name -> m Kind
+lookupTypeVariable ::  (MonadError CheckError m, MonadState CheckState m) => QualifiedName -> m Kind
 lookupTypeVariable name = do
   env <- getEnv
   case types env !? name of
     Nothing -> throwError $ UndefinedType name
     Just a  -> return a
 
-lookupTrait :: (MonadError CheckError m, MonadState CheckState m) => Name -> m TraitEntry
+lookupTrait :: (MonadError CheckError m, MonadState CheckState m) => QualifiedName -> m TraitEntry
 lookupTrait name = do
   env <- getEnv
   case lookup name (traits env) of
     Nothing -> throwError $ UndefinedTrait name
     Just a  -> return a
 
-bindNames :: MonadState CheckState m => [(Name, Type Name)] -> m a -> m a
+bindNames :: MonadState CheckState m => [(QualifiedName, Type QualifiedName)] -> m a -> m a
 bindNames nms action = do
   orig <- get
   modify (\s -> s { env = (env s) { names = (fromList nms) `union` names (env s) } })
@@ -249,7 +248,7 @@ bindNames nms action = do
   modify (\s -> s { env = (env s) { names = names . env $ orig } })
   return a
 
-bindTypeVariables :: MonadState CheckState m => [(Name, Kind)] -> m a -> m a
+bindTypeVariables :: MonadState CheckState m => [(QualifiedName, Kind)] -> m a -> m a
 bindTypeVariables tyVars action = do
   orig <- get
   modify (\s -> s { env = (env s) { types = types (env s) `union` (fromList tyVars) } })
@@ -261,10 +260,10 @@ addNames bound = modifyEnv $ \e -> e { names = fromList bound `union` names e }
 
 modifyEnv f = modify $ \st -> st { env = f (env st) }
 
-addTrait :: MonadState CheckState m => Name -- class name
-  -> [Constraint Name] -- super classes
-  -> Name -- variables of class
-  -> [(Name, Type Name)]  -- name and type of member sigs
+addTrait :: MonadState CheckState m => QualifiedName -- class name
+  -> [Constraint QualifiedName] -- super classes
+  -> QualifiedName -- variables of class
+  -> [(QualifiedName, Type QualifiedName)]  -- name and type of member sigs
   -> m ()
 addTrait name supers arg members = do
   let qualifiedMembers = map (fmap (generalize . qualifyType . generalizeWithout [arg])) members
@@ -275,7 +274,7 @@ addTrait name supers arg members = do
   qualifyType t = Constrained fullConstraints t
   fullConstraints = (name, TVar arg) : supers
 
-withTraitInstance :: MonadState CheckState m => Name -> [Constraint Name] -> Type Name -> m a -> m a
+withTraitInstance :: MonadState CheckState m => QualifiedName -> [Constraint QualifiedName] -> Type QualifiedName -> m a -> m a
 withTraitInstance trait supers inst action = do
   environment <- env <$> get
 
@@ -286,19 +285,19 @@ withTraitInstance trait supers inst action = do
 
   return a
 
-addTraitInstance :: Name -> [Constraint Name] -> Type Name -> Check ()
+addTraitInstance :: QualifiedName -> [Constraint QualifiedName] -> Type QualifiedName -> Check ()
 addTraitInstance trait supers inst = do
   env <- env <$> get
 
   putEnv $ env { traitDictionaries = insertWith (++) trait [InstanceEntry inst supers trait] (traitDictionaries env) }
 
-addValue :: Name -> Type Name -> Check ()
+addValue :: QualifiedName -> Type QualifiedName -> Check ()
 addValue name ty = do
   env <- env <$> get
   let env' = env { names = insert name ty (names env)  }
   modify $ \s -> s { env = env' }
 
-addDataType :: Name -> [Name] -> [(Name, [Type Name])] -> Kind -> Check ()
+addDataType :: QualifiedName -> [QualifiedName] -> [(QualifiedName, [Type QualifiedName])] -> Kind -> Check ()
 addDataType name args dctors ctorKind = do
   env <- env <$> get
   let value = ctorKind
@@ -307,7 +306,7 @@ addDataType name args dctors ctorKind = do
 
   zipWithM_ (\i -> uncurry $ addDataConstructor name args i ) [0..] dctors
 
-addDataConstructor :: Name -> [Name] -> Int -> Name -> [Type Name] -> Check ()
+addDataConstructor :: QualifiedName -> [QualifiedName] -> Int -> QualifiedName -> [Type QualifiedName] -> Check ()
 addDataConstructor tyCons args tag dataCons tys = do
   env <- env <$> get
   let retTy = foldl TAp (TConstructor tyCons) (map TVar args)

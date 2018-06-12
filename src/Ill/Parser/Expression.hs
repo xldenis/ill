@@ -18,29 +18,29 @@ import Control.Lens.Extras
 import Control.Lens ((^?))
 import Data.Text (Text, unpack)
 
-expression :: Parser (Expr SourceSpan)
+expression :: Parser (Expr' Name SourceSpan)
 expression = body <|> nonBodyExpr
 
-nonBodyExpr :: Parser (Expr SourceSpan)
+nonBodyExpr :: Parser (Expr' Name SourceSpan)
 nonBodyExpr = assign <|> fullExpr
 
-fullExpr :: Parser (Expr SourceSpan)
+fullExpr :: Parser (Expr' Name SourceSpan)
 fullExpr = makeExprParser (call <|> parens fullExpr <|> primExpr) opTable
   where primExpr = simpleExpr <|> consExpr
 
-consExpr :: Parser (Expr SourceSpan)
+consExpr :: Parser (Expr' Name SourceSpan)
 consExpr = caseE <|> lambda <|> ifE
 
-simpleExpr :: Parser (Expr SourceSpan)
+simpleExpr :: Parser (Expr' Name SourceSpan)
 simpleExpr = literalE <|> var <|> constructor
 
-body :: Parser (Expr SourceSpan) -- need backtracking?
+body :: Parser (Expr' Name SourceSpan) -- need backtracking?
 body = label "body expression" . withLoc $ do
   bodyExps <- nonBodyExpr `sepEndBy1` sep
   when (isJust $ (last bodyExps) ^? _unwrap . _Assign) (fail "blocks must be terminated by non-assignment expression")
   return $ Body bodyExps
 
-assign :: Parser (Expr SourceSpan)
+assign :: Parser (Expr' Name SourceSpan)
 assign = label "assignment" . withLoc $ do
   names <- try $ do
     list identifier <* symbol "="
@@ -50,7 +50,7 @@ assign = label "assignment" . withLoc $ do
 
   return $ Assign names values
 
-call :: Parser (Expr SourceSpan)
+call :: Parser (Expr' Name SourceSpan)
 call = label "functional invocation" . try $ do
   start <- getPosition
   func <- var <|> constructor <|> parens consExpr
@@ -58,7 +58,7 @@ call = label "functional invocation" . try $ do
   return $ foldl (f start) func args
   where f startpos func (args, pos) = (SourceSpan startpos pos) :< Apply func args
 
-caseE :: Parser (Expr SourceSpan)
+caseE :: Parser (Expr' Name SourceSpan)
 caseE = label "case expression" . withLoc $ do
   symbol "case"
   expr <- fullExpr
@@ -74,7 +74,7 @@ caseE = label "case expression" . withLoc $ do
   symbol "end"
   return $ Case expr matchers -- matchers
 
-lambda :: Parser (Expr SourceSpan)
+lambda :: Parser (Expr' Name SourceSpan)
 lambda = label "lambda expression" . withLoc $ do
   symbol "fn"
   args <- lexeme $ parens . list $ pattern
@@ -83,7 +83,7 @@ lambda = label "lambda expression" . withLoc $ do
   symbol "end"
   return $ Lambda args body
 
-ifE :: Parser (Expr SourceSpan)
+ifE :: Parser (Expr' Name SourceSpan)
 ifE = label "if expression" . withLoc $ do
   symbol "if"
   cond <- label "condition" fullExpr
@@ -97,13 +97,13 @@ ifE = label "if expression" . withLoc $ do
 
 literalE = label "literal" $ withLoc (Literal <$> literal)
 
-var :: Parser (Expr SourceSpan)
+var :: Parser (Expr' Name SourceSpan)
 var = label "variable" . try $ withLoc (Var <$> identifier)
 
-constructor :: Parser (Expr SourceSpan)
+constructor :: Parser (Expr' Name SourceSpan)
 constructor = label "constructor" $ withLoc (Constructor <$> lexeme capitalized)
 
-opTable :: [[Operator Parser (Expr SourceSpan)]]
+opTable :: [[Operator Parser (Expr' Name SourceSpan)]]
 opTable = [ [ binary $ symbol "*"
             , binary $ symbol "/"
             , binary $ symbol "&&"
@@ -120,7 +120,7 @@ opTable = [ [ binary $ symbol "*"
             ]
           ]
 
-binary :: Parser Text -> Operator Parser (Expr SourceSpan)
+binary :: Parser Text -> Operator Parser (Expr' Name SourceSpan)
 binary op = InfixL $ do
   op <- withLoc $ Var . unpack <$> op
   return $ \a b -> SourceSpan (begin $ extract a) (end $ extract b) :< (BinOp op a b)

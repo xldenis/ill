@@ -7,6 +7,7 @@ import Ill.Syntax.Pretty
 import Control.Monad.Unify (Unknown)
 import Ill.Syntax.Name
 import Data.Data
+import Data.String
 
 data Type t
   = TVar t
@@ -16,13 +17,16 @@ data Type t
   | Constrained [Constraint t] (Type t)
   | TUnknown Unknown
   | Forall [t] (Type t)
+  | ArrowConstructor
   deriving (Eq, Show, Functor, Foldable, Data)
 
 type Constraint t = (t, Type t)
 
+instance Pretty (Type QualifiedName) where
+  pretty = pretty . fmap unQualify
 instance Pretty (Type String) where
   pretty (TVar var) = pretty var
-  pretty (TAp (TAp (TConstructor "->") a) b) = parensIf (complex a) (pretty a) <+> (pretty "->") <+> pretty b
+  pretty (TAp (TAp (ArrowConstructor) a) b) = parensIf (complex a) (pretty a) <+> (pretty "->") <+> pretty b
   pretty (TAp f a) = pretty f <+> parensIf (complex a) (pretty a)
   pretty (TConstructor cons) = pretty cons
   pretty (Arrow from to) = parensIf (complex from) (pretty from) <+> pretty "->" <+> (pretty to)
@@ -32,20 +36,20 @@ instance Pretty (Type String) where
   pretty (TUnknown u) = pretty "unknown" <+> pretty (show u)
   pretty (Forall vars ty) = pretty "forall" <+> hsep (map pretty vars) <+> pretty "." <+> pretty ty
 
-tArrow :: Type String
-tArrow = TConstructor "->"
+tArrow :: IsString a => Type a
+tArrow =  ArrowConstructor
 
 infixr 9 `tFn`
 
 tFn :: Type a -> Type a -> Type a
 tFn = Arrow
 
-tString :: Type String
-tString = TConstructor "String"
-tBool = TConstructor "Bool"
-tInteger = TConstructor "Int"
-tDouble = TConstructor "Double"
-tNil = TConstructor "Nil"
+tString , tBool, tInteger, tDouble, tNil :: Type QualifiedName
+tString   = TConstructor $ Qualified "Prelude" "String"
+tBool     = TConstructor $ Qualified "Prelude" "Bool"
+tInteger  = TConstructor $ Qualified "Prelude" "Int"
+tDouble   = TConstructor $ Qualified "Prelude" "Double"
+tNil      = TConstructor $ Qualified "Prelude" "Nil"
 
 complex :: Type t -> Bool
 complex (Arrow _ _) = True
@@ -84,12 +88,12 @@ freeVariables = nub . freeVariables'
   freeVariables' (TUnknown u) = []
   freeVariables' (Forall tyvars ty) = freeVariables ty \\ tyvars
 
-varIfUnknown :: Type String -> Type String
+varIfUnknown :: Type QualifiedName -> Type QualifiedName
 varIfUnknown (TAp l r) = TAp (varIfUnknown l) (varIfUnknown r)
 varIfUnknown (Arrow l r) = Arrow (varIfUnknown l) (varIfUnknown r)
 varIfUnknown (Constrained ts t') = Constrained (map (fmap varIfUnknown) ts) (varIfUnknown t')
 varIfUnknown (TUnknown u) = TVar toName
-  where toName = "a" ++ show u
+  where toName = Internal $ "a" ++ show u
 varIfUnknown (Forall vars ty) = Forall vars (varIfUnknown ty)
 varIfUnknown a = a
 
@@ -135,11 +139,11 @@ constraints = fst . unconstrained
 flattenConstraints :: Eq a => Type a -> Type a
 flattenConstraints = uncurry (constrain . nub) . unconstrained
 
-unwrapFnType :: Type String -> [Type String]
+unwrapFnType :: Eq a => Type a -> [Type a]
 unwrapFnType (Forall _ ty) = unwrapFnType ty
 unwrapFnType t = unfoldr' go t
   where
-  go (TAp (TAp (TConstructor "->") a) b) = (a, Just b)
+  go (TAp (TAp ArrowConstructor a) b)  = (a, Just b)
   go (Arrow a b) = (a, Just b)
   go a           = (a, Nothing)
 
@@ -147,11 +151,11 @@ unfoldr' f b = case f b of
   (a, Just b') -> a : unfoldr' f b'
   (a, Nothing) -> [a]
 
-unwrapN :: Int -> Type String -> [Type String]
+unwrapN :: Int -> Type a -> [Type a]
 unwrapN n (Forall _ ty) = unwrapN n ty
 unwrapN n t = unfoldr' n go t
   where
-  go (TAp (TAp (TConstructor "->") a) b) = (a, Just b)
+  go (TAp (TAp (tArrow) a) b) = (a, Just b)
   go (Arrow a b) = (a, Just b)
   go a           = (a, Nothing)
 
@@ -213,10 +217,10 @@ unwrapProduct ty = reverse $ unfoldr' go ty
   This function calculates the result of applying a type to a function type.
 -}
 
-applyArgumentToType :: Type Name -> Type Name -> Maybe (Type Name)
+applyArgumentToType :: Ord a => Type a -> Type a -> Maybe (Type a)
 applyArgumentToType arg t@(Forall _ _) = Just $  applyTypeVars [arg] t
-applyArgumentToType arg (TAp (TAp (TConstructor "->") (TVar n)) b) = Just $ replaceTypeVars [(n, arg)] b
+applyArgumentToType arg (TAp (TAp (ArrowConstructor) (TVar n)) b) = Just $ replaceTypeVars [(n, arg)] b
 applyArgumentToType arg (Arrow (TVar n) b) = Just $ replaceTypeVars [(n, arg)] b
-applyArgumentToType arg (TAp (TAp (TConstructor "->") _) b) = Just b
+applyArgumentToType arg (TAp (TAp (ArrowConstructor) _) b) = Just b
 applyArgumentToType arg (Arrow _ b) = Just b
 applyArgumentToType arg t = Nothing

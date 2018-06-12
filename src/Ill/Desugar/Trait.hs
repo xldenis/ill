@@ -101,7 +101,7 @@ import           Ill.Syntax.Pretty (pretty)
   2. Fix dictionary passing in dictionary definitions
 -}
 
-desugarTraits :: Environment -> Module TypedAnn -> Module TypedAnn
+desugarTraits :: Environment -> Module QualifiedName TypedAnn -> Module QualifiedName TypedAnn
 desugarTraits env (Module nm ds) = Module nm (fromDecl =<< ds)
   where
   fromDecl (_ :< TraitDecl supers nm arg members) = dataFromDecl supers nm arg members
@@ -111,17 +111,18 @@ desugarTraits env (Module nm ds) = Module nm (fromDecl =<< ds)
 
 data TraitDesugarEnv = TDEnv
   { env :: Environment
-  , traitMethods :: [Id]
+  , traitMethods :: [QualifiedName]
   }
 
 fromEnv env = let
   methodNames = join $ map (map fst . methodSigs . snd) (traits env)
   in TDEnv env methodNames
+
 {-
   Transform an instance declaration into a value of the dictionary type.
 -}
 
-valFromInst :: MonadReader TraitDesugarEnv m => [Constraint Name] -> Name -> Type Name -> [Decl TypedAnn] -> m [Decl TypedAnn]
+valFromInst :: MonadReader TraitDesugarEnv m => [Constraint QualifiedName] -> QualifiedName -> Type QualifiedName -> [Decl QualifiedName TypedAnn] -> m [Decl QualifiedName TypedAnn]
 valFromInst supers nm ty decls = do
   trait <- reader (lookup nm . traits . env) >>= \case
     Just traitDict -> return traitDict
@@ -139,7 +140,7 @@ valFromInst supers nm ty decls = do
   let
     tyConTy   = mkDictConsType nm vars superTys memberTys
     subConTy  = applyTypeVars [ty] tyConTy
-    tyCon       = TyAnn Nothing (Type tyConTy (Just subConTy)) :< Constructor ("Mk" <> nm)
+    tyCon       = TyAnn Nothing (Type tyConTy (Just subConTy)) :< Constructor (fmap ("Mk" <>) nm)
     dictTy      = mkDictType (nm, ty)
     memberReferences = map (variableFromMember (map TVar $ freeVariables dictTy)) sortedDecls
     applied     = SynAnn dictTy :< (Apply tyCon $ superDicts ++ (memberReferences))
@@ -154,7 +155,8 @@ valFromInst supers nm ty decls = do
 
   substituteConstraint subst (nm, tys) = (nm, (replaceTypeVars subst) tys)
 
-  prefixMemberNameWith pref (a :< v) =  a :< v { declName = pref ++ (declName v)}
+  prefixMemberNameWith :: QualifiedName -> Decl QualifiedName TypedAnn -> Decl QualifiedName TypedAnn
+  prefixMemberNameWith pref (a :< v) =  a :< v { declName = mergeNames pref (declName v)}
   variableFromMember bv v = let
     ann = TyAnn Nothing (Type (generalize $ typeOf v) (Just $ applyTypeVars bv (typeOf v)))
     in ann :< Var (valueName v)
@@ -169,7 +171,8 @@ valFromInst supers nm ty decls = do
   unforall (Forall _ ty) = ty
   unforall ty = ty
 
-instanceName (nm, tys) = nm <> intercalate "_" (toList tys)
+instanceName :: Constraint QualifiedName -> QualifiedName
+instanceName (nm, tys) = fmap (<> intercalate "_" (map qualName $ toList tys)) nm
 
 mkProductType :: a -> [Type a] -> Type a
 mkProductType nm args = foldl TAp (TConstructor nm) args
@@ -177,16 +180,15 @@ mkProductType nm args = foldl TAp (TConstructor nm) args
 mkDictType :: (a, Type a) -> Type a
 mkDictType (nm, args) = TAp (TConstructor nm) args
 
-constraintsToFn :: Bool -> Type Name -> Type Name
+constraintsToFn :: Ord a => Bool -> Type a -> Type a
 constraintsToFn needsGen ty = let
   (cons, fTy) = unconstrained ty
-  vars :: [Name]
   vars = concat $ map (freeVariables . snd) cons
   baseTy = if needsGen then generalizeWithout vars fTy else fTy
 
   in foldr tFn baseTy $ (map mkDictType cons)
 
-mkDictConsType :: Name -> Name -> [Type Name] -> [Type Name] -> Type Name
+mkDictConsType :: Ord a => a -> a -> [Type a] -> [Type a] -> Type a
 mkDictConsType name vars supers members = let
   builtDictTy = mkDictType (name, TVar vars)
   in generalize $ foldr tFn builtDictTy (supers ++ members)
@@ -195,12 +197,12 @@ mkDictConsType name vars supers members = let
   Generate the datatype from a trait declaration. Also generates accessors for trait methods.
 -}
 
-dataFromDecl :: [Constraint Name] -> Name -> Name -> [Decl TypedAnn] -> [Decl TypedAnn]
+dataFromDecl :: [Constraint QualifiedName] -> QualifiedName -> QualifiedName -> [Decl QualifiedName TypedAnn] -> [Decl QualifiedName TypedAnn]
 dataFromDecl superTraits name vars members = let
   sortedMem = sortOn sigNm members
   dataRec   = (:<) (TyAnn Nothing (Kind dataKind)) . Data name [vars] . pure . mkProductType tyName
-  dataKind  = foldl (\c _ -> c `KFn` Star) Star vars
-  tyName    = "Mk" <> name
+  dataKind  = Star `KFn` Star
+  tyName    = fmap ("Mk" <>) name
   memTys    = map (generalizeWithout [vars] . typeOf) sortedMem
   recTy     = (TConstructor name) `TAp` TVar vars
   memNms    = map sigNm sortedMem
@@ -215,7 +217,7 @@ dataFromDecl superTraits name vars members = let
   Rewrite values to explicitly pass around dictionaries.
 -}
 
-addDictsToVals :: MonadReader TraitDesugarEnv m => TypedAnn -> Name -> [Eqn TypedAnn] -> m (Decl TypedAnn)
+addDictsToVals :: MonadReader TraitDesugarEnv m => TypedAnn -> QualifiedName -> [Eqn TypedAnn] -> m (Decl QualifiedName TypedAnn)
 addDictsToVals ann nm eqns = do
   instanceDicts <- reader (traitDictionaries . env)
 
@@ -223,7 +225,7 @@ addDictsToVals ann nm eqns = do
     (memberConstraints, _) = unconstrained (fromTyAnn ann)
     fty' = generalize $ constraintsToFn False (unforall $ fromTyAnn ann)
     instDictNames  = M.toList instanceDicts >>= instanceDictToConstraint >>= \i -> pure (i, Global $ instanceName i)
-    localDictNames = zipWith (\cons ix -> (cons, Local $ "dict" ++ show ix)) memberConstraints [1..]
+    localDictNames = zipWith (\cons ix -> (cons, Local . Internal $ "dict" ++ show ix)) memberConstraints [1..]
     instanceDict   = foldl (\x (nm, tys) -> M.insertWith (flip (++)) nm [InstanceEntry tys [] nm] x) instanceDicts memberConstraints
     dictPats       = map (\(cons, Local nm) -> SynAnn (mkDictType cons) :< PVar nm) localDictNames
     nameDict       = instDictNames ++ localDictNames
@@ -232,9 +234,10 @@ addDictsToVals ann nm eqns = do
     eqns' <- addDictsToEqns nameDict eqns
     return $ ann { ty = Type fty' Nothing } :< Value nm (addPatsToEqns dictPats eqns')
   where
-  instanceDictToConstraint :: (Name, [InstanceEntry]) -> [Constraint Name]
+  instanceDictToConstraint :: (QualifiedName, [InstanceEntry]) -> [Constraint QualifiedName]
   instanceDictToConstraint (nm, instances) = map (\i -> (nm, instType i)) instances
 
+  addPatsToEqns :: [Pat TypedAnn] -> [Eqn TypedAnn] -> [Eqn TypedAnn]
   addPatsToEqns ps eqns = map (first ((++) ps)) eqns
 
   unforall (Forall _ ty) = ty
@@ -243,7 +246,7 @@ addDictsToVals ann nm eqns = do
 data Dict a = Local a | Global a
   deriving (Show, Eq, Foldable)
 
-type NameDict = [(Constraint Name, Dict Name)]
+type NameDict = [(Constraint QualifiedName, Dict QualifiedName)]
 
 addDictsToEqns :: MonadReader TraitDesugarEnv m => NameDict -> [Eqn TypedAnn] -> m [Eqn TypedAnn]
 addDictsToEqns dict eqns = forMOf (each . _2) eqns (transformMOf plate (replaceTraitMethods dict))
@@ -271,7 +274,7 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
 
   modifyPolyTy f (Type pT iT) = Type (f pT) iT
 
-  mkDictLookup :: MonadReader TraitDesugarEnv m => TypedAnn -> TypeAnn -> [Constraint Name] ->  m (Expr TypedAnn)
+  mkDictLookup :: MonadReader TraitDesugarEnv m => TypedAnn -> TypeAnn -> [Constraint QualifiedName] ->  m (Expr TypedAnn)
   mkDictLookup memberAnn _ [] = return $ memberAnn :< Var nm
   mkDictLookup memberAnn accessorAnn cs = do
     id <- reader (traitDictionaries . env)
@@ -285,10 +288,10 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
           Nothing -> error "somehow i cant find this dict anymore!?"
         instanceMemberAnn = TyAnn Nothing (modifyPolyTy (generalize . applyTypeVars [instType entry]) (ty memberAnn))
 
-        in instanceMemberAnn :< Var (instName ++ nm)
+        in instanceMemberAnn :< Var (fmap ((qualName instName) ++) nm)
       (dicts, _) -> memberAnn :< Apply (TyAnn Nothing accessorAnn :< Var nm) (toList =<< dicts)
 
-  mkDictVal :: InstanceDict -> Constraint Name -> Dict (Expr TypedAnn)
+  mkDictVal :: InstanceDict -> Constraint QualifiedName -> Dict (Expr TypedAnn)
   mkDictVal id traitCons = case findInst traitCons id dicts of
     Just (Local dict, _, _) -> Local (SynAnn (mkDictType traitCons) :< Var dict)
     Just (Global dict, entry, subTraits)   -> let
@@ -307,14 +310,14 @@ replaceTraitMethods dicts v@(a :< Var nm) = do
 
 replaceTraitMethods _ x = pure x
 
-instanceAnnotation :: Constraint Name -> InstanceEntry -> [Constraint Name] -> TypedAnn
+instanceAnnotation :: Constraint QualifiedName -> InstanceEntry -> [Constraint QualifiedName] -> TypedAnn
 instanceAnnotation c@(nm, ty) entry subDicts = let
   instTy = constraintsToFn False $ constrain subDicts (mkDictType c)
   polyTy = generalize $ constraintsToFn False $ constrain (instConstraints entry) polyDictTy
   polyDictTy = mkDictType (nm, instType entry)
   in TyAnn Nothing (Type polyTy $ Just instTy)
 
-findInst :: Constraint Name -> InstanceDict -> NameDict -> Maybe (Dict Name, InstanceEntry, [Constraint Name])
+findInst :: Constraint QualifiedName -> InstanceDict -> NameDict -> Maybe (Dict QualifiedName, InstanceEntry, [Constraint QualifiedName])
 findInst c@(nm, tys) id namedict = do
   (entry, subDict) <- matchInst id c
 
@@ -326,16 +329,17 @@ findInst c@(nm, tys) id namedict = do
   matcher (nm1, ty1) ((nm2, ty2), _) | nm1 == nm2 = isJust $ subsume ty2 ty1
   matcher _ _ = False
 
+mkAccessor :: QualifiedName -> Type QualifiedName -> [Type QualifiedName] -> QualifiedName -> Int -> Decl QualifiedName TypedAnn
 mkAccessor tyNm recTy tys fldNm ix = let
-  val = SynAnn valTy :< Var "el"
+  val = SynAnn valTy :< Var (Internal "el")
   valTy = tys !! (ix - 1)
   accessorTy = generalize $ recTy `tFn` valTy
   in SynAnn accessorTy :< Value fldNm [([mkPattern recTy tyNm tys ix], val)]
 
-mkPattern :: Type Name -> Name -> [Type Name] -> Int -> Pat TypedAnn
+mkPattern :: Type QualifiedName -> QualifiedName -> [Type QualifiedName] -> Int -> Pat TypedAnn
 mkPattern recTy recNm tys ix = let
   prePats  = replicate (ix - 1) Wildcard
   postPats = replicate (length tys - ix) Wildcard
-  focused  = pure $ PVar "el"
+  focused  = pure $ PVar (Internal "el")
   annPats   = zipWith (:<) (map SynAnn tys) $ prePats <> focused <> postPats
   in SynAnn recTy :< Destructor recNm annPats

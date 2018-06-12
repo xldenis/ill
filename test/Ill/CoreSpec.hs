@@ -17,6 +17,7 @@ import qualified Ill.Syntax.Core as C
 import Ill.Infer
 import Ill.Infer.Monad (execCheck)
 import Ill.Desugar
+import Ill.Renamer
 import Ill.Syntax.Pretty
 import Ill.BindingGroup
 import Ill.CoreLint
@@ -32,14 +33,14 @@ import Control.Monad
 import System.Directory
 import System.FilePath
 
-runTC (Module _ ds) = bindingGroups ds >>= execCheck . typeCheck
+runTC mod = bindingGroups mod >>= renameModule >>= typeCheckModule
 
-mkVar nm = Id { varName = nm, C.idTy = tNil, usage = Used }
+mkVar nm = Id { varName = Internal nm, C.idTy = tNil, usage = Used }
 
-moduleToCore :: Environment -> Module TypedAnn -> CoreModule
+moduleToCore :: Environment -> Module QualifiedName TypedAnn -> CoreModule
 moduleToCore e = (defaultPipeline e) >>> compileCore
 
-runTC' (Module _ ds) = bindingGroups ds >>= execCheck . typeCheck >>= pure . bimap fromBindingGroups env
+runTC' m = bindingGroups m >>= renameModule >>= typeCheckModule
 
 coreLintSpec path = do
   parsed <- parseFromFile moduleParser path
@@ -47,13 +48,13 @@ coreLintSpec path = do
     Left e -> expectationFailure $
       "the parser is expected to succeed, but it failed with:\n" ++
       showParseError e
-    Right ast -> case typeCheckModule ast of
+    Right ast -> case runTC' (preludifyModule ast) of
       Left err -> expectationFailure . show $ prettyError err
       Right (typed, env) -> do
         case runLinter (moduleToCore env typed) of
           Left err -> expectationFailure err
           Right () -> return ()
-
+  where preludifyModule (Module _ ds) = Module "Prelude" ds
 -- filesShouldFail :: Show b => FilePath -> Parsec Void Text b -> Spec
 lintCoreInDir dir = do
   fs <- runIO $ getFilesInDir dir
@@ -72,38 +73,38 @@ spec = do
     describe "in nested bindings" $ do
       it "respects let statements" $ do
         let orig = Let (NonRec (mkVar "a") (Lit $ Integer 1)) (C.Var $ mkVar "b")
-        substitute ("a", C.Var $ mkVar "c") orig `shouldBe` orig
+        substitute (Internal "a", C.Var $ mkVar "c") orig `shouldBe` orig
       it "respects lambdas" $ do
         let orig = C.Lambda (mkVar "a") (C.Var $ mkVar "b")
-        substitute ("a", C.Var $ mkVar "c") orig `shouldBe` orig
+        substitute (Internal "a", C.Var $ mkVar "c") orig `shouldBe` orig
 
     it "substitutes free variables in binders" $ do
       let orig = Let (NonRec (mkVar "a") (C.Var $ mkVar "free")) (C.Var $ mkVar "b")
       let subd = Let (NonRec (mkVar "a") (C.Var $ mkVar "c"))    (C.Var $ mkVar "b")
-      substitute ("free", C.Var $ mkVar "c") orig `shouldBe` subd
+      substitute (Internal "free", C.Var $ mkVar "c") orig `shouldBe` subd
     it "substitutes free vars in lambda" $ do
       let orig = C.Lambda (mkVar "a") (C.Var $ mkVar "b")
-      substitute ("b", C.Var $ mkVar "c") orig `shouldNotBe` orig
+      substitute (Internal "b", C.Var $ mkVar "c") orig `shouldNotBe` orig
     it "substitutes free vars in let" $ do
       let orig = Let (NonRec (mkVar "a") (Lit $ Integer 1)) (C.Var $ mkVar "b")
-      substitute ("b", C.Var $ mkVar "c") orig `shouldNotBe` orig
+      substitute (Internal "b", C.Var $ mkVar "c") orig `shouldNotBe` orig
     it "substitutes free vars in case" $ do
-      let boundVar   = C.Var $ Id "bound" (TVar "a") Used
-          boundVar2  = C.Var $ Id "bound2" (TVar "a") Used
-          freeVar    = C.Var $ Id "free" (TVar "a") Used
-          changedVar = C.Var $ Id "changed" (TVar "a") Used
+      let boundVar   = C.Var $ Id (Internal "bound")   (TVar $ Internal "a") Used
+          boundVar2  = C.Var $ Id (Internal "bound2")  (TVar $ Internal "a") Used
+          freeVar    = C.Var $ Id (Internal "free")    (TVar $ Internal "a") Used
+          changedVar = C.Var $ Id (Internal "changed") (TVar $ Internal "a") Used
 
       let orig = C.Case boundVar [TrivialAlt $ freeVar :: Alt C.Var]
       let subd = C.Case boundVar [TrivialAlt $ changedVar :: Alt C.Var]
-      substitute ("free", changedVar) orig `shouldBe` subd
+      substitute (Internal "free", changedVar) orig `shouldBe` subd
 
-      let orig = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt "con" [mkVar "free"] (freeVar)]
-      let subd = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt "con" [mkVar "free"] (freeVar)]
-      substitute ("free", changedVar) orig `shouldBe` subd
+      let orig = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt (Internal "con") [mkVar "free"] (freeVar)]
+      let subd = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt (Internal "con") [mkVar "free"] (freeVar)]
+      substitute (Internal "free", changedVar) orig `shouldBe` subd
 
-      let orig = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt "con" [mkVar "binder"] (freeVar)]
-      let subd = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt "con" [mkVar "binder"] (changedVar)]
-      substitute ("free", changedVar) orig `shouldBe` subd
+      let orig = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt (Internal "con") [mkVar "binder"] (freeVar)]
+      let subd = C.Case boundVar [TrivialAlt $ boundVar2, ConAlt (Internal "con") [mkVar "binder"] (changedVar)]
+      substitute (Internal "free", changedVar) orig `shouldBe` subd
 
 
   describe "desugaring" $ do
@@ -126,9 +127,11 @@ spec = do
       |]
 
       let Right (typed, _) = runTC mod
-          ValueBG [x] = last typed
+          x = last (moduleDecls typed)
           result = simplifyPatterns x
-          expected = [decl|
+          expected = [modQ|
+            module X
+            data L a = C a (L a) | Nil
             fn mappairs()
               fn (x1, x2, x3) =
                 f = x1
@@ -144,9 +147,11 @@ spec = do
                 end
               end
             end
+            end
           |]
-
-      renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
+          Right expected' = bindingGroups expected >>= renameModule
+          mappairs = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
+      renderIll' (pretty result) `shouldBe` renderIll' (pretty mappairs)
 
     it "simple module" $ do
       let mod = [modQ|
@@ -162,18 +167,24 @@ spec = do
 
       case runTC mod of
         Right (typed, _) -> let
-          ValueBG [x] = last typed
-          matcher = runFresh $ match ["u"] (declToEqns x)
-          result  = matcher (undefined :< Var "zzzx")
-          expected = [expr|
-            case u of
-              when C a as: 1
-              when Nil: 2
-              when _ : zzzx
+          x = last (moduleDecls typed)
+          matcher = runFresh $ match [Internal "u"] (declToEqns x)
+          result  = matcher (undefined :< Var (Qualified "Prelude" "failedPattern"))
+          expected = [modQ|
+            module X
+              data L a = C a (L a) | Nil
+              fn x (u)
+                case u of
+                  when C a as: 1
+                  when Nil: 2
+                  when _ : failedPattern
+                end
+              end
             end
           |]
-
-          in renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
+          Right expected' = bindingGroups expected >>= renameModule
+          _ :< Value _ [([_], expectedExpr)] = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
+          in renderIll' (pretty result) `shouldBe` renderIll' (pretty expectedExpr)
 
 constructorGroups = do
   let mod = [modQ|
@@ -190,9 +201,11 @@ constructorGroups = do
   |]
 
   let Right (typed, _) = runTC mod
-      ValueBG [x] = last typed
+      x = last (moduleDecls typed)
       result = simplifyPatterns x
-      expected = [decl|
+      expected = [modQ|
+        module X
+        data L a = C a (L a) | Nil
         fn mappairs()
           fn (x1) =
             x = x1
@@ -206,14 +219,18 @@ constructorGroups = do
             end
           end
         end
+        end
       |]
+      Right expected' = bindingGroups expected >>= renameModule
+      mappairs = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
 
-  renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
+  renderIll' (pretty result) `shouldBe` renderIll' (pretty mappairs)
 
 localDictsPassedToConstrainedMethods = do
   let
     mod = [modQ|
       module X
+        data Bool = True | False
         trait A a
           test :: a -> Bool
         end
@@ -224,12 +241,19 @@ localDictsPassedToConstrainedMethods = do
       end
     |]
     Right (typed, e') = runTC mod
-    ValueBG [x] = last typed
-    Module _ [result] = desugarTraits (env e') (Module "fake" [x])
-    expected = [decl|
+    x = last (moduleDecls typed)
+    Module _ [result] = desugarTraits e' (Module "fake" [x])
+    expected = [modQ|
+      module X
+      trait A a
+        test :: a -> b
+      end
       fn aliased(dict1, x)
         test(dict1)(x)
       end
+      end
     |]
+    Right expected' = bindingGroups expected >>= renameModule
+    expectedDecl = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
 
-  renderIll' (pretty result) `shouldBe` renderIll' (pretty expected)
+  renderIll' (pretty result) `shouldBe` renderIll' (pretty expectedDecl)

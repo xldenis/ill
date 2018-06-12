@@ -17,8 +17,9 @@ import Ill.Desugar.Trait
 import Ill.Desugar
 import Ill.Syntax.Pretty
 import Ill.BindingGroup
-import Ill.Syntax.Core
+import Ill.Syntax.Core as Core
 import Ill.Interpret
+import Ill.Renamer
 
 import Control.Monad.State
 import Control.Monad.Except (runExcept)
@@ -30,17 +31,13 @@ import Data.Maybe
 import Data.Bifunctor
 import Data.List (find)
 
-runTC (Module _ ds) = bindingGroups ds >>= execCheck . typeCheck >>= pure . bimap fromBindingGroups env
-
--- unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
-
 spec :: Spec
 spec = do
   describe "interprets" $ do
 
     it "primops" $ do
       let mod = [modQ|
-        module X
+        module Prelude
           trait Semigroup a
             plus :: a -> a -> a
           end
@@ -83,7 +80,7 @@ spec = do
 
       it "matches complex patterns" $ do
         let mod = [modQ|
-          module X
+          module Prelude
             trait Semigroup a
               plus :: a -> a -> a
             end
@@ -117,7 +114,7 @@ spec = do
 
     it "basic command works" $ do
       let mod = [modQ|
-        module X
+        module Prelude
           data L a = C a (L a) | Nil
           fn a (C a as)
             1
@@ -143,13 +140,14 @@ getConstructorArities (_ :< Data nm _ conses) = map (\cons ->
   ) conses
 getConstructorArities _ = []
 
-runInterpreter mod =  case typeCheckModule mod of
+runInterpreter mod =  case bindingGroups mod >>= renameModule >>= typeCheckModule of
   Right (typed, e) -> do
     let desugared = defaultPipeline e typed
 
-    let (Mod core coreConstructors _) = compileCore desugared
-    let boundConstructors = map (fmap consArity) $ coreConstructors
+    let mod = compileCore desugared
+    let boundConstructors = map (fmap consArity) (Core.constructors mod)
 
-    env <- mkEnvForModule boundConstructors core
+    env <- mkEnvForModule boundConstructors (bindings mod)
 
-    eval env (Var $ Id "main" tNil Used)
+    eval env (Var $ Id (Qualified (moduleName typed) "main") tNil Used)
+  Left err -> error . show $ prettyError err

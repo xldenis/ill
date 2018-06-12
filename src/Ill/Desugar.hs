@@ -21,8 +21,6 @@ import Control.Category ((>>>))
 
 import Ill.Infer.Monad (Environment, ConstructorEntry(..))
 
-type Id = Name
-
 {-
   At this point all top level bindings should have cases pushed in,
   traits should have been desugared.
@@ -31,16 +29,16 @@ type Id = Name
   to variables with the name of the contrsuctor.
 -}
 
-defaultPipeline :: Environment -> Module TypedAnn -> Module TypedAnn
+defaultPipeline :: Environment -> Module QualifiedName TypedAnn -> Module QualifiedName TypedAnn
 defaultPipeline env = desugarBinOps >>> desugarTraits env >>> desugarPatterns
 
-compileCore :: Module TypedAnn -> CoreModule
-compileCore (Module nm desugared) = declsToCore desugared & normalize . liftModule
+compileCore :: Module QualifiedName TypedAnn -> CoreModule
+compileCore (Module nm desugared) = declsToCore nm desugared & normalize . liftModule
 
-declsToCore :: [Decl TypedAnn] -> CoreModule
-declsToCore decls = execState (mapM declToCore' decls) (emptyModule)
+declsToCore :: Name -> [Decl QualifiedName TypedAnn] -> CoreModule
+declsToCore nm decls = execState (mapM declToCore' decls) (emptyModule nm)
 
-declToCore' :: Decl TypedAnn -> State CoreModule ()
+declToCore' :: Decl QualifiedName TypedAnn -> State CoreModule ()
 declToCore' (a :< Value nm [([], exp)]) = do
   let bindExp = (toCore exp)
 
@@ -58,6 +56,7 @@ declToCore' (_ :< Data nm args conses) = do
         ) (zip [0..] conses)
   modify $ \m -> m { constructors = cons' ++ constructors m, types = nm : types m }
   where
+  getConstructorType :: Type QualifiedName -> Type QualifiedName
   getConstructorType ty = let
     (TConstructor tyCons : tys) = unwrapProduct ty
     retTy = foldl TAp (TConstructor nm) (map TVar args)
@@ -82,8 +81,8 @@ toCore e@(a :< S.Apply lam args) = foldl App (toCore lam) $ getTypeApps ann ++ (
         ann = TyAnn Nothing (S.Type (fromJust $ instTyOf lam) (Just instTy))
 toCore (_ :< S.BinOp op left right) = error "binops should have been desugared to assigns"
 toCore (_ :< S.If cond left right) = Case (toCore cond)
-  [ ConAlt "True" [] (toCore left)
-  , ConAlt "False" [] (toCore right)
+  [ ConAlt (Qualified "Prelude" "True") [] (toCore left)
+  , ConAlt (Qualified "Prelude" "False") [] (toCore right)
   ]
 toCore (lAnn :< S.Lambda bind exp) = let
   vars = map toVar bind
@@ -110,7 +109,7 @@ toCore (_ :< S.Body exps) = toCore' exps
   toCore' (e:others) = toCore e `mkSeq` (toCore' others)
     where
     mkSeq a b = (App (App (Var seq) a) b)
-    seq = Id "seq" (generalize $ TVar "a" `tFn` TVar "a") Used
+    seq = Id (Qualified "Prelude" "seq") (fmap Internal . generalize $ TVar "a" `tFn` TVar "a") Used
 toCore (_ :< S.Literal lit ) = Lit lit
 
 toAlts = map toAlt
@@ -119,6 +118,6 @@ toAlt (a :< Wildcard, e) = TrivialAlt $ toCore e
 toAlt (_ :< PLit lit, exp) = LitAlt lit $ toCore exp
 toAlt (_ :< Destructor n ps, exp) = ConAlt n (map toVar ps) $ toCore exp
   where
-  toVar (a :< Wildcard) = Id "" (fromTyAnn a) NotUsed
+  toVar (a :< Wildcard) = Id (Internal "") (fromTyAnn a) NotUsed
   toVar (a :< PVar nm)  = Id nm (fromTyAnn a) Used
   toVar a = error (show a)

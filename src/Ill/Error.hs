@@ -9,7 +9,7 @@ import           Ill.Syntax (Type, Name, Kind, Constraint, Expr, TypedAnn, Sourc
 import           Control.Monad.Except
 import           Ill.Syntax.Pretty
 
-import Control.Comonad (extract)
+import           Control.Comonad (extract)
 
 {-
   Taken from https://github.com/jaspervdj/talks/blob/master/2017-skillsmatter-errors/slides.md#which-is-the-best-representation-2
@@ -35,6 +35,7 @@ prettyError err = nest 2 $ (annotate bold $ errHeader err)
     `above` bulleted (map (\d -> align $ hint<+> d) (errHints err))
   where
   hint = annotate (color Magenta <> bold) (pretty "hint:")
+
 rethrow :: MonadError e m => (e -> e) -> m a -> m a
 rethrow f action = action `catchError` (throwError . f )
 

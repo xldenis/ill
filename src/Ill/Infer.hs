@@ -41,6 +41,7 @@ import           Data.Map             as M (union)
 import           Text.Megaparsec      (initialPos)
 
 import           Ill.BindingGroup
+import           Ill.Renamer (renameModule)
 import           Ill.Error
 
 import           Ill.Infer.Entail
@@ -55,20 +56,20 @@ import           Data.Bitraversable
 import           Control.Lens.Plated
 import           Data.Bifunctor (bimap)
 
-type RawDecl = Decl SourceSpan
+type RawDecl = Decl QualifiedName SourceSpan
 
 {-
   1. kind checking not implemented
   2. error messages suck
 -}
 
-typeCheckModule :: Module SourceSpan -> Either (Error a) (Module TypedAnn, Environment)
-typeCheckModule (Module nm ds) = do
-  typecheckedGroups <- bindingGroups ds >>= execCheck . typeCheck
+typeCheckModule :: ModuleBG QualifiedName SourceSpan -> Either (Error a) (Module QualifiedName TypedAnn, Environment)
+typeCheckModule mod@(Module nm ds) = do
+  typecheckedGroups <- execCheck $ typeCheck ds
   (typcheckedDecls, env) <-  pure $ bimap fromBindingGroups env typecheckedGroups
   return (Module nm typcheckedDecls, env)
 
-typeCheck :: BoundModules SourceSpan -> Check [BindingGroup TypedAnn]
+typeCheck :: BoundModules QualifiedName SourceSpan -> Check [BindingGroup QualifiedName TypedAnn]
 typeCheck (BoundModules
   { classDecls = classDecls
   , instDecls  = instDecls
@@ -82,7 +83,7 @@ typeCheck (BoundModules
   where
   gatherInstInfo (OtherBG (_ :< TraitImpl supers nm args _)) = addTraitInstance nm supers args
 
-  go :: BindingGroup SourceSpan -> Check (BindingGroup TypedAnn)
+  go :: BindingGroup QualifiedName SourceSpan -> Check (BindingGroup QualifiedName TypedAnn)
   go (ValueBG ds)                  = do
     inferredVals <- liftUnify $ do
       (ut, et, dict, untypedDict) <- typeDictionary (map generalizeSig ds)
@@ -96,7 +97,7 @@ typeCheck (BoundModules
       let t = fromTyAnn ann
 
       t' <- flattenConstraints <$> simplify' t
-      when (ambiguous t') . throwError $ AmbiguousType (ambiguities t') t'
+      when (ambiguous t') . throwError $ AmbiguousType (map qualName $ ambiguities t') t'
 
       let generalizedType = generalize t'
       addValue (valueName v) generalizedType
@@ -145,11 +146,11 @@ typeCheck (BoundModules
     fromDataDecl (_ :< Data nm args cons) = (nm, args, map consPair cons)
     fromDataDecl _ = error "impossible non-data value found in data binding group"
 
-    coerceAnn :: Declaration SourceSpan (Decl SourceSpan) -> Declaration TypedAnn (Decl TypedAnn)
+    coerceAnn :: Declaration QualifiedName SourceSpan (RawDecl) -> Declaration QualifiedName TypedAnn (Decl QualifiedName TypedAnn)
     coerceAnn (Data n vars cons) = Data n vars cons
     coerceAnn _ = error "impossible non-data value found in data binding group"
 
-    consPair :: Type Name -> (Name, [Type Name])
+    consPair :: Type QualifiedName -> (QualifiedName, [Type QualifiedName])
     consPair   = fromCons . fromJust . uncons . unwrapProduct
 
     fromCons (TConstructor n, b) = (n,b)
@@ -229,13 +230,13 @@ typeCheck (BoundModules
 
   go (OtherBG _)                 = throwError $ NotImplementedError "oops"
 
-appSubs :: ([Decl TypedAnn], Substitution (Type Name)) -> Check [Decl TypedAnn]
+appSubs :: ([Decl QualifiedName TypedAnn], Substitution (Type QualifiedName)) -> Check [Decl QualifiedName TypedAnn]
 appSubs (ts, sub) = mapM (substituteOneDecl sub) ts
 
-substituteOneDecl :: Substitution (Type Name) -> Decl TypedAnn -> Check (Decl TypedAnn)
+substituteOneDecl :: Substitution (Type QualifiedName) -> Decl QualifiedName TypedAnn -> Check (Decl QualifiedName TypedAnn)
 substituteOneDecl sub decl = hoistAppToCofree (substituteAnn sub) $ decl
 
-substituteAnn :: Substitution (Type Name) -> TypedAnn -> Check (TypedAnn)
+substituteAnn :: Substitution (Type QualifiedName) -> TypedAnn -> Check (TypedAnn)
 substituteAnn sub = \ann -> do
   let (Type poly inst) = ty ann
       subbedPoly = substituteOneType sub poly
@@ -243,13 +244,13 @@ substituteAnn sub = \ann -> do
 
   pure $ ann { ty = Type subbedPoly subbedInst }
 
-substituteOneType :: Substitution (Type Name) -> Type Name -> Type Name
+substituteOneType :: Substitution (Type QualifiedName) -> Type QualifiedName -> Type QualifiedName
 substituteOneType sub ty = varIfUnknown $ sub $? ty
 
-type TypedDict   = [(Name, Type Name)]
-type UntypedDict = [(Name, Type Name)]
+type TypedDict   = [(QualifiedName, Type QualifiedName)]
+type UntypedDict = [(QualifiedName, Type QualifiedName)]
 
-typeDictionary :: [Decl SourceSpan] -> UnifyT (Type Name) Check ([Decl SourceSpan], [(Type Name, RawDecl)], TypedDict, UntypedDict)
+typeDictionary :: [RawDecl] -> UnifyT (Type QualifiedName) Check ([RawDecl], [(Type QualifiedName, RawDecl)], TypedDict, UntypedDict)
 typeDictionary vals = do
   let values = sortOn valueName $ filter isValue vals
       sigs =  sortOn signatureName $ filter isSignature vals
@@ -266,7 +267,7 @@ typeDictionary vals = do
   signatureName (_ :< Signature n _) = n
   signatureType (_ :< Signature _ t) = t
 
-typeForBindingGroupEl :: RawDecl -> UntypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
+typeForBindingGroupEl :: RawDecl -> UntypedDict -> UnifyT (Type QualifiedName) Check (Decl QualifiedName TypedAnn)
 typeForBindingGroupEl (a :< Value name els) dict = rethrow (ErrorInDecl name) $ do
   let (pats, _) = unzip els
       numArgs = length $ head pats
@@ -292,7 +293,7 @@ typeForBindingGroupEl (a :< Value name els) dict = rethrow (ErrorInDecl name) $ 
 
   return $ Ann a (constrain (concat cons') memberType) :< Value name vals'
 
-checkBindingGroupEl :: Type Name -> RawDecl -> TypedDict -> UnifyT (Type Name) Check (Decl TypedAnn)
+checkBindingGroupEl :: Type QualifiedName -> RawDecl -> TypedDict -> UnifyT (Type QualifiedName) Check (Decl QualifiedName TypedAnn)
 checkBindingGroupEl ty (a :< Value name els) dict = rethrow (ErrorInDecl name) $ do
   let (pats, _) = unzip els
       numArgs = length $ head pats
@@ -325,7 +326,7 @@ checkBindingGroupEl ty (a :< Value name els) dict = rethrow (ErrorInDecl name) $
 
   where
 
-  validateConstraints :: [Constraint Name] -> [Constraint Name] -> UnifyT (Type Name) Check ()
+  validateConstraints :: [Constraint QualifiedName] -> [Constraint QualifiedName] -> UnifyT (Type QualifiedName) Check ()
   validateConstraints given inferred = do
     sub <- unifyCurrentSubstitution <$> UnifyT get
     let subbed = concatMap (subCons sub) inferred

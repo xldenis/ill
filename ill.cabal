@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 73a1eb65e1c825d653254aec925a3fca1e170c2ae43f6a0abbcd6956128065d5
+-- hash: da61f54227c6a353bd89303404e6f3724e7daf1ca429c126fbad2d0143406232
 
 name:           ill
 version:        0.1.0.0
@@ -57,6 +57,7 @@ library
       Ill.Parser.Module
       Ill.Parser.Pattern
       Ill.Parser.Type
+      Ill.Renamer
       Ill.Syntax
       Ill.Syntax.Builtins
       Ill.Syntax.Core
@@ -82,6 +83,7 @@ library
     , bytestring
     , comonad
     , containers
+    , edit-distance
     , free
     , lens
     , llvm-hs
@@ -91,6 +93,7 @@ library
     , mtl
     , prettyprinter
     , prettyprinter-ansi-terminal
+    , semigroupoids
     , text
     , transformers-compat
     , unordered-containers

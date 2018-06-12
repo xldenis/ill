@@ -4,30 +4,32 @@ import Ill.Prelude
 
 import Ill.Syntax.Pretty
 import Ill.Syntax.Literal
+import Ill.Syntax.Name
 
 import           Control.Comonad.Cofree
 
-data Pattern a
-  = Destructor String [a]
+data Pattern nm a
+  = Destructor nm [a]
   | Wildcard
-  | PVar String
+  | PVar nm
   | PLit Literal
   deriving (Eq, Show, Functor, Foldable, Traversable, Generic1)
 
-type Pat a = Cofree Pattern a
+type Pat' nm a = Cofree (Pattern nm) a
 
-type Patterns a = [Pat a]
+type Pat a = Pat' QualifiedName a
+type Patterns nm a = [Pat' nm a]
 
-instance Eq1 Pattern where
+instance Eq nm => Eq1 (Pattern nm) where
   liftEq = liftEqDefault
 
-instance Show1 Pattern where
+instance Show nm => Show1 (Pattern nm) where
   liftShowsPrec = liftShowsPrecDefault
 
 instance Pretty1 f => Pretty (Cofree f a) where
   pretty (a :< el) = liftPretty pretty el
 
-instance Pretty1 Pattern where
+instance Pretty nm => Pretty1 (Pattern nm) where
   liftPretty pretty' (Destructor cons args) = pretty cons <-> hsep (map
     (\a -> let
       doc = pretty' a
@@ -36,7 +38,7 @@ instance Pretty1 Pattern where
   liftPretty pretty' (PVar x) = pretty x
   liftPretty pretty' (PLit l) = pretty l
 
-patternNames :: Pat a -> [String]
+patternNames :: Pat' nm a -> [nm]
 patternNames (_ :< PVar n) = [n]
 patternNames (_ :< Destructor _ pats) = concatMap patternNames pats
 patternNames (_ :< Wildcard) = []

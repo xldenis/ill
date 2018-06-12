@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Ill.Desugar.Cases where
 
 import           Ill.Prelude
@@ -13,15 +14,15 @@ import           Control.Monad.Identity
 import           Control.Monad.State
 
 import           Data.List (groupBy)
-
+import           Data.String (fromString)
 import qualified Data.Map.Strict as Map
 
 import           Ill.Syntax
 
-data PatGroup = VarG | ConG String | WildG | LitG Literal
+data PatGroup = VarG | ConG (QualifiedName) | WildG | LitG Literal
   deriving (Show, Eq)
 
-patGroup :: Pattern a -> PatGroup
+patGroup :: Pattern QualifiedName a -> PatGroup
 patGroup (Destructor c _) = ConG c
 patGroup (PVar _)         = VarG
 patGroup (Wildcard)       = WildG
@@ -42,21 +43,21 @@ eqnsExpr = snd . head
 
 type MatchResult a = Expr a -> Expr a
 
-declToEqns :: Decl TypedAnn -> [Eqn TypedAnn]
+declToEqns :: Decl QualifiedName TypedAnn -> [Eqn TypedAnn]
 declToEqns (_ :< Value _ eqns) = eqns
 declToEqns _                   = []
 
 runFresh = runIdentity . flip evalStateT 0 . unFreshT
 
-matchFailure = SynAnn (generalize $ TVar "a") :< Var "failedPattern"
+matchFailure = SynAnn (generalize $ TVar $ Internal "a") :< Var (Qualified "Prelude" "failedPattern")
 
-desugarPatterns :: Module TypedAnn -> Module TypedAnn
+desugarPatterns :: Module QualifiedName TypedAnn -> Module QualifiedName TypedAnn
 desugarPatterns (Module nm decls) = Module nm (map simplifyPatterns decls)
 
-simplifyPatterns :: Decl TypedAnn -> Decl TypedAnn
+simplifyPatterns :: Decl QualifiedName TypedAnn -> Decl QualifiedName TypedAnn
 simplifyPatterns v@(a :< Value n eqns) = runFresh $ do
   let
-    binders = enumFromTo 1 (length . fst $ head eqns) & map (\i -> "x" ++ show i)
+    binders = enumFromTo 1 (length . fst $ head eqns) & map (\i -> Internal $ "x" ++ show i)
     binderTy = init . unwrapFnType . snd . unconstrained $ typeOf v
     retTy = typeOf . snd $ head eqns
     failure = matchFailure
@@ -83,7 +84,7 @@ simplifyCaseExpr e@(a :< Case s alts) = do
   where
   binderName (_ :< Var nm) = pure (Nothing, nm)
   binderName e = do
-    name <- prefixedName "dsCase"
+    name <- Internal <$> prefixedName "dsCase"
     return (Just $ SynAnn tNil :< Assign [name] [e], name)
 
 simplifyCaseExpr v = pure v
@@ -93,7 +94,7 @@ mkTypedAnn ty = SynAnn ty
 mkBody :: [Expr TypedAnn] -> Expr TypedAnn
 mkBody xs = (extract $ last xs) :< Body xs
 
-match :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (MatchResult TypedAnn)
+match :: MonadFresh m => [QualifiedName] -> [Eqn TypedAnn] -> m (MatchResult TypedAnn)
 match [] eqns | all (null . fst) eqns = pure $ const . snd $ head eqns
 match vars eqns = do
   let grouped = groupPatterns eqns
@@ -113,7 +114,7 @@ match vars eqns = do
 
   matchWildcardPat (_ : vars) eqns = match vars (shiftEqnPats eqns)
 
-  matchVarPat :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (MatchResult TypedAnn)
+  matchVarPat :: MonadFresh m => [QualifiedName] -> [Eqn TypedAnn] -> m (MatchResult TypedAnn)
   matchVarPat (v : vars) eqns = do
     let (a, _) = fromPVar . head $ eqnsPats eqns
         varNames = map (snd . fromPVar) $ headEqnPats eqns
@@ -136,16 +137,16 @@ match vars eqns = do
     fromPVar (a :< PVar pat) = (a, pat)
     fromPVar _ = error "impossible non-var pattern in when matching variable patterns"
 
-  mkAssign :: String -> Expr TypedAnn -> Expr TypedAnn
+  mkAssign :: QualifiedName -> Expr TypedAnn -> Expr TypedAnn
   mkAssign n e = (extract e) :< Assign [n] [e]
 
-  matchLiterals :: MonadFresh m => [String] -> [[Eqn TypedAnn]] -> m (MatchResult TypedAnn)
+  matchLiterals :: MonadFresh m => [QualifiedName] -> [[Eqn TypedAnn]] -> m (MatchResult TypedAnn)
   matchLiterals (var : vars) subGroups = do
     let
       retTy = typeOf . snd . head $ head subGroups
       scrutTy = typeOf . head . fst . head $ head subGroups
 
-    if (scrutTy == TConstructor "String") then
+    if (scrutTy == TConstructor (Qualified "Prelude" "String")) then
       error "currently string literal matches arent implemented"
     else do
       branches <- mapM matchLiteral subGroups
@@ -162,7 +163,7 @@ match vars eqns = do
       match_result <- match vars (shiftEqnPats group)
       return (pat, match_result)
 
-  matchConPat :: MonadFresh m => [String] -> [[Eqn TypedAnn]] -> m (MatchResult TypedAnn)
+  matchConPat :: MonadFresh m => [QualifiedName] -> [[Eqn TypedAnn]] -> m (MatchResult TypedAnn)
   matchConPat (var : vars) groups = do
     let
       retTy = typeOf . snd . head $ head groups
@@ -175,7 +176,7 @@ match vars eqns = do
         updateInstAnn (ann :< e) = ann { ty = ((ty ann) { instTy = Just (snd $ unconstrained retTy) }) } :< e
     return $ \fail -> mkTypedAnn retTy :< Case (mkTypedAnn scrutTy :< Var var) (map (fmap ($ fail)) (branches ++ [failBranch]))
 
-  matchOneConsPat :: MonadFresh m => [String] -> [Eqn TypedAnn] -> m (Pat TypedAnn, MatchResult TypedAnn)
+  matchOneConsPat :: MonadFresh m => [QualifiedName] -> [Eqn TypedAnn] -> m (Pat TypedAnn, MatchResult TypedAnn)
   matchOneConsPat vars group = do
     let
       eqns'         = map shiftCons group
@@ -198,16 +199,16 @@ match vars eqns = do
   headEqnPats :: [Eqn a] -> [Pat a]
   headEqnPats = map (head . fst)
 
-mkAdjustments :: Expr a -> [Name] -> (Expr a)
+mkAdjustments :: Expr a -> [QualifiedName] -> (Expr a)
 mkAdjustments from to = let
   to' = nub to
   from' = replicate (length to') from
   in extract from :< Assign to' from'
 
 
-makeVarNames :: (Show a, MonadFresh m) => [Pat a] -> m [String]
+makeVarNames :: (Show a, MonadFresh m) => [Pat a] -> m [QualifiedName]
 makeVarNames ((_ :< PVar n) : ps) = (:) <$> pure ( n) <*> makeVarNames ps
-makeVarNames (_ : ps) = (:) <$> prefixedName "omg" <*> makeVarNames ps -- generate names
+makeVarNames (_ : ps) = (:) <$> (Internal <$> prefixedName "omg") <*> makeVarNames ps -- generate names
 makeVarNames []            = pure []
 
 groupPatterns :: [Eqn a] -> [[(PatGroup, Eqn a)]]

@@ -18,30 +18,33 @@ import Ill.Infer.Monad
 
 import Ill.Interpret
 import Ill.Parser
+import Ill.Renamer
 
 import Ill.Syntax hiding (Expression(..))
 import Ill.Syntax.Core as Core
 import Ill.Syntax.Pretty
 
+import Data.String (fromString)
+
 import Prelude hiding (putStrLn, putStr)
 
 import qualified Ill.Interpret as Interp
 
-runInterpreter gOpts mod = do
-  case  compileToCore mod of
+runInterpreter _ mod = do
+  case compileToCore mod of
     Left err -> putStrLn $ renderError (prettyError err)
     Right (coreMod) -> do
       let boundConstructors = map (fmap consArity) $ Core.constructors coreMod
 
       env <- Interp.mkEnvForModule boundConstructors (bindings coreMod)
-      val <- Interp.eval env (Var $ Id "main" undefined Used)
+      val <- Interp.eval env (Var $ Id (Qualified (moduleName mod) "main") undefined Used)
 
       print (Interp.showish val)
 
 renderError = renderIll defaultRenderArgs
 
-compileToCore mod =  do
-  case typeCheckModule mod of
+compileToCore mod = do
+  case (typeCheckModule) mod of
     Right (typed, e) -> let
       desugared = defaultPipeline e typed
       in Right (compileCore desugared)

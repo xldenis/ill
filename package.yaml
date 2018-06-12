@@ -35,6 +35,8 @@ library:
   - llvm-hs-pretty
   - transformers-compat
   - bytestring
+  - semigroupoids
+  - edit-distance
   default-extensions:
   - FlexibleContexts
   - NoImplicitPrelude

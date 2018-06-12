@@ -38,6 +38,7 @@ import           Ill.Prelude
 
 import           Control.Monad.Fresh
 import           Control.Monad.Reader
+import           Control.Monad.Identity
 import           Ill.Syntax.Core
 
 import           Control.Lens.Plated
@@ -48,7 +49,7 @@ import           Ill.Syntax.Type
 
 normalize :: CoreModule -> CoreModule
 normalize m@(Mod{..}) =
-  m { bindings = (evalFresh 0 $ forM bindings bindToANF) }
+  m { bindings = (evalFresh 0 . flip runReaderT coreModuleName $ forM bindings bindToANF) }
   where bindToANF (NonRec x e) = NonRec x <$> (transformM toANF e)
 
 isAtom (Var v)      = True
@@ -59,14 +60,14 @@ isAtom (Lambda TyVar{} _) = True
 isAtom (App a (Type _)) | isAtom a = True
 isAtom _            = False
 
-toANF :: CoreExp -> Fresh CoreExp
+toANF :: CoreExp -> ReaderT Name (FreshT Identity) CoreExp
 toANF l@(Lambda bind exp) = pure l
 toANF (App f (Let b exp)) = Let b <$> (toANF $ App f exp)
 toANF (App (Let b f) a) = Let b <$> (toANF $ App f a)
 toANF a@(App f arg) = case isAtom arg of
   True -> pure a
   False -> do
-    nm <- prefixedName "anf"
+    nm <- Qualified <$> ask <*> prefixedName "anf"
     f' <- toANF f
     arg' <- toANF arg
     let ty = getTyOf arg'

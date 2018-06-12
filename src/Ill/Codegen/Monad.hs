@@ -99,9 +99,9 @@ primStr  = ptr $ T.NamedTypeReference "String"
 
 closureType = ptr $ T.StructureType False (ptr T.i8  : T.i8 : T.i8 : [T.ArrayType 1 $ ptr T.i8])
 
-llvmArgType :: Type Name -> AST.Type
+llvmArgType :: Type QualifiedName -> AST.Type
 llvmArgType (TVar nm) = ptr T.i8
-llvmArgType (TConstructor nm) = ptr $ T.NamedTypeReference (fromString nm)
+llvmArgType (TConstructor nm) = ptr $ T.NamedTypeReference (fromString $ qualName nm)
 llvmArgType ap@(TAp _ _) = let
   cons : _ = unwrapProduct ap
   in llvmArgType cons
@@ -112,7 +112,7 @@ llvmArgType f@(Arrow _ _) =
   llvmArgTy' = reverse $ map llvmArgType argTys
   argTys = init unwrapped
   unwrapped = unwrapFnType f
-llvmArgType f@(TAp (TAp (TConstructor "->") a) b) =
+llvmArgType f@(TAp (TAp ArrowConstructor a) b) =
   closureType
   where
   llvmArgTy' = reverse $ map llvmArgType argTys
@@ -121,9 +121,9 @@ llvmArgType f@(TAp (TAp (TConstructor "->") a) b) =
 llvmArgType t = error $ show t
 
 data CodegenState = CS
-  { globalInfo :: [(Id, BindingInfo)]
-  , localInfo  :: [(Id, AST.Operand)]
-  , consInfo   :: [(Id, Core.ConstructorEntry)]
+  { globalInfo :: [(QualifiedName, BindingInfo)]
+  , localInfo  :: [(QualifiedName, AST.Operand)]
+  , consInfo   :: [(QualifiedName, Core.ConstructorEntry)]
   } deriving (Show, Eq)
 
 fromModule mod = CS (infoMap mod) [] (constructors mod)
@@ -135,7 +135,7 @@ infoMap mod =
 
   where
 
-  builtinInfo :: [(Id, BindingInfo)]
+  builtinInfo :: [(QualifiedName, BindingInfo)]
   builtinInfo = map go Builtins.primitives
     where
     go (nm, ty) = let
@@ -143,26 +143,26 @@ infoMap mod =
       tys = unwrapFnType ty
       args = map llvmArgType $ init tys
       ret = llvmArgType $ last tys
-      op  = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString nm)
+      op  = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString $ qualName nm)
       in (nm, Info arity args ret op)
 
-  collectConstructorInfo :: (Name, Core.ConstructorEntry) -> (Id, BindingInfo)
+  collectConstructorInfo :: (QualifiedName, Core.ConstructorEntry) -> (QualifiedName, BindingInfo)
   collectConstructorInfo (nm, cons) = let
     tys = unwrapFnType (consType cons)
     args = map llvmArgType $ init tys
     ret  = llvmArgType $ last tys
 
-    op = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString nm)
+    op = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString $ qualName nm)
 
     in (nm, Info (consArity cons) args ret op)
 
-  collectBindingInfo :: Core.Bind Core.Var -> (Id, BindingInfo)
+  collectBindingInfo :: Core.Bind Core.Var -> (QualifiedName, BindingInfo)
   collectBindingInfo (Core.NonRec v b) = let
     arity = length . snd $ unwrapLambda b
     tys   = unwrapN arity (idTy v)
     args  = map llvmArgType $ init tys
     ret   = llvmArgType $ last tys
-    op    = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString $ varName v)
+    op    = ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType ret args False) (fromString $ qualName $ varName v)
     in (varName v, Info arity args ret op)
 
 data BindingInfo = Info

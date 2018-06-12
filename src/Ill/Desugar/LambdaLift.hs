@@ -30,18 +30,18 @@ import           Data.Bifunctor
     - Lift to global scope
 -}
 data LiftingState = Lifted
-  { boundNames  :: [Id]
-  , boundTyVars :: [Id]
+  { boundNames  :: [QualifiedName]
+  , boundTyVars :: [QualifiedName]
   }
   deriving (Show)
 
-type MonadLL m = (MonadFresh m, MonadState LiftingState m, MonadWriter [Bind Var] m)
+type MonadLL m = (MonadReader Name m, MonadFresh m, MonadState LiftingState m, MonadWriter [Bind Var] m)
 
 liftModule :: CoreModule -> CoreModule
 liftModule m@Mod{..} = m { bindings = evalMonadStack $ mapM liftGlobal bindings }
   where
-  evalMonadStack = uncurry (++) . evalFresh 0 . runWriterT . flip evalStateT (Lifted bindNames [])
-  bindNames = map (\(NonRec v _) -> varName v) bindings ++ (map fst primitives) ++ consNames
+  evalMonadStack = uncurry (++) . evalFresh 0 . flip runReaderT coreModuleName . runWriterT . flip evalStateT (Lifted bindNames [])
+  bindNames = map (\(NonRec v _) -> varName v) bindings ++ (map fst builtins) ++ consNames
   consNames = map fst constructors
 
 liftBinding (NonRec nm exp) = do
@@ -92,13 +92,13 @@ liftLambda l@(Lambda _ _) = do
 liftLambda a = pure a
 
 emitLambda exp = do
-  nm <- prefixedName "lifted"
+  nm <- (Qualified <$> ask <*> prefixedName "lifted")
   let var = Id nm (getTyOf exp) Used
   modify $ \s -> s { boundNames = nm : boundNames s }
   tell [NonRec var exp]
   return (Var var)
 
-type FreeVars = ([Var], [Id])
+type FreeVars = ([Var], [QualifiedName])
 
 -- need to handle type variables smoothly
 freeVars :: MonadReader LiftingState m => CoreExp -> m FreeVars
@@ -135,7 +135,7 @@ freeVars (Lit _)  = pure ([], [])
 
 closeVars :: MonadLL m => FreeVars -> CoreExp -> m CoreExp
 closeVars (vars, tyVars) exp = do
-  names <- replicateM (length vars) (prefixedName "cvar")
+  names <- replicateM (length vars) (Qualified <$> ask <*> prefixedName "cvar")
 
   let vars' = zipWith (\nm var -> (varName var, var { varName = nm })) names vars
       exp'  = foldr (\(i, v) exp -> Lambda v $ substitute (i, Var v) exp) exp vars'

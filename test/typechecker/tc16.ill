@@ -32,11 +32,11 @@ module TC16
   end
 
   trait Ord a
-    g :: a -> a
+    h :: a -> a
   end
 
   impl Ord a
-    fn g (x) x end
+    fn h (x) x end
   end
 
   fn x1 ()

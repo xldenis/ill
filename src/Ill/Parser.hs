@@ -20,7 +20,7 @@ import           Ill.Parser.Lexer
 import qualified Data.Text.IO as T (readFile)
 import           Data.Void
 
-moduleParser :: Parser (Module SourceSpan)
+moduleParser :: Parser (Module Name SourceSpan)
 moduleParser = do
   symbol "module"
   name <- intercalate (".") <$> capitalized `sepBy` char '.' <* scn
@@ -28,7 +28,7 @@ moduleParser = do
   symbol "end" <* scn
   return $ Module name body
 
-illParser :: Parser (Module SourceSpan)
+illParser :: Parser (Module Name SourceSpan)
 illParser = scn *> moduleParser
 
 parseFromFile :: Parser a -> FilePath -> IO (Either (ParseError Char Void) a)

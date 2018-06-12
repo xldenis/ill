@@ -9,10 +9,10 @@ import Ill.Parser.Literal
 
 import Text.Megaparsec (try)
 
-pattern :: Parser (Pat SourceSpan)
+pattern :: Parser (Pat' Name SourceSpan)
 pattern = (parens pattern) <|> wildcard <|> destructor <|> pLit <|> var
 
-destructor :: Parser (Pat SourceSpan)
+destructor :: Parser (Pat' Name SourceSpan)
 destructor = withLoc $ do
   cons <- upperIdent
   args <- many $ simpleDestructor <|> pLit <|> var <|> wildcard <|> parens pattern
@@ -20,10 +20,10 @@ destructor = withLoc $ do
   where
   simpleDestructor = withLoc $ Destructor <$> upperIdent <*> pure []
 
-var :: Parser (Pat SourceSpan)
+var :: Parser (Pat' Name SourceSpan)
 var = withLoc $ PVar <$> identifier
 
-wildcard :: Parser (Pat SourceSpan)
+wildcard :: Parser (Pat' Name SourceSpan)
 wildcard = withLoc $ symbol "_" *> (return Wildcard)
 
 pLit = withLoc $ PLit <$> literal

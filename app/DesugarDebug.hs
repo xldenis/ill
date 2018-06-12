@@ -5,6 +5,7 @@ import Ill.Syntax.Core (bindings)
 import Ill.Infer
 import Ill.Infer.Monad
 import Ill.Options
+import Ill.Renamer
 
 import Data.Function
 
@@ -22,8 +23,8 @@ import Ill.Syntax.Pretty
 
 import Data.Bifunctor (first, bimap)
 
-desugar :: String -> GlobalOptions -> Module SourceSpan -> IO ()
-desugar stage gOpts ast = case typeCheckModule ast of
+desugar :: String -> GlobalOptions -> RenamedModule SourceSpan -> IO ()
+desugar stage gOpts ast = case (typeCheckModule) ast of
   Left err -> putStrLn . render gOpts $ prettyError err
   Right (mod, env) -> do
     let pipeline = stageToPipeline stage
@@ -33,7 +34,7 @@ desugar stage gOpts ast = case typeCheckModule ast of
   where
   cliRenderArgs = defaultRenderArgs { width = 50}
 
-stageToPipeline :: String -> (Environment -> Module TypedAnn -> Module TypedAnn)
+stageToPipeline :: String -> (Environment -> Module QualifiedName TypedAnn -> Module QualifiedName TypedAnn)
 stageToPipeline "binop"  e = desugarBinOps
 stageToPipeline "traits" e = desugarTraits e . stageToPipeline "binop" e
 stageToPipeline "cases"  e = desugarPatterns . stageToPipeline "traits" e

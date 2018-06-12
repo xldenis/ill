@@ -9,6 +9,7 @@ import           Ill.Syntax.Core
 import           Ill.Syntax.Literal
 import           Ill.Syntax.Pretty
 import           Ill.Syntax.Type
+import           Ill.Syntax.Name
 
 import           Control.Monad.Except
 import           Control.Monad.State
@@ -49,8 +50,8 @@ instance Pretty ErrorStack where
   pretty (Msg str) = pretty str
 
 data LintEnv = E
-  { boundNames  :: M.Map String (Type String)
-  , boundTyVars :: [String]
+  { boundNames  :: M.Map QualifiedName (Type QualifiedName)
+  , boundTyVars :: [QualifiedName]
   } deriving (Show, Eq)
 
 runLinter :: CoreModule -> Either String ()
@@ -106,7 +107,7 @@ lookupTyVar var = do
   if var `elem` tyvars then return () else throwError . Msg $ "the typevariable " ++ show var ++ " could not be found."
 
 -- Check the types of the core expression
-lintCore :: LintM m => CoreExp -> m (Type String)
+lintCore :: LintM m => CoreExp -> m (Type QualifiedName)
 lintCore c = rethrow oneWrap (lintCore' c)
   where oneWrap e@(Stack{}) = e
         oneWrap e = Stack c e
@@ -143,7 +144,7 @@ lintCore' ap@(App f arg) = do
   if isJust $ a `subsume` argTy then return b
   else throwError . Msg $ "app error: " ++ show (pretty (fTy, argTy))
   where
-  getArgTy _ (TAp (TAp (TConstructor "->") a) b) = pure (a, b)
+  getArgTy _ (TAp (TAp (ArrowConstructor) a) b) = pure (a, b)
   getArgTy _ (Arrow a b) = pure (a, b)
   getArgTy _ ty' = throwError . Msg . show $ vcat
     [ pretty "The function has an unresolved polymorphic variable in the application:"
@@ -173,7 +174,7 @@ lintCore' (Type t) = do
   return t -- validate no unknown tyvars
 lintCore' (Lit lit) = return $ litType lit
 
-lintAlt :: LintM m => Type String -> Alt Var -> m (Type String)
+lintAlt :: LintM m => Type QualifiedName -> Alt Var -> m (Type QualifiedName)
 lintAlt ty (ConAlt i binds exp) = foldl (flip bindName) (lintCore exp) binds
 lintAlt ty (TrivialAlt exp) = lintCore exp
 lintAlt ty (LitAlt lit exp) = if litType lit == ty

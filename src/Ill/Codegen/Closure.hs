@@ -16,6 +16,7 @@ import Ill.Prelude
 import Ill.Codegen.Monad
 
 import Ill.Syntax.Core
+import Ill.Syntax.Name
 import Ill.Syntax.Type
 
 {-
@@ -74,7 +75,7 @@ buildClosure (Info _ argTys retTy _) i@Id{} = do
   voidPtr <- malloc $ sizeofType closureType
   memPtr <- bitcast voidPtr closureType
   val <- load memPtr 8
-  let name = AST.ConstantOperand $ C.GlobalReference closureFuncTy (fromString $ "callClosure" ++ varName i)
+  let name = AST.ConstantOperand $ C.GlobalReference closureFuncTy (fromString $ "callClosure" ++ (qualName $ varName i))
 
   voidPtr <- bitcast name (ptr T.i8)
   val' <- insertvalue val voidPtr [0]
@@ -88,14 +89,14 @@ buildClosure (Info _ argTys retTy _) i@Id{} = do
   closureFuncTy = ptr $ T.FunctionType retTy [closureType] False
 
 mkClosureCall :: ModuleM m => Int -> Var -> m Operand
-mkClosureCall arity i@Id{} = function (fromString $ "callClosure" ++ varName i) [(closureType, "closure")] llvmRetTy $ \[closure] -> mdo
+mkClosureCall arity i@Id{} = function (fromString $ "callClosure" ++ (qualName $ varName i)) [(closureType, "closure")] llvmRetTy $ \[closure] -> mdo
   block `named` "entry" ; do
     args <- forM (zip [0..] llvmArgTy') $ \(i, ty) -> do
       argPtr <- gep closure $ int32 0 ++ int32 3 ++ int32 i
       ptr' <- bitcast argPtr (ptr ty)
       load ptr' 8
 
-    let func = AST.ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType llvmRetTy (reverse llvmArgTy') False) (fromString $ varName i)
+    let func = AST.ConstantOperand $ C.GlobalReference (ptr $ T.FunctionType llvmRetTy (reverse llvmArgTy') False) (fromString . qualName $ varName i)
     retCall <- call func (map (\arg -> (arg, [])) $ reverse args)
 
     ret retCall

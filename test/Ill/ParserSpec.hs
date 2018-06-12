@@ -18,7 +18,7 @@ import Data.Text.Lazy (pack, unpack)
 import Data.Text.Lazy (toStrict)
 
 import Ill.Syntax.Pretty (renderIll, defaultRenderArgs, pretty)
-import Ill.Syntax (Module(..), dropAnn)
+import Ill.Syntax (Module, Module'(..), dropAnn)
 
 import Control.Comonad (extend)
 
@@ -47,5 +47,5 @@ propPrettyParse f ast = do
       expectationFailure $ (unpack $ prettyText ast) ++ "\n\n" ++ (showParseError err)
   where parse = runParser illParser f
         prettyText a = renderIll defaultRenderArgs (pretty a)
-        noPos :: Module a -> Module ()
+        noPos :: Module nm a -> Module nm ()
         noPos (Module n ds) = Module n $ map (dropAnn) ds

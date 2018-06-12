@@ -1,0 +1,27 @@
+module Renamer1
+  trait Typed a
+    method :: a -> a
+  end
+
+  trait Typed2 a
+    method2 :: a -> a
+  end
+
+  trait Typed3 a
+    method3 :: a -> a
+  end
+
+  trait Typed4 a
+    method4 :: a -> a
+  end
+
+  trait Typed5 a
+    method5 :: a -> a
+  end
+
+  impl Typoed Int
+    fn method(a)
+      a
+    end
+  end
+end

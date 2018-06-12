@@ -14,7 +14,7 @@ import qualified Data.HashMap.Strict  as H
 
 
 import           Ill.Infer.Monad
-import           Ill.Syntax           (Kind (..), Name, Type (..))
+import           Ill.Syntax           (Kind (..), QualifiedName, Type (..))
 
 
 instance Partial Kind where
@@ -48,7 +48,7 @@ instance UnificationError Kind CheckError where
 -- Bind synonym names
 -- bind constructor names
 -- for each constructor / synonym bind args and solve
-kindsOfAll :: [a] -> [(Name, [Name], [Type Name])] -> Check [Kind]
+kindsOfAll :: [a] -> [(QualifiedName, [QualifiedName], [Type QualifiedName])] -> Check [Kind]
 kindsOfAll [] tys = fmap appSubs . liftUnify $ do
   consK <- replicateM (length tys) fresh
   let tyDict = zipWith (\(tyNm, _, _) kVar -> (tyNm, kVar)) tys consK
@@ -65,7 +65,7 @@ kindsOfAll [] tys = fmap appSubs . liftUnify $ do
         starIfUnknown (KFn f a)    = KFn (starIfUnknown f) (starIfUnknown a)
         starIfUnknown Star         = Star
 
-solveDataType :: [Type Name] -> [Kind] -> Kind -> UnifyT Kind Check Kind
+solveDataType :: [Type QualifiedName] -> [Kind] -> Kind -> UnifyT Kind Check Kind
 solveDataType ts kargs tyCon = do
   ks <- mapM infer ts -- type is a `ap` b
   tyCon =?=  foldr KFn Star kargs
@@ -75,7 +75,7 @@ solveDataType ts kargs tyCon = do
 
   return tyCon
 
-infer :: Type Name -> UnifyT Kind Check Kind
+infer :: Type QualifiedName -> UnifyT Kind Check Kind
 infer (TVar v) =
   UnifyT . lift $ lookupTypeVariable v
 infer (TAp f a) = do

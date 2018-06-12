@@ -4,7 +4,7 @@ module Main where
 
 import Ill.Parser as Parser
 import Ill.Syntax.Pretty
-import Ill.Syntax (Module(..))
+import Ill.Syntax (Module, Module'(..), moduleApply)
 import Ill.Parser.Lexer (SourceSpan)
 
 import qualified Data.Text.Lazy.IO as T (putStrLn)
@@ -17,9 +17,14 @@ import CoreDebug
 import CodegenDebug
 import Compile
 import Ill.Options
+import Ill.Renamer
+import Ill.BindingGroup
+import Ill.Error
+import Ill.Syntax.Name (QualifiedName)
 
 import Options.Applicative.Simple
 import Data.Void
+import Data.Functor
 import qualified System.Console.Terminal.Size as Terminal
 
 import Paths_ill
@@ -71,21 +76,39 @@ options = do
       compileC (Compile <$> fileArg <*> outputFileArg <*> (flag False True $ long "emit-llvm"))
 
 codegenC (Codegen f toPrint)            = commandWrapper f (codegen toPrint)
-format   (Format f)                     = commandWrapper f (\gOpts -> T.putStrLn . renderIll (renderArgs gOpts) . pretty)
 inferC   (Infer f)                      = commandWrapper f (infer)
 run      (Run f)                        = commandWrapper f (runInterpreter)
 core     (Core f filter lint)           = commandWrapper f (coreDebug filter lint)
 desugarC (Desugar s f)                  = commandWrapper f (desugar s)
 compileC (Compile file oFile emitLlvm)  = commandWrapper file (compile oFile emitLlvm)
+format   (Format file) gOpts _          = do
+  stream <- T.readFile file
+  let parsed = runParser illParser (file) stream
 
-commandWrapper :: FilePath -> (GlobalOptions -> Module SourceSpan -> IO ()) -> GlobalOptions -> Either (Parser.ParseError Char Void) (Module SourceSpan) -> IO ()
+  case parsed of
+    Left err -> putStrLn $ parseErrorPretty' stream err
+    Right mod -> T.putStrLn . renderIll (renderArgs gOpts) $ pretty mod
+
+commandWrapper :: FilePath
+  -> (GlobalOptions -> RenamedModule SourceSpan -> IO ())
+  -> GlobalOptions
+  -> Either (Parser.ParseError Char Void) (Module String SourceSpan)
+  -> IO ()
 commandWrapper file com gOpts parsedPrelude = do
   stream <- T.readFile file
   let parsed = runParser illParser (file) stream
   let joined = (,) <$> parsedPrelude <*> parsed
   case joined of
     Left err -> putStrLn $ parseErrorPretty' stream err
-    Right (prelude, ast) -> com gOpts (mergeModules prelude ast)
+    Right (prelude, ast) -> do
+      let
+        mod' = bindingGroups prelude >>= runRenamer >>= \(prelude', state) -> do
+          (ast', _) <- bindingGroups ast >>= renameModule' state
+          return $ (prelude' <&> (<>)) `moduleApply` ast'
+
+      case mod' of
+        Left err -> T.putStrLn $ renderIll (renderArgs gOpts) (prettyError err)
+        Right m -> com gOpts m
 
 main :: IO ()
 main = do

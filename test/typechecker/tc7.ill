@@ -8,11 +8,11 @@ module TC7
   end
 
   trait MultSemigroup a
-    g :: a -> a
+    h :: a -> a
   end
 
   impl MultSemigroup a
-    fn g (x) x end
+    fn h (x) x end
   end
 
   fn fact(0)

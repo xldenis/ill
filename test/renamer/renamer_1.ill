@@ -1,0 +1,5 @@
+module Renamer1
+  trait Missing a | Trait a
+    method :: a -> a
+  end
+end

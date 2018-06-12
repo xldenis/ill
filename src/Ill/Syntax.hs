@@ -11,6 +11,7 @@ module Ill.Syntax
 , Cofree(..)
 , pretty
 , extract
+, unwrap
 ) where
 
 import           Ill.Prelude
@@ -34,61 +35,69 @@ import           Text.Megaparsec (SourcePos(..), unPos)
 import           Data.Bifunctor
 import           Data.Bifoldable
 import           Data.Bitraversable
+import           Data.Functor.Apply
 
 type Prefix = String
 
-type Qualified = Bool
+type IsQualified = Bool
 
 type Alias = Maybe String
 
-data Module a = Module
+data Module' decl = Module
   { moduleName :: Name
-  , moduleDecls :: [Decl a]
-  }
+  , moduleDecls :: decl
+  } deriving (Show, Functor)
 
-deriving instance Show a => Show (Module a)
-deriving instance Eq a => Eq (Module a)
+-- type ParsedModule = Module (Decl Name SourceSpan)
+type Module nm a = Module' [Decl nm a]
 
-data Declaration a b
+deriving instance (Eq nm, Eq a) => Eq (Module nm a)
+
+instance Apply Module' where
+  (<.>) = moduleApply
+
+moduleApply (Module nm f) (Module _ decl) = Module nm (f decl)
+
+data Declaration nm a b
   = Data
-    { declName :: Name
-    , dataVars :: [Name]
-    , dataConstructors :: [Type Name]
+    { declName :: nm
+    , dataVars :: [nm]
+    , dataConstructors :: [Type nm]
     }
   | TypeSynonym
-    { declName :: Name
-    , dataVars :: [Name]
+    { declName :: nm
+    , dataVars :: [nm]
     , aliasType :: (Type Name)
     }
   | Value
-    { declName :: Name
-    , declEqns :: [(Patterns a, Expr a)]
+    { declName :: nm
+    , declEqns :: [(Patterns nm a, Expr' nm a)]
     }
   | Signature
-    { declName :: Name
-    , declType :: (Type Name)
+    { declName :: nm
+    , declType :: (Type nm)
     }
   | Import
-    { importQualified :: Qualified
+    { importQualified :: IsQualified
     , importMask :: Masks
     , importName :: Name
     , importAlias :: Alias
     }
   | TraitDecl
-    { traitSuperclasses ::[Constraint Name]
-    , traitName  :: Name
-    , traitVar  :: Name
+    { traitSuperclasses ::[Constraint nm]
+    , traitName  :: nm
+    , traitVar  :: nm
     , traitValues :: [b]
     }
   | TraitImpl
-    { traitSuperclasses :: [Constraint Name]
-    , traitName :: Name
-    , traitType :: (Type Name)
+    { traitSuperclasses :: [Constraint nm]
+    , traitName :: nm
+    , traitType :: (Type nm)
     , traitValues :: [b]
     }
   deriving (Eq, Functor, Show, Traversable, Foldable, Generic1)
 
-type Decl a = Cofree (Declaration a) a
+type Decl nm a = Cofree (Declaration nm a) a
 
 data Masks
   = Hiding [Name]
@@ -99,14 +108,14 @@ data Masks
 makePrisms ''Declaration
 
 
-instance Eq a => Eq1 (Declaration a) where
+instance (Eq nm, Eq a) => Eq1 (Declaration nm a) where
   liftEq = liftEqDefault
 
-instance Show a => Show1 (Declaration a) where
+instance (Show nm, Show a) => Show1 (Declaration nm a) where
   liftShowsPrec = liftShowsPrecDefault
 
-instance Bifunctor Declaration where
-  bimap :: forall a b c d. (a -> b) -> (c -> d) -> Declaration a c -> Declaration b d
+instance Bifunctor (Declaration nm) where
+  bimap :: forall a b c d. (a -> b) -> (c -> d) -> Declaration nm a c -> Declaration nm b d
   bimap l r (Data n nms tys) = Data n nms tys
   bimap l r (TypeSynonym n nms ty) = TypeSynonym n nms ty
   bimap l r (Value n brs) = Value n $ map helper brs
@@ -116,14 +125,14 @@ instance Bifunctor Declaration where
   bimap l r (TraitDecl cs n nms bs) = TraitDecl cs n nms (map r bs)
   bimap l r (TraitImpl cs n tys bs) = TraitImpl cs n tys (map r bs)
 
-instance Bifoldable Declaration where
+instance Bifoldable (Declaration nm) where
   bifoldMap l r (Value n brs) = foldMap helper brs
     where
     helper (pats, expr) = foldMap (foldMap l) pats `mappend` foldMap l expr
   bifoldMap l r val = bifoldMapDefault l r val
 
-instance Bitraversable Declaration where
-  bitraverse :: forall f a b c d. Applicative f => (a -> f c) -> (b -> f d) -> Declaration a b -> f (Declaration c d)
+instance Bitraversable (Declaration nm) where
+  bitraverse :: forall f a b c d. Applicative f => (a -> f c) -> (b -> f d) -> Declaration nm a b -> f (Declaration nm c d)
   bitraverse l _ (Value n brs) = Value n <$> traverse helper brs
     where helper (pats, exp) = (,) <$> (traverse (traverse l) pats) <*> (hoistAppToCofree l exp)
   bitraverse _ _ (Data n nms tys) = pure $ Data n nms tys
@@ -155,7 +164,7 @@ pattern Ann x y = TyAnn (Just x) (Type y Nothing)
 pattern SynAnn y = TyAnn Nothing (Type y Nothing)
 
 data TypeAnn
-  = Type { polyTy :: Type Name, instTy :: Maybe (Type Name) }
+  = Type { polyTy :: Type QualifiedName, instTy :: Maybe (Type QualifiedName) }
   | Kind Kind
   | None
   deriving (Show, Eq)
@@ -168,25 +177,25 @@ instance Pretty TypeAnn where
   pretty (None)  = mempty
 
 -- Spooky partial function. Use only when invariant holds
-fromType :: TypeAnn -> Type Name
+fromType :: TypeAnn -> Type QualifiedName
 fromType (Type t _) = t
 fromType _ = error "impossible expression has non-type annotation"
 
-fromTyAnn :: TypedAnn -> Type Name
+fromTyAnn :: TypedAnn -> Type QualifiedName
 fromTyAnn = fromType . ty
 
-typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
+typeOf :: Functor f => Cofree f TypedAnn -> (Type QualifiedName)
 typeOf c =  fromMaybe (polyTy $ fromTy c) (instTy $ fromTy c)
   where fromTy = ty . extract
 
-polyTyOf :: Functor f => Cofree f TypedAnn -> (Type Name)
+polyTyOf :: Functor f => Cofree f TypedAnn -> (Type QualifiedName)
 polyTyOf = polyTy . ty . extract
 
 
-instTyOf :: Functor f => Cofree f TypedAnn -> Maybe (Type Name)
+instTyOf :: Functor f => Cofree f TypedAnn -> Maybe (Type QualifiedName)
 instTyOf = instTy . ty . extract
 
-getAnnSubst :: TypedAnn -> [(Name, Type Name)]
+getAnnSubst :: TypedAnn -> [(QualifiedName, Type QualifiedName)]
 getAnnSubst t = subst
   where
   subst = case join $ subsume <$> (pure . unForall . polyTy $ ty t) <*> (instTy $ ty t) of
@@ -199,26 +208,26 @@ getAnnSubst t = subst
   unForall (Forall _ t) = t
   unForall t = t
 
-valueName :: Decl a -> Name
+valueName :: Decl nm a -> nm
 valueName (_ :< Value n _) = n
 
-isValue :: Decl a -> Bool
+isValue :: Decl nm a -> Bool
 isValue (_ :< Value _ _) = True
 isValue _ = False
 
-isDataDecl :: Decl a -> Bool
+isDataDecl :: Decl nm a -> Bool
 isDataDecl (_ :< Data _ _ _) = True
 isDataDecl _ = False
 
-isSignature :: Decl a -> Bool
+isSignature :: Decl nm a -> Bool
 isSignature (_ :< Signature _ _) = True
 isSignature _ = False
 
-isImpl :: Decl a -> Bool
+isImpl :: Decl nm a -> Bool
 isImpl (_ :< TraitImpl _ _ _ _) = True
 isImpl _ = False
 
-isDecl :: Decl a -> Bool
+isDecl :: Decl nm a -> Bool
 isDecl (_ :< TraitDecl _ _ _ _) = True
 isDecl _ = False
 
@@ -235,12 +244,12 @@ lookupFn n (Module _ ds) = find pred ds
   where pred (_ :< Value name _) = n == name
         pred _                   = False
 
-instance Pretty (Module a) where
+instance (Pretty (Type nm), Pretty nm) => Pretty (Module nm a) where
   pretty (Module name decls) = nest 2 (pretty "module" <+> pretty name `above`
     vsep (intersperse mempty (map pretty decls))) `above`
     pretty "end"
 
-instance Pretty1 (Declaration a) where
+instance (Pretty (Type nm), Pretty nm) => Pretty1 (Declaration nm a) where
   liftPretty pretty' (Data name vars cons) = pretty "data" <+> pretty name <+> hsep' (map pretty vars) <> pretty '=' <+> alternative (map pretty cons)
     where alternative = encloseSep mempty mempty (pretty " | ")
           hsep' [] = mempty

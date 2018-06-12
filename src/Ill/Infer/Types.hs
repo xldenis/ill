@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, ScopedTypeVariables #-}
 module Ill.Infer.Types
 ( infer
 , check
@@ -22,14 +22,16 @@ import           Ill.Infer.Monad
 import           Ill.Syntax hiding (typeOf)
 import           Ill.Parser.Lexer    (SourceSpan (..))
 
-typeOf :: Functor f => Cofree f TypedAnn -> (Type Name)
+import Debug.Trace
+
+typeOf :: Functor f => Cofree f TypedAnn -> (Type QualifiedName)
 typeOf c =  fromMaybe (polyTy $ fromTy c) (instTy $ fromTy c)
   where fromTy = ty . extract
 
-infer :: Expr SourceSpan -> WriterT [Constraint Name] (UnifyT (Type Name) Check) (Expr TypedAnn)
+infer :: Expr' QualifiedName SourceSpan -> WriterT [Constraint QualifiedName] (UnifyT (Type QualifiedName) Check) (Expr' QualifiedName TypedAnn)
 infer exp = rethrow (ErrorInExpression exp) (infer' exp)
 
-infer' :: Expr SourceSpan -> WriterT [Constraint Name] (UnifyT (Type Name) Check) (Expr TypedAnn)
+infer' :: Expr' QualifiedName SourceSpan -> WriterT [Constraint QualifiedName] (UnifyT (Type QualifiedName) Check) (Expr' QualifiedName TypedAnn)
 infer' (a :< Apply l args) = do
   retTy <- lift fresh
   f' <- infer l
@@ -107,10 +109,10 @@ infer' (a :< Literal l) = do
   let ty = litType l
   return $ Ann a ty :< Literal l
 
-check :: Type Name -> Expr SourceSpan -> WriterT [Constraint Name] (UnifyT (Type Name) Check) (Expr TypedAnn)
+check :: Type QualifiedName -> Expr' QualifiedName SourceSpan -> WriterT [Constraint QualifiedName] (UnifyT (Type QualifiedName) Check) (Expr' QualifiedName TypedAnn)
 check ty exp = rethrow (ErrorInExpression exp) $ check' ty exp
 
-check' :: Type Name -> Expr SourceSpan -> WriterT [Constraint Name] (UnifyT (Type Name) Check) (Expr TypedAnn)
+check' :: Type QualifiedName -> Expr' QualifiedName SourceSpan -> WriterT [Constraint QualifiedName] (UnifyT (Type QualifiedName) Check) (Expr' QualifiedName TypedAnn)
 check' expected (a :< If cond l r) = do
   cond' <- check tBool cond
   left' <- check expected l
@@ -160,7 +162,7 @@ check' expected (a :< Apply f args) = do
   let fTy' = subst $? fTy
 
   let (conses, ty')  = unconstrained fTy'
-      unwrapped = unwrapN (length args) ty'
+      unwrapped = unwrapN (length args) (ty' :: Type QualifiedName)
       argTys    = init unwrapped
       retTy     = last unwrapped
 
@@ -209,10 +211,10 @@ instance Partial (Type a) where
   ($?) sub (Forall vars ty)  = Forall vars $ sub $? ty
   ($?) sub other             = other
 
-instance UnificationError (Type Name) CheckError where
+instance UnificationError (Type QualifiedName) CheckError where
   occursCheckFailed t = TypeOccursError t
 
-instance Unifiable Check (Type Name) where
+instance Unifiable Check (Type QualifiedName) where
   (=?=) = unifyTypes
 
 unifyTypes (TUnknown u1) (TUnknown u2) | u1 == u2 = return ()
@@ -235,7 +237,7 @@ unifyTypes f@(Forall{}) ty = do
 unifyTypes ty t@(Forall{}) = unifyTypes t ty
 unifyTypes t1 t2 = throwError $ UnificationError t1 t2
 
-constrainedUnification :: Type Name -> Type Name -> WriterT [Constraint Name] (UnifyT (Type Name) Check) ()
+constrainedUnification :: Type QualifiedName -> Type QualifiedName -> WriterT [Constraint QualifiedName] (UnifyT (Type QualifiedName) Check) ()
 constrainedUnification t1 t2 = do
   let
     (cons1, t1') = unconstrained t1
@@ -247,15 +249,15 @@ constrainedUnification t1 t2 = do
 
 a =??= b = constrainedUnification a b
 
-type Alt a = (Patterns a, Expr a)
+type Alt a = (Patterns QualifiedName a, Expr a)
 
-inferPats :: [(Type Name, Pat SourceSpan)] -> UnifyT (Type Name) Check ([(Name, Type Name)], Patterns TypedAnn)
+inferPats :: [(Type QualifiedName, Pat' QualifiedName SourceSpan)] -> UnifyT (Type QualifiedName) Check ([(QualifiedName, Type QualifiedName)], Patterns QualifiedName TypedAnn)
 inferPats pats = (first concat . unzip) <$> mapM (uncurry inferPat) pats
 
-inferPat :: Type Name -> Pat SourceSpan -> UnifyT (Type Name) Check ([(Name, Type Name)], Pat TypedAnn)
+inferPat :: Type QualifiedName -> Pat' QualifiedName SourceSpan -> UnifyT (Type QualifiedName) Check ([(QualifiedName, Type QualifiedName)], Pat' QualifiedName TypedAnn)
 inferPat ty pat = rethrow (ErrorInPattern pat) (inferPat' ty pat)
 
-inferPat' :: Type Name -> Pat SourceSpan -> UnifyT (Type Name) Check ([(Name, Type Name)], Pat TypedAnn)
+inferPat' :: Type QualifiedName -> Pat' QualifiedName SourceSpan -> UnifyT (Type QualifiedName) Check ([(QualifiedName, Type QualifiedName)], Pat' QualifiedName TypedAnn)
 inferPat' ty (a :< PVar n) = do
   f <- fresh
   ty =?= f
@@ -267,9 +269,9 @@ inferPat' ty (a :< Destructor n pats) = do
 
   return (dict, Ann a freshened :< Destructor n subPats)
   where
-  go :: [Pat SourceSpan] -> Type Name -> UnifyT (Type Name) Check ([(Name, Type Name)], Patterns TypedAnn)
+  go :: [Pat' QualifiedName SourceSpan] -> Type QualifiedName -> UnifyT (Type QualifiedName) Check ([(QualifiedName, Type QualifiedName)], Patterns QualifiedName TypedAnn)
   go [] ty' = ty =?= ty' *> pure ([], [])
-  go (pat : pats) (TAp (TAp f a) b) | f == tArrow = rethrow (ErrorInPattern pat) $ do
+  go (pat : pats) (TAp (TAp f a@ArrowConstructor) b) = rethrow (ErrorInPattern pat) $ do
     (n1, p1) <- inferPat a pat
     (n2, p2) <- go pats b
     pure (n1 ++ n2, p1 : p2)
@@ -285,7 +287,7 @@ inferPat' ty (a :< PLit lit) = do
 inferPat' ty (a :< Wildcard) = do
   return ([], Ann a ty :< Wildcard)
 
-instantiate :: Type Name -> UnifyT (Type Name) Check (Type Name)
+instantiate :: Type QualifiedName -> UnifyT (Type QualifiedName) Check (Type QualifiedName)
 instantiate (Forall vars ty) = do
   replacements <- forM vars $ \var -> (,) <$> pure var <*> fresh
   return $ replaceTypeVars replacements ty

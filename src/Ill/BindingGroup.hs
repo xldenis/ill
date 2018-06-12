@@ -14,21 +14,30 @@ import           Data.Set                  (Set, insert, notMember, singleton)
 import           Data.Graph
 import           Data.List                 (intersect, groupBy, sortOn)
 
-type Ident = String
+type ModuleBG nm a = Module' (BoundModules nm a)
 
-data BindingGroup a
-  = ValueBG  [Decl a]
-  | DataBG   [Decl a]
-  | OtherBG  (Decl a)
+data BindingGroup nm a
+  = ValueBG  [Decl nm a]
+  | DataBG   [Decl nm a]
+  | OtherBG  (Decl nm a)
   deriving (Show, Eq)
 
-data BoundModules a = BoundModules
-  { classDecls :: [BindingGroup a]
-  , instDecls  :: [BindingGroup a]
-  , valueDecls :: [BindingGroup a]
-  , otherDecls :: [BindingGroup a]
-  , dataDecls  :: [BindingGroup a]
+data BoundModules nm a = BoundModules
+  { classDecls :: [BindingGroup nm a]
+  , instDecls  :: [BindingGroup nm a]
+  , valueDecls :: [BindingGroup nm a]
+  , otherDecls :: [BindingGroup nm a]
+  , dataDecls  :: [BindingGroup nm a]
   } deriving (Show, Eq)
+
+instance Semigroup (BoundModules nm a) where
+  mod1 <> mod2 = BoundModules
+    { classDecls = classDecls mod1 <> classDecls mod2
+    , instDecls = instDecls mod1 <> instDecls mod2
+    , valueDecls = valueDecls mod1 <> valueDecls mod2
+    , otherDecls = otherDecls mod1 <> otherDecls mod2
+    , dataDecls = dataDecls mod1 <> dataDecls mod2
+    }
 
 bgNames (ValueBG ds) = map valueName ds
   where
@@ -41,15 +50,15 @@ bgNames (DataBG  ds) = map dataName ds
 
 bgNames (OtherBG d) = []
 
-fromBindingGroups :: [BindingGroup a] -> [Decl a]
+fromBindingGroups :: [BindingGroup nm a] -> [Decl nm a]
 fromBindingGroups bgs = fromBG =<< bgs
   where
   fromBG (ValueBG ds) = ds
   fromBG (DataBG  ds) = ds
   fromBG (OtherBG d) = pure d
 
-bindingGroups :: MonadError (Ill.Error b) m => [Decl a] -> m (BoundModules a)
-bindingGroups ds = do
+bindingGroups :: (MonadError (Ill.Error b) m) => Module Name a -> m (Module' (BoundModules Name a))
+bindingGroups (Module nm ds) = do
   let dataDecls = filter isDataDecl ds
       valueDecls = filter isValue ds ++ filter isSignature ds
       dataBGs = dataBindingGroups dataDecls
@@ -59,21 +68,31 @@ bindingGroups ds = do
       traitName (OtherBG (_  :< TraitImpl _ n _ _)) = n
 
   instBGs <- sortedInstances (filter isDecl ds) (filter isImpl ds)
-
-  return $ BoundModules
+  declBGs <- sortedClassDeclarations (filter isDecl ds)
+  return . Module nm $ BoundModules
     { dataDecls = dataBGs
     , instDecls = instBGs
-    , classDecls = map OtherBG (filter isDecl ds)
+    , classDecls = declBGs
     , valueDecls = valueBGs
     , otherDecls = others
     }
 
-sccToDecl :: SCC (Decl a) -> [Decl a]
+sccToDecl :: SCC (Decl Name a) -> [Decl Name a]
 sccToDecl (AcyclicSCC d)  = [d]
 sccToDecl (CyclicSCC [d]) = [d]
 sccToDecl (CyclicSCC ds)  = ds
 
-sortedInstances :: MonadError (Ill.Error b) m => [Decl a] -> [Decl a] -> m [BindingGroup a]
+sortedClassDeclarations :: (MonadError (Ill.Error b) m) => [Decl Name a] -> m [BindingGroup Name a]
+sortedClassDeclarations decls = let
+  graphNode v = (v, traitName $ unwrap v, supers v)
+  graphList = map graphNode decls
+  supers (_ :< d@TraitDecl{}) = map fst (traitSuperclasses d)
+  in mapM checkDag (stronglyConnComp graphList)
+  where
+  checkDag (AcyclicSCC d)  = return $ OtherBG d
+  checkDag (CyclicSCC [d]) = return $ OtherBG d
+
+sortedInstances :: (MonadError (Ill.Error b) m) => [Decl Name a] -> [Decl Name a] -> m [BindingGroup Name a]
 sortedInstances decls impls = let
   groupedByTrait = map (\x -> (traitName $ head x, x)) $ groupBy (\x y -> traitName x == traitName y)  (sortOn traitName impls)
 
@@ -94,9 +113,8 @@ sortedInstances decls impls = let
     , errHints = []
     }
 
-
 -- Check for type synonym cycles in SCC
-dataBindingGroups :: [Decl a] -> [BindingGroup a]
+dataBindingGroups :: [Decl Name a] -> [BindingGroup Name a]
 dataBindingGroups ds = let
   dataDecls = filter isDataDecl ds
   allDataDecls = map dataName dataDecls
@@ -105,10 +123,10 @@ dataBindingGroups ds = let
   in map (DataBG . sccToDecl) (stronglyConnComp graphList)
   where dataName (_ :< Data n _ _) = n
 
-dataUsedNames :: Decl a -> [Ident]
+dataUsedNames :: Decl Name a -> [Name]
 dataUsedNames (_ :< Data n _ cons) = n : (cons >>= typeUsedName)
 
-typeUsedName :: Type Ident -> [Ident]
+typeUsedName :: Type nm -> [nm]
 typeUsedName (TVar _)         = []
 typeUsedName (TAp l r)        = typeUsedName l ++ typeUsedName r
 typeUsedName (TConstructor t) = [t]
@@ -116,19 +134,22 @@ typeUsedName (Arrow l r)      = typeUsedName l ++ typeUsedName r
 typeUsedName _                = [] -- incorrect handling of constaints for now
 
 -- todo intersect w names from module
-valueBindingGroups :: [Decl a] -> [BindingGroup a]
+valueBindingGroups :: [Decl Name a] -> [BindingGroup Name a]
 valueBindingGroups values = let
   -- values = filter isValue ds
   graphList = map graphNode values
   graphNode v = (v, valueName v, (signatureName $ valueName v) : valueUsedName v `intersect` allValues)
   allValues = map valueName values
   in map (ValueBG . sccToDecl) (stronglyConnComp graphList)
-  where valueName (_ :< Value n _) = n
-        valueName (_ :< Signature n _) = signatureName n
-        valueBody (Value _ v) = v
-        signatureName n = n ++ "_sig"
+  where
+  valueName :: Decl Name a -> Name
+  valueName (_ :< Value n _) = n
+  valueName (_ :< Signature n _) = signatureName n
+  valueBody (Value _ v) = v
 
-valueUsedName :: Decl a -> [Ident]
+  signatureName n = (++ "_sig") n
+
+valueUsedName :: Decl Name a -> [Name]
 valueUsedName (_ :< Value n alts) = let
   s = singleton n
   f pats ex' = let
@@ -137,7 +158,7 @@ valueUsedName (_ :< Value n alts) = let
   in concatMap (uncurry f) alts
 valueUsedName (_ :< Signature n _) = [n]
 
-expUsedName :: Set Ident -> Expr a -> (Set Ident, [Ident])
+expUsedName :: Set Name -> Expr' Name a -> (Set Name, [Name])
 expUsedName s (_ :< Apply a bs) = let
   aNms = getUsedNames s a
   bNms = concatMap (getUsedNames s) bs
@@ -172,10 +193,10 @@ expUsedName s (_ :< Body es) =
   in (s, bNms)
 expUsedName s _ = (s, [])
 
-getUsedNames :: Set Ident -> Expr a -> [Ident]
+getUsedNames :: Set Name -> Expr' Name a -> [Name]
 getUsedNames s e = snd $ expUsedName s e
 
-patUsedName :: Set Ident -> Pat a -> (Set Ident, [Ident])
+patUsedName :: Set Name -> Pat' Name a -> (Set Name, [Name])
 patUsedName s (_ :< Destructor _ pats) = (foldl (\s' p -> fst $ patUsedName s' p) s pats, [])
 patUsedName s (_ :< PVar nm) = (nm `insert` s, [])
 patUsedName s (_ :< PLit _) = (s, [])

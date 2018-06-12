@@ -7,6 +7,7 @@ import Ill.Syntax.Pretty
 import Data.Data
 
 import Ill.Syntax.Type
+import Ill.Syntax.Name
 
 data Literal
   = RawString String
@@ -21,6 +22,7 @@ instance Pretty Literal where
   pretty (Integer x) = pretty x
   pretty (Double x) = pretty x
 
+litType :: Literal -> Type QualifiedName
 litType (RawString _) = tString
 litType (EscString _) = tString
 litType (Integer _ )  = tInteger

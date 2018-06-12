@@ -17,9 +17,9 @@ type Thunk = () -> IO Value
 data Value
   = VLit Literal
   | VClosure (Thunk -> IO Value)
-  | VConstructed String [IORef Thunk]
+  | VConstructed QualifiedName [IORef Thunk]
   | VPrimop String Int ([Value] -> Value)
-  | VConstructor String Int
+  | VConstructor QualifiedName Int
 
 showish (VLit lit) = pretty lit
 showish (VClosure _) = pretty "<<closure>>"
@@ -44,9 +44,9 @@ force ref = do
   update ref v
   return v
 
-data Env = Env { names :: [(Name, IORef Thunk)], constructors :: [(Name, Int)] }
+data Env = Env { names :: [(QualifiedName, IORef Thunk)], constructors :: [(QualifiedName, Int)] }
 
-mkEnvForModule :: [(Name, Int)] -> [Bind Var] -> IO Env
+mkEnvForModule :: [(QualifiedName, Int)] -> [Bind Var] -> IO Env
 mkEnvForModule cons funcs = do
   thunks <- replicateM (length funcs) (newIORef $ error "error setting up interpreter context")
   let funcs' = map (\(NonRec var exp) -> (name var, exp)) funcs
@@ -130,10 +130,10 @@ primops =
   liftBinDouble _ args = error . show $ pretty "ruh roh spaghettioes" <+> hsep (map showish args)
 
   liftCmp b = case b of
-    True -> VConstructed "True" []
-    False -> VConstructed "False" []
+    True  -> VConstructed (Qualified "Prelude" "True")  []
+    False -> VConstructed (Qualified "Prelude" "False") []
 
-mkThunk :: Env -> Name -> CoreExp -> (Thunk -> IO Value)
+mkThunk :: Env -> QualifiedName -> CoreExp -> (Thunk -> IO Value)
 mkThunk env nm exp = \thunk -> do
   thunk' <- newIORef thunk
 
@@ -142,7 +142,7 @@ mkThunk env nm exp = \thunk -> do
 eval :: Env -> CoreExp -> IO Value
 eval env (Var v) =
   case lookupVar <|> lookupConstructor <|> lookupPrimOp of
-    Nothing -> error $ "failed to lookup " ++ n
+    Nothing -> error $ "failed to lookup " ++ (qualName n)
     Just x -> x
   where
   n = varName v
@@ -150,7 +150,7 @@ eval env (Var v) =
   lookupConstructor = n `lookup` (env & constructors) >>= \arity -> case arity of
     0 -> return . return $ VConstructed n []
     arity -> return . return $ VConstructor n arity
-  lookupPrimOp = n `lookup` primops >>= \(arity, f) -> (return . return $ VPrimop n arity f)
+  lookupPrimOp = (qualName n) `lookup` primops >>= \(arity, f) -> (return . return $ VPrimop (qualName n) arity f)
 eval env (Lambda (TyVar{}) exp) = eval env exp
 eval env (Lambda n exp) = return $ VClosure (mkThunk env (name n) exp)
 eval env (Lit lit) = return $ VLit lit

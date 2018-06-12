@@ -6,13 +6,15 @@ module Ill.Prelude
 , module Control.Applicative
 , module Data.Functor.Classes.Generic
 , module Data.Functor.Classes
-, module GHC.Generics
+, Generic
+, Generic1
 , isJust
 , maybeToList
 , fromMaybe
 , catMaybes
 , fromJust
 , intercalate, (\\), intersperse, sortOn, nub, find, intersect
+, fromString
 )
 where
 
@@ -24,6 +26,7 @@ import Control.Monad
 import Control.Applicative
 import Data.Maybe
 import Data.List
+import Data.String
 
 import Data.Functor.Classes
 import Data.Functor.Classes.Generic

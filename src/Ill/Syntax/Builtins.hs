@@ -1,22 +1,30 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Ill.Syntax.Builtins where
 
 import Ill.Syntax.Type
+import Ill.Syntax.Name
 import Ill.Prelude
+import Data.String (IsString)
 
-builtins = primitives ++
-  [ ("==", generalize $ constrain [("Eq", TVar "a")]   $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , ("<=", generalize $ constrain [("Ord", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , (">=", generalize $ constrain [("Ord", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , ("<",  generalize $ constrain [("Ord", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , (">",  generalize $ constrain [("Ord", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` tBool)
-  , ("+",  generalize $ constrain [("Semigroup", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
-  , ("-",  generalize $ constrain [("Group", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
-  , ("*",  generalize $ constrain [("MultSemigroup", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
-  , ("/",  generalize $ constrain [("MultGroup", TVar "a")] $ TVar "a" `tFn` TVar "a" `tFn` TVar "a")
-  , ("failedPattern", generalize $ TVar "a")
+builtins :: [(QualifiedName, Type QualifiedName)]
+builtins = primitives ++ map (\(nm, ty) -> (Qualified "Prelude" nm, ty))
+  [ ("==", generalize $ constrain [(prelude "Eq",  tVarA)] $ tVarA `tFn` tVarA `tFn` tBool)
+  , ("<=", generalize $ constrain [(prelude "Ord", tVarA)] $ tVarA `tFn` tVarA `tFn` tBool)
+  , (">=", generalize $ constrain [(prelude "Ord", tVarA)] $ tVarA `tFn` tVarA `tFn` tBool)
+  , ("<",  generalize $ constrain [(prelude "Ord", tVarA)] $ tVarA `tFn` tVarA `tFn` tBool)
+  , (">",  generalize $ constrain [(prelude "Ord", tVarA)] $ tVarA `tFn` tVarA `tFn` tBool)
+  , ("+",  generalize $ constrain [(prelude "Semigroup",     tVarA)] $ tVarA `tFn` tVarA `tFn` tVarA)
+  , ("-",  generalize $ constrain [(prelude "Group",         tVarA)] $ tVarA `tFn` tVarA `tFn` tVarA)
+  , ("*",  generalize $ constrain [(prelude "MultSemigroup", tVarA)] $ tVarA `tFn` tVarA `tFn` tVarA)
+  , ("/",  generalize $ constrain [(prelude "MultGroup",     tVarA)] $ tVarA `tFn` tVarA `tFn` tVarA)
+  , ("failedPattern", generalize $ tVarA)
   ]
+  where
+  prelude nm = Qualified "Prelude" nm
+  tVarA = TVar $ Internal "a"
 
-primitives =
+primitives :: [(QualifiedName, Type QualifiedName)]
+primitives = map (\(nm, ty) -> (Qualified "Prelude" nm, ty))
   [ ("plusInt",       tInteger `tFn` tInteger `tFn` tInteger)
   , ("minusInt",      tInteger `tFn` tInteger `tFn` tInteger)
   , ("multInt",       tInteger `tFn` tInteger `tFn` tInteger)

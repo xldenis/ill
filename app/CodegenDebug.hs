@@ -15,6 +15,7 @@ import Ill.Syntax.Core
 import Ill.Syntax.Pretty
 
 import Ill.Codegen
+import Ill.Renamer
 
 import Prelude hiding (putStrLn, putStr)
 
@@ -28,7 +29,7 @@ import LLVM.PassManager
 
 import Paths_ill
 
-codegen toPrint gOpts ast = case typeCheckModule ast of
+codegen toPrint gOpts ast = case (typeCheckModule) ast of
   Left err -> putStrLn $ render gOpts (prettyError err)
   Right (mod, env) -> do
     let desugared = defaultPipeline env mod

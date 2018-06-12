@@ -5,6 +5,7 @@ import           Ill.BindingGroup
 import           Ill.CoreLint
 import           Ill.Desugar
 import           Ill.Options
+import           Ill.Renamer
 
 import           Ill.Infer
 import           Ill.Infer.Monad
@@ -38,8 +39,8 @@ import           Paths_ill
 import           System.IO.Temp
 import           System.Process
 
-compile :: Maybe String -> Bool -> GlobalOptions -> S.Module SourceSpan -> IO ()
-compile outputFile emitLlvm gOpts ast = case typeCheckModule ast of
+compile :: Maybe String -> Bool -> GlobalOptions -> RenamedModule SourceSpan -> IO ()
+compile outputFile emitLlvm gOpts ast = case (typeCheckModule) ast of
   Left err -> putStrLn . render gOpts $ prettyError err
   Right (mod, env) -> do
     let desugared = defaultPipeline env mod

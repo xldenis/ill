@@ -27,7 +27,7 @@ data Core n
   | Case (Core n) [Alt n]
   | Var Var
   | Let (Bind n) (Core n)
-  | Type (Type Name)
+  | Type (Type QualifiedName)
   | Lit Literal
   deriving (Show, Eq, Functor, Applicative, Foldable, Traversable, Data)
 
@@ -41,10 +41,10 @@ unwrapLambda e                 = (e, [])
 -- These are convenience classes for when a specific constraint is wanted
 -- TODO: either expand their use or scrap them altogether
 class HasName n where
-  name :: n -> Id
+  name :: n -> QualifiedName
 
 class HasType n where
-  getTy :: n -> Type Name
+  getTy :: n -> Type QualifiedName
 
 instance HasType Var where
   getTy = idTy
@@ -53,8 +53,8 @@ instance HasName Var where
   name = varName
 
 data Var
-  = TyVar { varName :: Id, kind :: Kind }
-  | Id { varName :: Id, idTy :: Type Name, usage :: Usage }
+  = TyVar { varName :: QualifiedName, kind :: Kind }
+  | Id { varName :: QualifiedName, idTy :: Type QualifiedName, usage :: Usage }
   deriving (Show, Eq, Data)
 
 data Usage
@@ -63,7 +63,7 @@ data Usage
   deriving (Show, Eq, Data)
 
 data Alt b
-  = ConAlt Id [b] (Core b)
+  = ConAlt QualifiedName [b] (Core b)
   | TrivialAlt (Core b)
   | LitAlt Literal (Core b)
   deriving (Show, Eq, Functor, Applicative, Foldable, Traversable, Data)
@@ -86,13 +86,14 @@ data Bind n
 
 data CoreModule = Mod
   { bindings :: [Bind Var]
-  , constructors :: [(Name, ConstructorEntry)] -- wip: more generally track constructor info
-  , types :: [Id]
+  , constructors :: [(QualifiedName, ConstructorEntry)] -- wip: more generally track constructor info
+  , types :: [QualifiedName]
+  , coreModuleName :: Name
   } deriving (Show, Eq)
 
-emptyModule = Mod [] [] []
+emptyModule nm = Mod [] [] [] nm
 
-substitute :: HasName n => (Id, Core n) -> Core n -> Core n
+substitute :: HasName n => (QualifiedName, Core n) -> Core n -> Core n
 substitute = go []
   where
   -- Are binders recursive ie: let a = a in a ?
@@ -117,7 +118,7 @@ substitute = go []
   Calculates the type of a core term. Assumes the core term is valid.
 -}
 
-getTyOf :: CoreExp -> Type Name
+getTyOf :: CoreExp -> Type QualifiedName
 getTyOf b@(App f a) = case applyArgumentToType (getTyOf a) (getTyOf f) of
   Just t -> t
   Nothing -> error $ "Invalid App " ++ (show $ pretty b) ++ (show . pretty $ getTyOf a) ++ (show . pretty $ getTyOf f)

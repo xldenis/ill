@@ -17,15 +17,17 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 
-data Expression p a
+import Ill.Syntax.Name
+
+data Expression nm p a
   = Apply a [a]
   | BinOp a a a
-  | Assign [String] [a]
-  | Case a [(Pat p, a)]
+  | Assign [nm] [a]
+  | Case a [(Pat' nm p, a)]
   | If a a a
-  | Lambda [Pat p] a
-  | Var String
-  | Constructor String
+  | Lambda [Pat' nm p] a
+  | Var nm
+  | Constructor nm
   | Literal Literal
   | Body [a]
   -- | Hash [(a, a)]
@@ -34,15 +36,17 @@ data Expression p a
 
 makePrisms ''Expression
 
-type Expr a = Cofree (Expression a) a
+type Expr' nm a = Cofree (Expression nm a) a
+type Expr a = Expr' QualifiedName a
 
-instance Eq p => Eq1 (Expression p) where
+
+instance (Eq nm, Eq p) => Eq1 (Expression nm p) where
   liftEq = liftEqDefault
 
-instance Show p => Show1 (Expression p) where
+instance (Show nm, Show p) => Show1 (Expression nm p) where
   liftShowsPrec = liftShowsPrecDefault
 
-instance Bifunctor Expression where
+instance Bifunctor (Expression nm) where
   bimap l r (Apply a as) = Apply (r a) (map r as)
   bimap l r (BinOp o a b) = BinOp (r o) (r a) (r b)
   bimap l r (Assign s as) = Assign s (map r as)
@@ -55,11 +59,11 @@ instance Bifunctor Expression where
   bimap l r (Body bs) = Body (map r bs)
   bimap l r (Array as) = Array (map r as)
 
-instance Bifoldable Expression where
+instance Bifoldable (Expression nm) where
   bifoldMap l r (Case a brs) = (r a) `mappend` foldMap (bifoldMap (foldMap l) r) brs
   bifoldMap l r val = bifoldMapDefault l r val
 
-instance Bitraversable Expression where
+instance Bitraversable (Expression nm) where
   bitraverse l r (Case a brs) = Case <$> (r a) <*> traverse helper brs
     where helper (pat, exp) = (,) <$> traverse l pat <*> (r exp)
   bitraverse l r (Apply a as) = Apply <$> r a <*> (traverse r as)
@@ -76,7 +80,7 @@ instance Bitraversable Expression where
 hoistBiCofree :: forall t m a g. (Traversable t, Monad m) => (forall x . t x -> m (g x)) -> Cofree t a -> m (Cofree g a)
 hoistBiCofree f (x :< y) = (x :<) <$> (f =<< hoistBiCofree f `traverse` y)
 
-instance Pretty1 (Expression a) where
+instance Pretty nm => Pretty1 (Expression nm a) where
   liftPretty pretty' (Apply func args) = pretty' func <> tupled (map pretty' args)
   liftPretty pretty' (BinOp op l r) = pretty' l <+> pretty' op <+> pretty' r
   liftPretty pretty' (Assign idents exprs) = cat (punctuate comma (map pretty idents)) <+> pretty '=' <+> cat (punctuate comma (map pretty' exprs))

@@ -32,10 +32,10 @@ import           Text.Megaparsec.Pos
 unCheck c = runExcept $ runStateT (runCheck c) defaultCheckEnv
 
 deriving instance Data SourceSpan
-deriving instance Data a => Data (S.Module a)
-deriving instance (Data a, Data b) => Data (Declaration a b)
-deriving instance (Data a, Data b) => Data (Expression a b)
-deriving instance Data a => Data (S.Pattern a)
+deriving instance (Data a, Data nm) => Data (S.Module nm a)
+deriving instance (Data a, Data b, Data nm) => Data (Declaration nm a b)
+deriving instance (Data a, Data b, Data nm) => Data (Expression nm a b)
+deriving instance (Data nm, Data a) => Data (S.Pattern nm a)
 deriving instance Data Masks
 
 modQ :: QuasiQuoter

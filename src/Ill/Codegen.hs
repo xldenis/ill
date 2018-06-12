@@ -48,7 +48,7 @@ compileModule :: CoreModule -> AST.Module
 compileModule mod =  buildModule "example" . flip runReaderT (fromModule mod) $ mdo
   declareBuiltins
 
-  forM (types mod) $ \nm -> typedef (fromString nm) $ Just $ T.StructureType False [T.i64]
+  forM (types mod) $ \nm -> typedef (fromString $ qualName nm) $ Just $ T.StructureType False [T.i64]
   forM (constructors mod) compileConstructor
   forM (bindings mod) compileBinding
 
@@ -57,7 +57,7 @@ compileModule mod =  buildModule "example" . flip runReaderT (fromModule mod) $ 
   isLambda (NonRec _ Lambda{}) = True
   isLambda _                   = False
 
-  builtinExtern (nm, ty) = extern (fromString nm) (map llvmArgType args) (llvmArgType ret)
+  builtinExtern (nm, ty) = extern (fromString $ qualName nm) (map llvmArgType args) (llvmArgType ret)
     where
     tys = unwrapFnType ty
     args = init tys
@@ -127,11 +127,11 @@ mkString str = do
   bitcast memPtr (ptr $ T.NamedTypeReference "String")
 
 
-compileConstructor :: MonadModuleBuilder m => (Name, ConstructorEntry) -> m ()
+compileConstructor :: MonadModuleBuilder m => (QualifiedName, ConstructorEntry) -> m ()
 compileConstructor (nm, cons) = do
-  typedef (fromString nm) (Just $ T.StructureType False llvmArgTys)
+  typedef (fromString $ qualName nm) (Just $ T.StructureType False llvmArgTys)
 
-  M.void $ function (fromString nm) funArgs retTy $ \args -> do
+  M.void $ function (fromString $ qualName nm) funArgs retTy $ \args -> do
     block `named` "entryC" ; do
       voidPtr <- malloc (sizeofType $ ptr consTy)
       memPtr <- bitcast voidPtr (ptr consTy)
@@ -146,7 +146,7 @@ compileConstructor (nm, cons) = do
       retPtr <- bitcast memPtr retTy
       ret retPtr
   where
-  consTy = T.NamedTypeReference $ fromString nm
+  consTy = T.NamedTypeReference $ fromString $ qualName nm
   llvmArgTys = T.i64 : llvmArgTy'
   llvmArgTy' = map llvmArgType argTys
   argTys = init unwrapped
@@ -155,13 +155,13 @@ compileConstructor (nm, cons) = do
   funArgs = zip llvmArgTy' (repeat (fromString "a"))
 
 compileBinding :: ModuleM m => Bind Var -> m ()
-compileBinding (NonRec v l) | varName v == "main" = compileBinding (NonRec (v { varName = "module_main" }) l)
+compileBinding (NonRec v l) | qualName (varName v) == "main" = compileBinding (NonRec (v { varName = fmap (const "module_main") (varName v) }) l)
 compileBinding (NonRec nm l) = do
   when (not (null argVars)) $ void $ mkClosureCall (length argVars) nm
 
-  function (fromString $ varName nm) args retTy $ \args -> mdo
+  function (fromString . qualName $ varName nm) args retTy $ \args -> mdo
     block `named` "entry" ; do
-      let dict = zipWith (\v op -> (fromString $ varName v, op)) argVars args
+      let dict = zipWith (\v op -> (varName v, op)) argVars args
       local (updateLocals (dict ++)) $ do
         retVal <- compileBody body
         bitcast retVal retTy >>= ret
@@ -169,7 +169,7 @@ compileBinding (NonRec nm l) = do
   pure ()
 
   where
-  args = map (\var -> (llvmArgType (idTy var), fromString $ varName var)) argVars
+  args = map (\var -> (llvmArgType (idTy var), fromString . qualName $ varName var)) argVars
   retTy = llvmArgType $ last $ unwrapN (length argVars) $ idTy nm
   (body, argVars) = unwrapLambda l
 
@@ -220,7 +220,7 @@ compileBody (Case scrut alts) = mdo
     pure (blk, Nothing)
 
   compileDefaultAlt :: AST.Name -> Alt Var -> m (AST.Name, Maybe (Operand, AST.Name))
-  compileDefaultAlt retB (TrivialAlt (App (Var v) _)) | varName v == "failedPattern" = do
+  compileDefaultAlt retB (TrivialAlt (App (Var v) _)) | qualName (varName v) == "failedPattern" = do
     blk <- block `named` "trivial_branch" ;
       unreachable
     pure (blk, Nothing)
@@ -236,8 +236,8 @@ compileBody (Case scrut alts) = mdo
 
   compileAlt :: AST.Name -> Operand -> Alt Var -> m ((C.Constant, AST.Name), (Operand, AST.Name))
   compileAlt retB scrut c@(ConAlt cons binds b) = do
-    block <- block `named` fromString ("branch " ++ cons)
-    scrutPtr <- bitcast scrut $ ptr $ T.NamedTypeReference (fromString cons)
+    block <- block `named` fromString ("branch " ++ (qualName cons))
+    scrutPtr <- bitcast scrut $ ptr $ T.NamedTypeReference (fromString $ qualName cons)
     scrut' <- load scrutPtr 8
 
     (Info _ argTys _ _) <- reader (\s -> fromJust' $ cons `lookup` globalInfo s)
@@ -281,7 +281,7 @@ compileBody a@(App _ _) = do
   bitcast c appRetTy
 compileBody exp = mkInt =<< int64 (-97)
 
-extractApp :: Core Var -> (Core Var, ([Type Name], [CoreExp]))
+extractApp :: Core Var -> (Core Var, ([Type QualifiedName], [CoreExp]))
 extractApp core = go core ([], [])
   where
   go (App f (Type t)) (tys, exps) = go f (t : tys, exps)
