@@ -102,8 +102,8 @@ commandWrapper file com gOpts parsedPrelude = do
     Left err -> putStrLn $ parseErrorPretty' stream err
     Right (prelude, ast) -> do
       let
-        mod' = bindingGroups prelude >>= runRenamer >>= \(prelude', state) -> do
-          (ast', _) <- bindingGroups ast >>= renameModule' state
+        mod' = bindingGroups prelude >>= runRenameModule >>= \(prelude', state) -> do
+          (ast', _) <- bindingGroups ast >>= runRenamer state (moduleName ast) . renameModule
           return $ (prelude' <&> (<>)) `moduleApply` ast'
 
       case mod' of

@@ -29,7 +29,7 @@ import LLVM.PassManager
 
 import Paths_ill
 
-codegen toPrint gOpts ast = case (typeCheckModule) ast of
+codegen toPrint gOpts ast = case (execTypecheckModule) ast of
   Left err -> putStrLn $ render gOpts (prettyError err)
   Right (mod, env) -> do
     let desugared = defaultPipeline env mod

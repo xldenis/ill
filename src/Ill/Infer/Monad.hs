@@ -68,7 +68,7 @@ data CheckState = CheckState
 newtype Check a = Check { runCheck :: StateT CheckState (Except CheckError) a}
   deriving (Functor, Applicative, Monad, MonadError CheckError, MonadState CheckState)
 
-execCheck c = first fromCheckError . runExcept $ flip runStateT defaultCheckEnv (runCheck c)
+execCheck state c = first fromCheckError . runExcept $ flip runStateT state (runCheck c)
 
 defaultCheckEnv = CheckState (Environment (fromList builtins) mempty mempty mempty mempty) 0
 

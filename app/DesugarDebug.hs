@@ -24,7 +24,7 @@ import Ill.Syntax.Pretty
 import Data.Bifunctor (first, bimap)
 
 desugar :: String -> GlobalOptions -> RenamedModule SourceSpan -> IO ()
-desugar stage gOpts ast = case (typeCheckModule) ast of
+desugar stage gOpts ast = case (execTypecheckModule) ast of
   Left err -> putStrLn . render gOpts $ prettyError err
   Right (mod, env) -> do
     let pipeline = stageToPipeline stage

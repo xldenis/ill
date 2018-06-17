@@ -63,14 +63,22 @@ type RawDecl = Decl QualifiedName SourceSpan
   2. error messages suck
 -}
 
-typeCheckModule :: ModuleBG QualifiedName SourceSpan -> Either (Error a) (Module QualifiedName TypedAnn, Environment)
-typeCheckModule mod@(Module nm imports ds) = do
-  typecheckedGroups <- execCheck $ typeCheck ds
-  (typcheckedDecls, env) <-  pure $ bimap fromBindingGroups env typecheckedGroups
-  return (Module nm imports typcheckedDecls, env)
+execTypecheckModule :: ModuleBG QualifiedName SourceSpan -> Either (Error a) (Module QualifiedName TypedAnn, Environment)
+execTypecheckModule = runTypecheckModule defaultCheckEnv
 
-typeCheck :: BoundModules QualifiedName SourceSpan -> Check [BindingGroup QualifiedName TypedAnn]
-typeCheck (BoundModules
+runTypecheckModule :: CheckState -> ModuleBG QualifiedName SourceSpan -> Either (Error a) (Module QualifiedName TypedAnn, Environment)
+runTypecheckModule cs mod = do
+  (mod', cs) <- execCheck cs $ typecheckModule mod
+  return (mod', env cs)
+
+
+typecheckModule :: ModuleBG QualifiedName SourceSpan -> Check (Module QualifiedName TypedAnn)
+typecheckModule mod = do
+  typecheckedGroups <- typecheck (moduleDecls mod)
+  return $ mod { moduleDecls = (fromBindingGroups typecheckedGroups) }
+
+typecheck :: BoundModules QualifiedName SourceSpan -> Check [BindingGroup QualifiedName TypedAnn]
+typecheck (BoundModules
   { classDecls = classDecls
   , instDecls  = instDecls
   , valueDecls = valueDecls

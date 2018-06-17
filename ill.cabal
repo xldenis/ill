@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: da61f54227c6a353bd89303404e6f3724e7daf1ca429c126fbad2d0143406232
+-- hash: d7190def3d1828f11f0536ac339a9e926c642c7d90bf1aa11e1fbae7c952f2b9
 
 name:           ill
 version:        0.1.0.0
@@ -57,6 +57,7 @@ library
       Ill.Parser.Module
       Ill.Parser.Pattern
       Ill.Parser.Type
+      Ill.Processor
       Ill.Renamer
       Ill.Syntax
       Ill.Syntax.Builtins

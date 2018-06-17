@@ -29,6 +29,11 @@ data RenamerState = RS
   , boundSignatures :: [(String, N.QualifiedName)]
   } deriving (Show, Eq)
 
+defaultRenamerState = RS builtins builtinTypes []
+ where
+  builtinTypes = [("String", Qualified "Prelude" "String"), ("Int", Qualified "Prelude" "Int")]
+  builtins = map (\b -> (qualName $ fst b, fst b)) (Builtins.builtins)
+
 data RenamerError
   = NotBound Name
   | AlreadyBound QualifiedName
@@ -65,20 +70,16 @@ instance Pretty RenamerError where
     , pretty error
     ]
 
-renameModule ::  Module' (BoundModules Name a) -> Either (Error ann) (Module' (BoundModules N.QualifiedName a))
-renameModule mod = fst <$> runRenamer mod
+execRenameModule ::  Module' (BoundModules Name a) -> Either (Error ann) (Module' (BoundModules N.QualifiedName a))
+execRenameModule mod = fst <$> runRenameModule mod
 
-runRenamer :: Module' (BoundModules Name a) -> Either (Error ann) (Module' (BoundModules N.QualifiedName a), RenamerState)
-runRenamer mod = renameModule' (RS builtins builtinTypes []) mod
-  where
-  builtinTypes = [("String", Qualified "Prelude" "String"), ("Int", Qualified "Prelude" "Int")]
-  builtins = map (\b -> (qualName $ fst b, fst b)) (Builtins.builtins)
+runRenameModule :: Module' (BoundModules Name a) -> Either (Error ann) (Module' (BoundModules N.QualifiedName a), RenamerState)
+runRenameModule mod = runRenamer defaultRenamerState (moduleName mod) (renameModule mod)
 
-renameModule' :: RenamerState -> Module' (BoundModules Name a) -> Either (Error ann) (Module' (BoundModules N.QualifiedName a), RenamerState)
-renameModule' rs mod = first (\bgs -> mod { moduleDecls = bgs }) <$> (runRenamer $ renameBindingGroups (moduleDecls mod))
+runRenamer :: RenamerState -> Name -> RenamerM a -> Either (Error ann) (a, RenamerState)
+runRenamer rs modNm exp = let (res, state) = flip runState rs . flip runReaderT modNm $ runExceptT exp
+  in second (\x -> (x, state)) (first (fromErr state) res)
   where
-  runRenamer exp = let (res, state) = flip runState rs . flip runReaderT (moduleName mod) $ runExceptT exp
-    in second (\x -> (x, state)) (first (fromErr state) res)
 
   fromErr rs err = Error
     { errKind    = "renamer"
@@ -115,6 +116,9 @@ renameModule' rs mod = first (\bgs -> mod { moduleDecls = bgs }) <$> (runRenamer
   hints rs (ErrorInData      nm err) = hints rs err
   hints rs (ErrorInSignature nm err) = hints rs err
   hints rs (ErrorInTraitDecl nm err) = hints rs err
+
+renameModule :: Module' (BoundModules Name a) -> RenamerM (RenamedModule a)
+renameModule mod = (\bgs -> mod { moduleDecls = bgs }) <$> (renameBindingGroups (moduleDecls mod))
 
   -- TODO: Check for any remaining unbound signatures!
 

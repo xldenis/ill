@@ -140,7 +140,7 @@ getConstructorArities (_ :< Data nm _ conses) = map (\cons ->
   ) conses
 getConstructorArities _ = []
 
-runInterpreter mod =  case bindingGroups mod >>= renameModule >>= typeCheckModule of
+runInterpreter mod =  case bindingGroups mod >>= execRenameModule >>= execTypecheckModule of
   Right (typed, e) -> do
     let desugared = defaultPipeline e typed
 

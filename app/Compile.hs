@@ -40,7 +40,7 @@ import           System.IO.Temp
 import           System.Process
 
 compile :: Maybe String -> Bool -> GlobalOptions -> RenamedModule SourceSpan -> IO ()
-compile outputFile emitLlvm gOpts ast = case (typeCheckModule) ast of
+compile outputFile emitLlvm gOpts ast = case (execTypecheckModule) ast of
   Left err -> putStrLn . render gOpts $ prettyError err
   Right (mod, env) -> do
     let desugared = defaultPipeline env mod

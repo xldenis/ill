@@ -26,7 +26,7 @@ spec = do
   filesShouldNotCheck "test/typechecker/failure"
   describe "unifyTypes" $ do
     it "" $ do
-      let tc = execCheck $ do
+      let tc = execCheck defaultCheckEnv $ do
                 u <- liftUnify $ do
                   tvar1 <- fresh
 
@@ -51,7 +51,7 @@ filesShouldNotCheck dir = do
         shouldSucceed res
         let Right mod = res
             m = Module "Prelude" [] (moduleDecls mod)
-        case bindingGroups m >>= (renameModule >=> typeCheckModule) of
+        case bindingGroups m >>= (execRenameModule >=> execTypecheckModule) of
           Left _ -> return ()
           Right _ -> expectationFailure $
             "module should have errored but instead typechecked."
@@ -67,7 +67,7 @@ filesShouldCheck dir = do
         shouldSucceed res
         let Right mod = res
             m = Module "Prelude" [] (moduleDecls mod)
-        case bindingGroups m >>= (renameModule >=> typeCheckModule) of
+        case bindingGroups m >>= (execRenameModule >=> execTypecheckModule) of
           Right _ -> return ()
           Left err -> expectationFailure $
             "module should have typechecked but instead returned: " ++ (show $ prettyError err)

@@ -44,7 +44,7 @@ runInterpreter _ mod = do
 renderError = renderIll defaultRenderArgs
 
 compileToCore mod = do
-  case (typeCheckModule) mod of
+  case (execTypecheckModule) mod of
     Right (typed, e) -> let
       desugared = defaultPipeline e typed
       in Right (compileCore desugared)

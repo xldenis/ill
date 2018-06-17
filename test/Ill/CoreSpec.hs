@@ -33,14 +33,14 @@ import Control.Monad
 import System.Directory
 import System.FilePath
 
-runTC mod = bindingGroups mod >>= renameModule >>= typeCheckModule
+runTC mod = bindingGroups mod >>= execRenameModule >>= execTypecheckModule
 
 mkVar nm = Id { varName = Internal nm, C.idTy = tNil, usage = Used }
 
 moduleToCore :: Environment -> Module QualifiedName TypedAnn -> CoreModule
 moduleToCore e = (defaultPipeline e) >>> compileCore
 
-runTC' m = bindingGroups m >>= renameModule >>= typeCheckModule
+runTC' m = bindingGroups m >>= execRenameModule >>= execTypecheckModule
 
 coreLintSpec path = do
   parsed <- parseFromFile moduleParser path
@@ -149,7 +149,7 @@ spec = do
             end
             end
           |]
-          Right expected' = bindingGroups expected >>= renameModule
+          Right expected' = bindingGroups expected >>= execRenameModule
           mappairs = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
       renderIll' (pretty result) `shouldBe` renderIll' (pretty mappairs)
 
@@ -182,7 +182,7 @@ spec = do
               end
             end
           |]
-          Right expected' = bindingGroups expected >>= renameModule
+          Right expected' = bindingGroups expected >>= execRenameModule
           _ :< Value _ [([_], expectedExpr)] = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
           in renderIll' (pretty result) `shouldBe` renderIll' (pretty expectedExpr)
 
@@ -221,7 +221,7 @@ constructorGroups = do
         end
         end
       |]
-      Right expected' = bindingGroups expected >>= renameModule
+      Right expected' = bindingGroups expected >>= execRenameModule
       mappairs = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
 
   renderIll' (pretty result) `shouldBe` renderIll' (pretty mappairs)
@@ -253,7 +253,7 @@ localDictsPassedToConstrainedMethods = do
       end
       end
     |]
-    Right expected' = bindingGroups expected >>= renameModule
+    Right expected' = bindingGroups expected >>= execRenameModule
     expectedDecl = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
 
   renderIll' (pretty result) `shouldBe` renderIll' (pretty expectedDecl)

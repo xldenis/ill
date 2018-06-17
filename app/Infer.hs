@@ -32,7 +32,7 @@ infer gOpts m = case runTC m of
 
       printBG gOpts typeToInsts ts
 
-runTC m = (execCheck . typeCheck . moduleDecls) m
+runTC m = (execCheck defaultCheckEnv . typecheck . moduleDecls) m
 
 printBG :: GlobalOptions -> M.Map QualifiedName [InstanceEntry] -> [BindingGroup QualifiedName TypedAnn] -> IO ()
 printBG opts m ((ValueBG ds):bgs) = printTypes opts m ds >> printBG opts m bgs

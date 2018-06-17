@@ -27,7 +27,7 @@ import Data.Maybe (maybeToList)
 import Prelude hiding (putStrLn, putStr)
 
 coreDebug :: Maybe String -> Bool -> GlobalOptions -> RenamedModule SourceSpan -> IO ()
-coreDebug filter onlyLint gOpts ast = case (typeCheckModule) ast of
+coreDebug filter onlyLint gOpts ast = case (execTypecheckModule) ast of
   Left err -> putStrLn . renderError gOpts $ prettyError err
   Right (mod, env) -> do
     let desugared = defaultPipeline env mod
