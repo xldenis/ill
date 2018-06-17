@@ -49,8 +49,8 @@ filesShouldNotCheck dir = do
       it ((takeFileName f) ++ " errors.") $ do
         res <- parseFromFile (illParser <* eof) f
         shouldSucceed res
-        let Right (Module _ ds) = res
-            m = Module "Prelude" ds
+        let Right mod = res
+            m = Module "Prelude" [] (moduleDecls mod)
         case bindingGroups m >>= (renameModule >=> typeCheckModule) of
           Left _ -> return ()
           Right _ -> expectationFailure $
@@ -65,8 +65,8 @@ filesShouldCheck dir = do
       it ((takeFileName f) ++ " typechecks.") $ do
         res <- parseFromFile (illParser <* eof) f
         shouldSucceed res
-        let Right (Module _ ds) = res
-            m = Module "Prelude" ds
+        let Right mod = res
+            m = Module "Prelude" [] (moduleDecls mod)
         case bindingGroups m >>= (renameModule >=> typeCheckModule) of
           Right _ -> return ()
           Left err -> expectationFailure $

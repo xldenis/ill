@@ -33,7 +33,7 @@ defaultPipeline :: Environment -> Module QualifiedName TypedAnn -> Module Qualif
 defaultPipeline env = desugarBinOps >>> desugarTraits env >>> desugarPatterns
 
 compileCore :: Module QualifiedName TypedAnn -> CoreModule
-compileCore (Module nm desugared) = declsToCore nm desugared & normalize . liftModule
+compileCore mod = declsToCore (moduleName mod) (moduleDecls mod) & normalize . liftModule
 
 declsToCore :: Name -> [Decl QualifiedName TypedAnn] -> CoreModule
 declsToCore nm decls = execState (mapM declToCore' decls) (emptyModule nm)

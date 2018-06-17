@@ -124,7 +124,5 @@ main = do
     True -> do
       preludePath <- getDataFileName "assets/prelude.ill"
       parseFromFile moduleParser preludePath
-    False -> pure $ pure (Module "Prelude" [])
+    False -> pure $ pure (Module "Prelude" [] [])
   cmd gOpts parsedPrelude
-
-mergeModules (Module _ ds) (Module n ds2) = Module n (ds ++ ds2)

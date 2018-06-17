@@ -54,7 +54,7 @@ coreLintSpec path = do
         case runLinter (moduleToCore env typed) of
           Left err -> expectationFailure err
           Right () -> return ()
-  where preludifyModule (Module _ ds) = Module "Prelude" ds
+  where preludifyModule (Module _ i ds) = Module "Prelude" i ds
 -- filesShouldFail :: Show b => FilePath -> Parsec Void Text b -> Spec
 lintCoreInDir dir = do
   fs <- runIO $ getFilesInDir dir
@@ -242,7 +242,7 @@ localDictsPassedToConstrainedMethods = do
     |]
     Right (typed, e') = runTC mod
     x = last (moduleDecls typed)
-    Module _ [result] = desugarTraits e' (Module "fake" [x])
+    Module _ i [result] = desugarTraits e' (Module "fake" i [x])
     expected = [modQ|
       module X
       trait A a

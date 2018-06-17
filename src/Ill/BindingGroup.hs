@@ -58,7 +58,7 @@ fromBindingGroups bgs = fromBG =<< bgs
   fromBG (OtherBG d) = pure d
 
 bindingGroups :: (MonadError (Ill.Error b) m) => Module Name a -> m (Module' (BoundModules Name a))
-bindingGroups (Module nm ds) = do
+bindingGroups (Module nm imports ds) = do
   let dataDecls = filter isDataDecl ds
       valueDecls = filter isValue ds ++ filter isSignature ds
       dataBGs = dataBindingGroups dataDecls
@@ -69,7 +69,7 @@ bindingGroups (Module nm ds) = do
 
   instBGs <- sortedInstances (filter isDecl ds) (filter isImpl ds)
   declBGs <- sortedClassDeclarations (filter isDecl ds)
-  return . Module nm $ BoundModules
+  return . Module nm imports $ BoundModules
     { dataDecls = dataBGs
     , instDecls = instBGs
     , classDecls = declBGs

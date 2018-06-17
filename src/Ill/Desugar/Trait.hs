@@ -102,7 +102,7 @@ import           Ill.Syntax.Pretty (pretty)
 -}
 
 desugarTraits :: Environment -> Module QualifiedName TypedAnn -> Module QualifiedName TypedAnn
-desugarTraits env (Module nm ds) = Module nm (fromDecl =<< ds)
+desugarTraits env mod = mod { moduleDecls = (fromDecl =<< (moduleDecls mod)) }
   where
   fromDecl (_ :< TraitDecl supers nm arg members) = dataFromDecl supers nm arg members
   fromDecl (_ :< TraitImpl supers nm ty  members) = join $ runReaderT (valFromInst supers nm ty members) (fromEnv env)

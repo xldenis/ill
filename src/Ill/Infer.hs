@@ -64,10 +64,10 @@ type RawDecl = Decl QualifiedName SourceSpan
 -}
 
 typeCheckModule :: ModuleBG QualifiedName SourceSpan -> Either (Error a) (Module QualifiedName TypedAnn, Environment)
-typeCheckModule mod@(Module nm ds) = do
+typeCheckModule mod@(Module nm imports ds) = do
   typecheckedGroups <- execCheck $ typeCheck ds
   (typcheckedDecls, env) <-  pure $ bimap fromBindingGroups env typecheckedGroups
-  return (Module nm typcheckedDecls, env)
+  return (Module nm imports typcheckedDecls, env)
 
 typeCheck :: BoundModules QualifiedName SourceSpan -> Check [BindingGroup QualifiedName TypedAnn]
 typeCheck (BoundModules
@@ -157,7 +157,6 @@ typeCheck (BoundModules
     fromCons _ = error "non constructor value found"
 
   go (OtherBG (_ :< TypeSynonym{})) = throwError $ NotImplementedError "oops"
-  go (OtherBG (a :< Import q m n al)) = return $ OtherBG $ TyAnn (pure a) None :< Import q m n al
   go (OtherBG (a :< TraitDecl supers name args members)) = do
     let memTys = map toPair members
         members' = map annSigs members

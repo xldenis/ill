@@ -10,7 +10,7 @@ import           Ill.Syntax
 import           Data.Bifunctor
 
 desugarBinOps :: Module (Qualified Name) TypedAnn -> Module (Qualified Name) TypedAnn
-desugarBinOps (Module nm decls) = Module nm (map desugarDecl decls)
+desugarBinOps (Module nm imports decls) = Module nm imports (map desugarDecl decls)
 
 desugarDecl :: Decl (Qualified Name) TypedAnn -> Decl (Qualified Name) TypedAnn
 desugarDecl (a :< Value n eqns) = a :< (Value n $ transformOn (each . _2) desugarExpr eqns)

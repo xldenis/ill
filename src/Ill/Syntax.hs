@@ -45,8 +45,17 @@ type Alias = Maybe String
 
 data Module' decl = Module
   { moduleName :: Name
+  , moduleImports :: [Import]
   , moduleDecls :: decl
   } deriving (Show, Functor)
+
+
+data Import = Import
+  { importQualified :: IsQualified
+  , importMask :: Masks
+  , importName :: Name
+  , importAlias :: Alias
+  } deriving (Show, Eq)
 
 -- type ParsedModule = Module (Decl Name SourceSpan)
 type Module nm a = Module' [Decl nm a]
@@ -56,7 +65,7 @@ deriving instance (Eq nm, Eq a) => Eq (Module nm a)
 instance Apply Module' where
   (<.>) = moduleApply
 
-moduleApply (Module nm f) (Module _ decl) = Module nm (f decl)
+moduleApply (Module nm i f) (Module _ _ decl) = Module nm i (f decl)
 
 data Declaration nm a b
   = Data
@@ -76,12 +85,6 @@ data Declaration nm a b
   | Signature
     { declName :: nm
     , declType :: (Type nm)
-    }
-  | Import
-    { importQualified :: IsQualified
-    , importMask :: Masks
-    , importName :: Name
-    , importAlias :: Alias
     }
   | TraitDecl
     { traitSuperclasses ::[Constraint nm]
@@ -121,7 +124,6 @@ instance Bifunctor (Declaration nm) where
   bimap l r (Value n brs) = Value n $ map helper brs
     where helper (pats, expr) = (fmap (fmap l) pats, nestedFmap l expr)
   bimap l r (Signature nm ty) = Signature nm ty
-  bimap l r (Import q m s a)  = Import q m s a
   bimap l r (TraitDecl cs n nms bs) = TraitDecl cs n nms (map r bs)
   bimap l r (TraitImpl cs n tys bs) = TraitImpl cs n tys (map r bs)
 
@@ -138,7 +140,6 @@ instance Bitraversable (Declaration nm) where
   bitraverse _ _ (Data n nms tys) = pure $ Data n nms tys
   bitraverse _ _ (TypeSynonym n nms ty) = pure $ TypeSynonym n nms ty
   bitraverse _ _ (Signature nm ty) = pure $ Signature nm ty
-  bitraverse _ _ (Import q m s a)  = pure $ Import q m s a
   bitraverse _ r (TraitDecl cs n nms bs) = TraitDecl cs n nms <$> traverse r bs
   bitraverse _ r (TraitImpl cs n tys bs) = TraitImpl cs n tys <$> traverse r bs
 
@@ -240,15 +241,23 @@ fmapTy f t          = t
 dropAnn :: (Bifunctor f, Functor (f a)) => Cofree (f a) a -> Cofree (f ()) ()
 dropAnn = nestedFmap (const ())
 
-lookupFn n (Module _ ds) = find pred ds
+lookupFn n (Module _ _ ds) = find pred ds
   where pred (_ :< Value name _) = n == name
         pred _                   = False
 
 instance (Pretty (Type nm), Pretty nm) => Pretty (Module nm a) where
-  pretty (Module name decls) = nest 2 (pretty "module" <+> pretty name `above`
-    vsep (intersperse mempty (map pretty decls))) `above`
+  pretty (Module name imports decls) = nest 2 (pretty "module" <+> pretty name `above`
+    vsep (intersperse mempty (map pretty imports ++ map pretty decls))) `above`
     pretty "end"
 
+instance Pretty Import where
+  pretty (Import qual msk name alias) = pretty "import" <-> conditionally (const $ pretty "qualified") qual mempty
+    <-> pretty name <-> prettyJust alias <-> prettyMask msk
+    where prettyJust (Just alias') = pretty "as" <+> pretty alias'
+          prettyJust  Nothing     = mempty
+          prettyMask (Hiding nms) = pretty "hiding" <+> tupled (map pretty nms)
+          prettyMask (Only   nms) = tupled $ map pretty nms
+          prettyMask _            = mempty
 instance (Pretty (Type nm), Pretty nm) => Pretty1 (Declaration nm a) where
   liftPretty pretty' (Data name vars cons) = pretty "data" <+> pretty name <+> hsep' (map pretty vars) <> pretty '=' <+> alternative (map pretty cons)
     where alternative = encloseSep mempty mempty (pretty " | ")
@@ -260,13 +269,7 @@ instance (Pretty (Type nm), Pretty nm) => Pretty1 (Declaration nm a) where
           headBranch    = pretty "fn" <+> pretty name <+> branch (head cases)
           otherBranch b = pretty "or" <+> pretty name <+> branch b
   liftPretty pretty' (Signature func tp) = pretty func <+> pretty "::" <+> pretty tp
-  liftPretty pretty' (Import qual msk name alias) = pretty "import" <-> conditionally (const $ pretty "qualified") qual mempty
-    <-> pretty name <-> prettyJust alias <-> prettyMask msk
-      where prettyJust (Just alias') = pretty "as" <+> pretty alias'
-            prettyJust  Nothing     = mempty
-            prettyMask (Hiding nms) = pretty "hiding" <+> tupled (map pretty nms)
-            prettyMask (Only   nms) = tupled $ map pretty nms
-            prettyMask _            = mempty
+
   liftPretty pretty' (TraitDecl super name arg body)  = nest 2 (pretty "trait" <+> declarationLine `above` vsep (map pretty' body)) `above` pretty "end"
     where constraints c = if null c then mempty else hsep (punctuate comma (map pretty c)) <+> pretty "|"
           declarationLine = constraints super <+> pretty name <+> pretty arg

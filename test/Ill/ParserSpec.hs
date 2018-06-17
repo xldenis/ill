@@ -48,4 +48,4 @@ propPrettyParse f ast = do
   where parse = runParser illParser f
         prettyText a = renderIll defaultRenderArgs (pretty a)
         noPos :: Module nm a -> Module nm ()
-        noPos (Module n ds) = Module n $ map (dropAnn) ds
+        noPos (Module n i ds) = Module n i $ map (dropAnn) ds

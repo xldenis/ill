@@ -75,7 +75,7 @@ runRenamer mod = renameModule' (RS builtins builtinTypes []) mod
   builtins = map (\b -> (qualName $ fst b, fst b)) (Builtins.builtins)
 
 renameModule' :: RenamerState -> Module' (BoundModules Name a) -> Either (Error ann) (Module' (BoundModules N.QualifiedName a), RenamerState)
-renameModule' rs mod = first (Module (moduleName mod)) <$> (runRenamer $ renameBindingGroups (moduleDecls mod))
+renameModule' rs mod = first (\bgs -> mod { moduleDecls = bgs }) <$> (runRenamer $ renameBindingGroups (moduleDecls mod))
   where
   runRenamer exp = let (res, state) = flip runState rs . flip runReaderT (moduleName mod) $ runExceptT exp
     in second (\x -> (x, state)) (first (fromErr state) res)
@@ -174,7 +174,6 @@ renameDeclaration (a :< d@Signature{}) = rethrow (ErrorInSignature (declName d))
   nm' <- qualifyName (declName d)
   ty' <- renameType (declType d)
   return $ a :< Signature nm' ty'
-renameDeclaration (a :< d@Import{}) = undefined -- eventually use this to get information about bound names
 renameDeclaration (a :< d@TypeSynonym{}) = undefined
 renameDeclaration (a :< d@TraitDecl{}) = rethrow (ErrorInTraitDecl (traitName d)) $ do
   supertraits <- mapM renameConstraint (traitSuperclasses d)

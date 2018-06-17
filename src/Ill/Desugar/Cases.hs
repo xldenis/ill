@@ -52,7 +52,7 @@ runFresh = runIdentity . flip evalStateT 0 . unFreshT
 matchFailure = SynAnn (generalize $ TVar $ Internal "a") :< Var (Qualified "Prelude" "failedPattern")
 
 desugarPatterns :: Module QualifiedName TypedAnn -> Module QualifiedName TypedAnn
-desugarPatterns (Module nm decls) = Module nm (map simplifyPatterns decls)
+desugarPatterns mod = mod { moduleDecls = (map simplifyPatterns (moduleDecls mod)) }
 
 simplifyPatterns :: Decl QualifiedName TypedAnn -> Decl QualifiedName TypedAnn
 simplifyPatterns v@(a :< Value n eqns) = runFresh $ do

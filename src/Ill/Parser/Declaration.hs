@@ -14,7 +14,7 @@ import Ill.Parser.Expression
 
 declaration :: Parser (Decl Name SourceSpan)
 declaration = choice
-  [ dataDeclaration, typeSynonymDeclaration, importDeclaration,
+  [ dataDeclaration, typeSynonymDeclaration,
     valueDeclaration, signatureDeclaration, traitDeclaration, implDeclaration
   ]
 
@@ -88,19 +88,3 @@ valueDeclaration = label "value" . withLoc $ do
     body <- body
     scn
     return (args, body)
-
-importDeclaration :: Parser (Decl Name SourceSpan)
-importDeclaration = label "import" . withLoc $ do
-  symbol "import"
-  qual <- qualified
-  path <- intercalate "." <$> (lexeme $ capitalized `sepBy` (char '.'))
-  alias <- if qual then Just <$> alias else optional alias
-  imports <- mask
-
-  return $ Import qual imports path alias
-  where qualified = isJust <$> (optional $ symbol "qualified")
-        alias = symbol "as" *> upperIdent
-        mask = (try $ do
-          cons <- (symbol "hiding" *> return Hiding) <|> (return Only)
-          args <- parens $ list identifier
-          return $ cons args) <|> (return All)

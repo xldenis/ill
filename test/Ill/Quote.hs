@@ -37,6 +37,7 @@ deriving instance (Data a, Data b, Data nm) => Data (Declaration nm a b)
 deriving instance (Data a, Data b, Data nm) => Data (Expression nm a b)
 deriving instance (Data nm, Data a) => Data (S.Pattern nm a)
 deriving instance Data Masks
+deriving instance Data Import
 
 modQ :: QuasiQuoter
 modQ = QuasiQuoter
