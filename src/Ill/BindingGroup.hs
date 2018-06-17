@@ -77,11 +77,6 @@ bindingGroups (Module nm ds) = do
     , otherDecls = others
     }
 
-sccToDecl :: SCC (Decl Name a) -> [Decl Name a]
-sccToDecl (AcyclicSCC d)  = [d]
-sccToDecl (CyclicSCC [d]) = [d]
-sccToDecl (CyclicSCC ds)  = ds
-
 sortedClassDeclarations :: (MonadError (Ill.Error b) m) => [Decl Name a] -> m [BindingGroup Name a]
 sortedClassDeclarations decls = let
   graphNode v = (v, traitName $ unwrap v, supers v)
@@ -120,7 +115,7 @@ dataBindingGroups ds = let
   allDataDecls = map dataName dataDecls
   graphList = map graphNode dataDecls
   graphNode v = (v, dataName v, dataUsedNames v `intersect` allDataDecls)
-  in map (DataBG . sccToDecl) (stronglyConnComp graphList)
+  in map (DataBG . flattenSCC) (stronglyConnComp graphList)
   where dataName (_ :< Data n _ _) = n
 
 dataUsedNames :: Decl Name a -> [Name]
@@ -140,7 +135,7 @@ valueBindingGroups values = let
   graphList = map graphNode values
   graphNode v = (v, valueName v, (signatureName $ valueName v) : valueUsedName v `intersect` allValues)
   allValues = map valueName values
-  in map (ValueBG . sccToDecl) (stronglyConnComp graphList)
+  in map (ValueBG . flattenSCC) (stronglyConnComp graphList)
   where
   valueName :: Decl Name a -> Name
   valueName (_ :< Value n _) = n
