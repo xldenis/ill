@@ -158,7 +158,7 @@ typeCheck (BoundModules
 
   go (OtherBG (_ :< TypeSynonym{})) = throwError $ NotImplementedError "oops"
   go (OtherBG (a :< Import q m n al)) = return $ OtherBG $ TyAnn (pure a) None :< Import q m n al
-  go (OtherBG (a :< TraitDecl supers name args members)) = do
+  go (OtherBG (a :< TraitDecl supers name args members)) = rethrow (ErrorInDecl name) $ do
     let memTys = map toPair members
         members' = map annSigs members
 
@@ -172,7 +172,7 @@ typeCheck (BoundModules
     annSigs (a :< Signature nm ty) = Ann a ty :< Signature nm ty
     annSigs _ = error "trait declaration contains non signature value"
 
-  go (OtherBG (a :< TraitImpl supers nm args ds)) = do
+  go (OtherBG (a :< TraitImpl supers nm args ds)) = rethrow (ErrorInDecl nm) $ do
     trait <- lookupTrait nm
     let subs = [(traitVarNm trait, args)]
         cons = map (fmap (replaceTypeVars subs)) (superTraits trait)

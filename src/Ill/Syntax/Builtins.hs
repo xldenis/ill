@@ -2,9 +2,17 @@
 module Ill.Syntax.Builtins where
 
 import Ill.Syntax.Type
+import Ill.Syntax.Kind
 import Ill.Syntax.Name
 import Ill.Prelude
 import Data.String (IsString)
+
+builtinTypes :: [(QualifiedName, Kind)]
+builtinTypes =
+  [ (Qualified "Prelude" "Int", Star)
+  , (Qualified "Prelude" "String", Star)
+  , (Qualified "Prelude" "Char", Star)
+  ]
 
 builtins :: [(QualifiedName, Type QualifiedName)]
 builtins = primitives ++ map (\(nm, ty) -> (Qualified "Prelude" nm, ty))
@@ -50,6 +58,8 @@ primitives = map (\(nm, ty) -> (Qualified "Prelude" nm, ty))
   , ("geqDouble",     tDouble  `tFn` tDouble  `tFn` tBool)
 
   , ("plusStr",       tString  `tFn` tString  `tFn` tString)
+  , ("eqStr",         tString  `tFn` tString  `tFn` tBool)
+  , ("lenStr",        tString  `tFn` tInteger)
   , ("showInt",       tInteger `tFn` tString)
   , ("omgDebug",      tString `tFn` tString)
   ]

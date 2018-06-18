@@ -7,7 +7,7 @@ module Prelude
 
   data Bool = True | False
 
-  data Unit = MkUnit
+  data Unit = Unit
 
   data Either a b = Left a | Right b
 
@@ -96,6 +96,13 @@ module Prelude
   impl Eq Int
     fn eq(a, b)
       eqInt(a, b) # primitive function
+    end
+  end
+
+
+  impl Eq String
+    fn eq(a, b)
+      eqStr(a, b)
     end
   end
 

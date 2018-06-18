@@ -70,7 +70,7 @@ newtype Check a = Check { runCheck :: StateT CheckState (Except CheckError) a}
 
 execCheck c = first fromCheckError . runExcept $ flip runStateT defaultCheckEnv (runCheck c)
 
-defaultCheckEnv = CheckState (Environment (fromList builtins) mempty mempty mempty mempty) 0
+defaultCheckEnv = CheckState (Environment (fromList builtins) (fromList builtinTypes) mempty mempty mempty) 0
 
 -- | Errors
 

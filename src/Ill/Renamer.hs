@@ -69,10 +69,9 @@ renameModule ::  Module' (BoundModules Name a) -> Either (Error ann) (Module' (B
 renameModule mod = fst <$> runRenamer mod
 
 runRenamer :: Module' (BoundModules Name a) -> Either (Error ann) (Module' (BoundModules N.QualifiedName a), RenamerState)
-runRenamer mod = renameModule' (RS builtins builtinTypes []) mod
+runRenamer mod = renameModule' (RS (fromBuiltin Builtins.builtins) (fromBuiltin Builtins.builtinTypes) []) mod
   where
-  builtinTypes = [("String", Qualified "Prelude" "String"), ("Int", Qualified "Prelude" "Int")]
-  builtins = map (\b -> (qualName $ fst b, fst b)) (Builtins.builtins)
+  fromBuiltin =  map (\b -> (qualName $ fst b, fst b))
 
 renameModule' :: RenamerState -> Module' (BoundModules Name a) -> Either (Error ann) (Module' (BoundModules N.QualifiedName a), RenamerState)
 renameModule' rs mod = first (Module (moduleName mod)) <$> (runRenamer $ renameBindingGroups (moduleDecls mod))
@@ -136,7 +135,7 @@ renameBindingGroups (BoundModules
   return $ BoundModules classDecls' instDecls' valueDecls' otherDecls' dataDecls'
 
 renameType :: Type Name -> RenamerM (Type QualifiedName)
-renameType (TVar t) = TVar <$> unsafeQualifyName t
+renameType (TVar t) = pure . TVar $ Internal t
 renameType (TAp a b) = TAp <$> renameType a <*> renameType b
 renameType (TConstructor nm) = TConstructor <$> qualifyTypeName nm
 renameType (Arrow l r) = Arrow <$> renameType l <*> renameType r
@@ -144,6 +143,9 @@ renameType (Constrained cons ty) = Constrained <$> mapM renameConstraint cons <*
 renameType (TUnknown uk) = pure $ TUnknown uk
 renameType (Forall vars ty) = Forall <$> (mapM unsafeQualifyName vars) <*> renameType ty
 renameType (ArrowConstructor) = pure ArrowConstructor
+
+renameConstraint :: Constraint Name -> RenamerM (Constraint QualifiedName)
+renameConstraint (nm, ty) = (,) <$> qualifyName nm <*> renameType ty
 
 renameBindingGroup :: BindingGroup Name a -> RenamerM (BindingGroup N.QualifiedName a)
 renameBindingGroup (ValueBG decls) = mapM (bindName . declName . unwrap) (filter isValue decls) >>
@@ -166,7 +168,7 @@ renameDeclaration (a :< d@Data{}) = rethrow (ErrorInData (declName d)) $ do
   renamedConses <- mapM (\(TConstructor c : args) -> (:) <$> (TConstructor <$> qualifyName c) <*> mapM renameType args) unwrappedConses
   let cons' = map (foldl1 TAp) renamedConses
 
-  vars' <- mapM unsafeQualifyName (dataVars d)
+  let vars' = map Internal (dataVars d)
 
   return $ a :< d { dataVars = vars', declName = nm' , dataConstructors = cons' }
 renameDeclaration (a :< d@Signature{}) = rethrow (ErrorInSignature (declName d)) $ do
@@ -181,7 +183,7 @@ renameDeclaration (a :< d@TraitDecl{}) = rethrow (ErrorInTraitDecl (traitName d)
   bindName (traitName d)
   nm' <- qualifyName (traitName d)
   vals' <- mapM renameDeclaration (traitValues d)
-  var' <- unsafeQualifyName (traitVar d)
+  let var' = Internal (traitVar d)
   return $ a :< d { traitSuperclasses = supertraits, traitName = nm', traitVar = var', traitValues = vals' }
 renameDeclaration (a :< d@TraitImpl{}) = rethrow (ErrorInInstance (traitName d)) $ do
   supertraits <- mapM renameConstraint (traitSuperclasses d)
@@ -207,9 +209,6 @@ renamePattern (a :< Destructor nm pats)  = liftM (a :<) $ Destructor <$> qualify
 renamePattern (a :< Wildcard) = pure $ a :< Wildcard
 renamePattern (a :< PVar nm)  = bindShadowing nm >> liftM (a :<) (PVar <$> qualifyName nm)
 renamePattern (a :< PLit lit) = pure $ a :< PLit lit
-
-renameConstraint :: Constraint Name -> RenamerM (Constraint QualifiedName)
-renameConstraint (nm, ty) = (,) <$> qualifyName nm <*> renameType ty
 
 renameExpression :: Expr' Name a -> RenamerM (Expr' QualifiedName a)
 renameExpression (a :< Var nm) = (:<) a . Var <$> qualifyName nm
