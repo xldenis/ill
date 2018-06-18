@@ -26,7 +26,7 @@ unitSpec :: Spec
 unitSpec = do
   describe "call" $ do
     it "terminates" $ do
-      shouldSucceed $ parse (call <* eof) "" "func()"
+      parserShouldSucceed $ parse (call <* eof) "" "func()"
   describe "assign" $ do
     it "errors properly" $ do
       parse assign "" "a, a = 2" `shouldFailWith` errFancy (posN 8 (pack "12345678")) (fancy $ ErrorFail "Invalid assignment: length mismatch.")

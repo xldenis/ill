@@ -1,0 +1,6 @@
+module ConstantFolding
+  # test to see if LLVM manages to do constant folding
+  fn main ()
+    show(1+1)
+  end
+end

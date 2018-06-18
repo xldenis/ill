@@ -19,6 +19,8 @@ import           Ill.Parser.Lexer
 
 import qualified Data.Text.IO as T (readFile)
 import           Data.Void
+import           Ill.Error
+import           Data.Bifunctor (first)
 
 moduleParser :: Parser (Module Name SourceSpan)
 moduleParser = do
@@ -49,5 +51,14 @@ importDeclaration = label "import" $ do
 illParser :: Parser (Module Name SourceSpan)
 illParser = scn *> moduleParser
 
-parseFromFile :: Parser a -> FilePath -> IO (Either (ParseError Char Void) a)
-parseFromFile p file = runParser p file <$> T.readFile file
+parseFromFile :: Parser a -> FilePath -> IO (Either (Error ann) a)
+parseFromFile p file = do
+  stream <- T.readFile file
+  let result = runParser p file stream
+
+  return $ first (fromParseError stream) result
+  where
+  fromParseError stream err = Error
+    { errKind = "parser"
+    , errSummary = pretty $ parseErrorPretty' stream err
+    }

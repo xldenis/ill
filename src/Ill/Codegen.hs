@@ -45,7 +45,10 @@ import qualified LLVM.AST.Typed            as T
 prettyModule mod =  ppllvm $ compileModule mod
 
 compileModule :: CoreModule -> AST.Module
-compileModule mod =  buildModule "example" . flip runReaderT (fromModule mod) $ mdo
+compileModule mod = compileModule' (fromModule mod) mod
+
+compileModule' :: CodegenState -> CoreModule -> AST.Module
+compileModule' infoTable mod =  buildModule (fromString $ coreModuleName mod) . flip runReaderT infoTable $ mdo
   declareBuiltins
 
   forM (types mod) $ \nm -> typedef (fromString $ qualName nm) $ Just $ T.StructureType False [T.i64]

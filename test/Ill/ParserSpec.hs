@@ -44,7 +44,7 @@ propPrettyParse f ast = do
     Right ast' -> do
       expectationFailure "pretty printed output parsed but was not equivalent"
     Left  err -> do
-      expectationFailure $ (unpack $ prettyText ast) ++ "\n\n" ++ (showParseError err)
+      expectationFailure $ (unpack $ prettyText ast) ++ "\n\n" ++ (showParserError err)
   where parse = runParser illParser f
         prettyText a = renderIll defaultRenderArgs (pretty a)
         noPos :: Module nm a -> Module nm ()

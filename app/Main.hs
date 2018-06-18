@@ -73,14 +73,14 @@ options = do
       codegenC (Codegen <$> fileArg <*> (flag False True $ long "print-ir"))
     addCommand "compile"
       "compile a module into an executable binary"
-      compileC (Compile <$> fileArg <*> outputFileArg <*> (flag False True $ long "emit-llvm"))
+      compile compileParser
 
 codegenC (Codegen f toPrint)            = commandWrapper f (codegen toPrint)
 inferC   (Infer f)                      = commandWrapper f (infer)
 run      (Run f)                        = commandWrapper f (runInterpreter)
 core     (Core f filter lint)           = commandWrapper f (coreDebug filter lint)
 desugarC (Desugar s f)                  = commandWrapper f (desugar s)
-compileC (Compile file oFile emitLlvm)  = commandWrapper file (compile oFile emitLlvm)
+
 format   (Format file) gOpts _          = do
   stream <- T.readFile file
   let parsed = runParser illParser (file) stream
@@ -92,15 +92,15 @@ format   (Format file) gOpts _          = do
 commandWrapper :: FilePath
   -> (GlobalOptions -> RenamedModule SourceSpan -> IO ())
   -> GlobalOptions
-  -> Either (Parser.ParseError Char Void) (Module String SourceSpan)
+  -> (Module String SourceSpan)
   -> IO ()
-commandWrapper file com gOpts parsedPrelude = do
+commandWrapper file com gOpts prelude = do
   stream <- T.readFile file
   let parsed = runParser illParser (file) stream
-  let joined = (,) <$> parsedPrelude <*> parsed
-  case joined of
+
+  case parsed of
     Left err -> putStrLn $ parseErrorPretty' stream err
-    Right (prelude, ast) -> do
+    Right (ast) -> do
       let
         mod' = bindingGroups prelude >>= runRenameModule >>= \(prelude', state) -> do
           (ast', _) <- bindingGroups ast >>= runRenamer state (moduleName ast) . renameModule
@@ -125,4 +125,6 @@ main = do
       preludePath <- getDataFileName "assets/prelude.ill"
       parseFromFile moduleParser preludePath
     False -> pure $ pure (Module "Prelude" [] [])
-  cmd gOpts parsedPrelude
+  case parsedPrelude of
+    Left err ->  T.putStrLn $ renderIll renderArgs (prettyError err)
+    Right prelude -> cmd gOpts prelude

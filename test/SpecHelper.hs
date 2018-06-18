@@ -17,6 +17,8 @@ import Text.Megaparsec
 import Ill.Parser (parseFromFile)
 import Data.Void
 
+import Ill.Error
+
 filesShouldParse :: Show b => FilePath -> Parsec Void Text b -> Spec
 filesShouldParse dir p = do
   fs <- runIO $ getFilesInDir dir
@@ -35,11 +37,11 @@ filesShouldFail dir p = do
       it ((takeFileName f) ++ " fails.") $ do
         (parseFromFile (p <* eof) f) >>= shouldFail) fs
 
-type ParserExpectation t e a = Either (ParseError t e) a -> Expectation
+type ParserExpectation t a = Either Error' a -> Expectation
 
 -- | Expectation that argument is result of a failed parser.
 
-shouldFail :: Show a => ParserExpectation t e a
+shouldFail :: Show a => ParserExpectation t a
 shouldFail r = case r of
   Left _ -> return ()
   Right v -> expectationFailure $
@@ -47,15 +49,35 @@ shouldFail r = case r of
 
 -- | Expectation that argument is result of a succeeded parser.
 
-shouldSucceed :: (Ord t, ShowToken t, ShowErrorComponent e, Show a) => ParserExpectation t e a
+shouldSucceed :: ParserExpectation t a
 shouldSucceed r = case r of
   Left e -> expectationFailure $
     "the parser is expected to succeed, but it failed with:\n" ++
     showParseError e
   Right _ -> return ()
 
-showParseError :: (Ord t, ShowToken t, ShowErrorComponent e) => ParseError t e -> String
-showParseError = unlines . fmap ("  " ++) . lines . parseErrorPretty
+showParseError :: Error' -> String
+showParseError = show . prettyError
+
+-- | Expectation that argument is result of a failed parser.
+
+parserShouldFail :: Show a => Either (ParseError t e) a -> Expectation
+parserShouldFail r = case r of
+  Left _ -> return ()
+  Right v -> expectationFailure $
+    "the parser is expected to fail, but it parsed: " ++ show v
+
+-- | Expectation that argument is result of a succeeded parser.
+
+parserShouldSucceed :: (Ord t, ShowToken t, ShowErrorComponent e, Show a) => Either (ParseError t e) a -> Expectation
+parserShouldSucceed r = case r of
+  Left e -> expectationFailure $
+    "the parser is expected to succeed, but it failed with:\n" ++
+    showParserError e
+  Right _ -> return ()
+
+showParserError :: (Ord t, ShowToken t, ShowErrorComponent e) => ParseError t e -> String
+showParserError = unlines . fmap ("  " ++) . lines . parseErrorPretty
 
 getDirectoryPaths :: String -> IO [FilePath]
 getDirectoryPaths dir =  map (\f -> replaceDirectory f dir) <$> getDirectoryContents dir

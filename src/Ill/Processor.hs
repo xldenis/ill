@@ -11,12 +11,14 @@ import Ill.Desugar
 import Data.Tuple
 import Data.Traversable
 
-sortModulesByImports :: [Module' a] -> [Module' a]
+import Debug.Trace
+
+sortModulesByImports :: Show a => [Module' a] -> [Module' a]
 sortModulesByImports mods = if not isDag
   then error "import cycle!"
   else
     let (g, f, _) = graphFromEdges graphList
-    in map (fstOf3 . f) (topSort g)
+    in map (fstOf3 . f) (topSort $ transposeG g)
   where
   fstOf3 (a, _, _) = a
   isDag = all (isAcyclic) (stronglyConnComp graphList)
