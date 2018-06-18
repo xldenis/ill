@@ -17,6 +17,8 @@ builtins = primitives ++ map (\(nm, ty) -> (Qualified "Prelude" nm, ty))
   , ("-",  generalize $ constrain [(prelude "Group",         tVarA)] $ tVarA `tFn` tVarA `tFn` tVarA)
   , ("*",  generalize $ constrain [(prelude "MultSemigroup", tVarA)] $ tVarA `tFn` tVarA `tFn` tVarA)
   , ("/",  generalize $ constrain [(prelude "MultGroup",     tVarA)] $ tVarA `tFn` tVarA `tFn` tVarA)
+  , ("&&", generalize $ tBool `tFn` tBool `tFn` tBool)
+  , ("||", generalize $ tBool `tFn` tBool `tFn` tBool)
   , ("failedPattern", generalize $ tVarA)
   ]
   where

@@ -25,3 +25,4 @@ appendToName (Qualified mod nm) nm2 = Qualified mod (nm ++ nm2)
 mergeNames (Qualified mod nm) (Qualified _ nm2) = Qualified mod (nm ++ nm2)
 
 unQualify (Qualified _ nm) = nm
+unQualify (Internal nm) = nm

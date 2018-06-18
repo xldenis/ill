@@ -13,7 +13,7 @@ import Ill.Parser.Expression
 
 
 declaration :: Parser (Decl Name SourceSpan)
-declaration = choice
+declaration = label "top-level declaration" $ choice
   [ dataDeclaration, typeSynonymDeclaration, importDeclaration,
     valueDeclaration, signatureDeclaration, traitDeclaration, implDeclaration
   ]
@@ -21,10 +21,10 @@ declaration = choice
 dataDeclaration :: Parser (Decl Name SourceSpan)
 dataDeclaration = label "data type" . withLoc $ do
   symbol "data"
-  name <- upperIdent
-  vars <- many identifier
+  name <- label "type name" upperIdent
+  vars <- many (label "type variable" identifier)
   symbol "="
-  types <- typeProduct `sepBy1` (lexeme $ char '|')
+  types <- typeProduct `sepBy1` (label "sum type" . lexeme $ char '|')
   return $ Data name vars types
 
 typeSynonymDeclaration :: Parser (Decl Name SourceSpan)
@@ -73,7 +73,7 @@ signatureDeclaration = label "value signature" . withLoc $ do
 valueDeclaration :: Parser (Decl Name SourceSpan)
 valueDeclaration = label "value" . withLoc $ do
   symbol "fn"
-  name <- identifier
+  name <- label "value name" identifier
   main <- branch
   alts <- many $ do
     symbol "or"
@@ -83,7 +83,7 @@ valueDeclaration = label "value" . withLoc $ do
   return $ Value name (main : alts)
   where
   branch = do
-    args <- parens $ list pattern
+    args <- label "argument list" $ parens $ list pattern
     scn
     body <- body
     scn

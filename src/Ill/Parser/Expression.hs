@@ -43,7 +43,7 @@ body = label "body expression" . withLoc $ do
 assign :: Parser (Expr' Name SourceSpan)
 assign = label "assignment" . withLoc $ do
   names <- try $ do
-    list identifier <* symbol "="
+    list identifier <* (symbol "=" <* notFollowedBy (char '='))
   values <- list fullExpr
 
   when (length names /= length values) $ fail "Invalid assignment: length mismatch."

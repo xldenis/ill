@@ -24,8 +24,7 @@ moduleParser :: Parser (Module Name SourceSpan)
 moduleParser = do
   symbol "module"
   name <- intercalate (".") <$> capitalized `sepBy` char '.' <* scn
-  body <- many $ declaration <* scn
-  symbol "end" <* scn
+  body <- manyTill (declaration <* scn) (label "end of module" $ symbol "end" <* scn)
   return $ Module name body
 
 illParser :: Parser (Module Name SourceSpan)
@@ -33,3 +32,4 @@ illParser = scn *> moduleParser
 
 parseFromFile :: Parser a -> FilePath -> IO (Either (ParseError Char Void) a)
 parseFromFile p file = runParser p file <$> T.readFile file
+
