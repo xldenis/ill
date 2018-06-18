@@ -87,7 +87,7 @@ contexts:
       set: type
 
   data:
-    - match: '{{identifier}}'
+    - match: '{{constructor}}'
       scope: constant.other.ill entity.name.type.ill
       set:
         - match: '='
@@ -227,5 +227,8 @@ contexts:
     - match: ''''
       scope: punctuation.definition.string.begin.ill
       push: single_quoted_string
-    - match: '{{constructor}}'
-      scope: constant entity.name.type.ill
+    # - match: '{{identifier}}'
+    #   scope: entity.name.function.ill
+    - match: '[^a-zA-Z]({{constructor}})'
+      captures:
+        1: constant entity.name.type.ill
