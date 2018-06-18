@@ -10,7 +10,7 @@ import Ill.Syntax
 import Ill.Parser.Lexer
 
 typeVar :: Parser (Type String)
-typeVar = TVar <$> identifier
+typeVar = label "type variable" $ TVar <$> identifier
 
 typeAp :: Parser (Type String)
 typeAp = do
@@ -23,20 +23,20 @@ typeCons :: Parser (Type String)
 typeCons = TConstructor <$> lexeme capitalized
 
 typeProduct :: Parser (Type String)
-typeProduct = do
+typeProduct = label "product type" $ do
   f <- typeCons
-  as <- many (typeVar <|> parens typeExp)
+  as <- many (typeCons <|> typeVar <|> parens typeExp)
 
   return $ foldl TAp f as
 
 trait :: Parser (Constraint String)
-trait =  (,) <$> upperIdent <*> typeExp
+trait = label "trait" $ (,) <$> upperIdent <*> typeExp
 
 constraintP :: Parser [Constraint Name]
-constraintP = try $ trait `sepBy1` symbol "," <* symbol "|"
+constraintP = label "type constraint" $ try $ trait `sepBy1` symbol "," <* symbol "|"
 
 constrainedType :: Parser (Type String)
-constrainedType = Constrained <$> constraintP <*> typeExp
+constrainedType = label "constrained type" $ Constrained <$> constraintP <*> typeExp
 
 fullType :: Parser (Type String)
 fullType = label "type" $ constrainedType <|> typeExp

@@ -7,13 +7,13 @@ import Ill.Syntax
 import Ill.Parser.Lexer
 import Ill.Parser.Literal
 
-import Text.Megaparsec (try)
+import Text.Megaparsec (try, label)
 
 pattern :: Parser (Pat' Name SourceSpan)
-pattern = (parens pattern) <|> wildcard <|> destructor <|> pLit <|> var
+pattern = label "pattern" $ (parens pattern) <|> wildcard <|> destructor <|> pLit <|> var
 
 destructor :: Parser (Pat' Name SourceSpan)
-destructor = withLoc $ do
+destructor = label "destructor" . withLoc $ do
   cons <- upperIdent
   args <- many $ simpleDestructor <|> pLit <|> var <|> wildcard <|> parens pattern
   return $ Destructor cons args
@@ -21,9 +21,9 @@ destructor = withLoc $ do
   simpleDestructor = withLoc $ Destructor <$> upperIdent <*> pure []
 
 var :: Parser (Pat' Name SourceSpan)
-var = withLoc $ PVar <$> identifier
+var = label "variable" . withLoc $ PVar <$> identifier
 
 wildcard :: Parser (Pat' Name SourceSpan)
-wildcard = withLoc $ symbol "_" *> (return Wildcard)
+wildcard = label "wildcard" $ withLoc $ symbol "_" *> (return Wildcard)
 
-pLit = withLoc $ PLit <$> literal
+pLit = label "literal" . withLoc $ PLit <$> literal

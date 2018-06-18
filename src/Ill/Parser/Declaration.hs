@@ -13,7 +13,7 @@ import Ill.Parser.Expression
 
 
 declaration :: Parser (Decl Name SourceSpan)
-declaration = choice
+declaration = label "top-level declaration" $ choice
   [ dataDeclaration, typeSynonymDeclaration, importDeclaration,
     valueDeclaration, signatureDeclaration, traitDeclaration, implDeclaration
   ]
@@ -21,10 +21,10 @@ declaration = choice
 dataDeclaration :: Parser (Decl Name SourceSpan)
 dataDeclaration = label "data type" . withLoc $ do
   symbol "data"
-  name <- upperIdent
-  vars <- many identifier
+  name <- label "type name" upperIdent
+  vars <- many (label "type variable" identifier)
   symbol "="
-  types <- typeProduct `sepBy1` (lexeme $ char '|')
+  types <- typeProduct `sepBy1` (label "sum type" . lexeme $ char '|')
   return $ Data name vars types
 
 typeSynonymDeclaration :: Parser (Decl Name SourceSpan)
