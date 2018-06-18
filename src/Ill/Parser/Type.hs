@@ -3,7 +3,7 @@ module Ill.Parser.Type where
 
 import           Ill.Prelude
 
-import Text.Megaparsec (sepBy1, try)
+import Text.Megaparsec (sepBy1, try, label)
 import Text.Megaparsec.Expr
 
 import Ill.Syntax
@@ -39,7 +39,7 @@ constrainedType :: Parser (Type String)
 constrainedType = Constrained <$> constraintP <*> typeExp
 
 fullType :: Parser (Type String)
-fullType = constrainedType <|> typeExp
+fullType = label "type" $ constrainedType <|> typeExp
 
 typeExp = makeExprParser (typePrim <|> parens typeExp) opTable
   where

@@ -73,7 +73,7 @@ signatureDeclaration = label "value signature" . withLoc $ do
 valueDeclaration :: Parser (Decl Name SourceSpan)
 valueDeclaration = label "value" . withLoc $ do
   symbol "fn"
-  name <- identifier
+  name <- label "value name" identifier
   main <- branch
   alts <- many $ do
     symbol "or"
@@ -83,7 +83,7 @@ valueDeclaration = label "value" . withLoc $ do
   return $ Value name (main : alts)
   where
   branch = do
-    args <- parens $ list pattern
+    args <- label "argument list" $ parens $ list pattern
     scn
     body <- body
     scn

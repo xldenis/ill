@@ -5,7 +5,7 @@ file_extensions:
   - ill
 scope: source.ill
 variables:
-  identifier: '[A-Za-z_][A-Za-z_0-9]*'
+  identifier: '[a-z_][A-Za-z_0-9]*'
   constructor: '[A-Z][a-z]*'
 
 contexts:
@@ -74,7 +74,7 @@ contexts:
     - include: import_name
 
   import_name:
-    - match: '{{constructor}}(.{{constructor}})+'
+    - match: '{{constructor}}(.{{constructor}})*'
       pop: true
     - match: 'hiding'
       scope: keyword
@@ -227,5 +227,7 @@ contexts:
     - match: ''''
       scope: punctuation.definition.string.begin.ill
       push: single_quoted_string
+    - match: '{{identifier}}'
+      scope: entity.name.function.ill
     - match: '{{constructor}}'
       scope: constant entity.name.type.ill
