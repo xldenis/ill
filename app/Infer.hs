@@ -30,6 +30,11 @@ infer gOpts m = case runTC m of
       putStrLn "\nTraits\n"
       void $ forM (traits . env $ checkState) $ putStrLn . prettyTraitInfo gOpts
 
+      putStrLn "\nInstances\n"
+
+      print $ vcat $ map (\(traitNm, insts) -> nest 2 $ (pretty $ traitNm) `above` (prettyTraitInsts insts)) (M.toList (traitDictionaries $ env checkState))
+
+      putStrLn "\nTypes\n"
       printBG gOpts typeToInsts ts
 
 runTC m = (execCheck . typeCheck . moduleDecls) m
@@ -42,7 +47,7 @@ printBG opts _ []        = return ()
 
 printTypes :: GlobalOptions -> M.Map QualifiedName [InstanceEntry] -> [Decl QualifiedName TypedAnn] -> IO ()
 printTypes opts m ((a :< Value n _):ts)   = putStr (pack . show $ pretty n <> text ": ") >> putStrLn (renderError opts . pretty $ ty a) >> printTypes opts m ts
-printTypes opts m ((a :< Data  n _ _):ts) = putStr (pack . show $ pretty n <> text ": ") >> print (nest 2 $ (pretty $ ty a) `above` tyInsts) >> printTypes opts m ts
+printTypes opts m ((a :< Data  n _ _):ts) = putStr (pack . show $ pretty n <> text ": ") >> print (pretty $ ty a) >> printTypes opts m ts
   where tyInsts = prettyTraitInsts $ M.findWithDefault [] n m
 printTypes opts m (_ : ts) = printTypes opts m ts
 printTypes _ _ [] = return ()
