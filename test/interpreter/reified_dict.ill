@@ -18,7 +18,7 @@ module ReifiedDict
       MkShow( fn (x2) =
         case x2 of
           when Just a : show(dict1)(a)
-          when Nothing : 'nothing'
+          when Nothing : "nothing"
         end
       end )
     end
@@ -28,7 +28,7 @@ module ReifiedDict
     fn () =
       MkShow(fn (x1) =
         a = x1
-        '1'
+        "1"
       end)
     end
   end

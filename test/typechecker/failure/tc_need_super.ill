@@ -8,7 +8,7 @@ module TraitNeedsConstraint
       show(el)
       show(ls)
     or show(Nil)
-      ''
+      ""
     end
   end
 

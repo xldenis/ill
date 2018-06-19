@@ -5,7 +5,7 @@ module Codegen3
     list = Cons(1, Cons(2, Cons(3, Nil)))
 
     summed = fmap(fn (x) = x + 1 end, list)
-    'list: ' + show(summed) + ' sum: ' + show(sum(summed))
+    "list: " + show(summed) + " sum: " + show(sum(summed))
   end
 
   fn sum (Cons x xs)

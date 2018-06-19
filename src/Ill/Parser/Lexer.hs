@@ -83,3 +83,6 @@ parens = between (symbol "(" :: Parser Text) (symbol ")" :: Parser Text)
 
 squotes :: Parser a -> Parser a
 squotes = between (char '\'') (char '\'')
+
+dquotes :: Parser a -> Parser a
+dquotes = between (char '"') (char '"')

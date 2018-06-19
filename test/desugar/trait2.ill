@@ -7,13 +7,13 @@ module Trait2
 
   impl Show Int
     fn show(_)
-      ''
+      ""
     end
   end
 
   impl Show OMG
     fn show(_)
-      'omg'
+      "omg"
     end
   end
 
@@ -23,7 +23,7 @@ module Trait2
 
   impl Semigroup String
     fn plus(_,_)
-      ''
+      ""
     end
   end
 

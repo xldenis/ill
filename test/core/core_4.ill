@@ -8,7 +8,7 @@ module DesugarArbitraryTraits
     fn method1(Cons el ls)
       method1(ls)
     or method1(Nil)
-      ''
+      ""
     end
 
     fn method2(x)
@@ -18,9 +18,9 @@ module DesugarArbitraryTraits
 
   impl Trait Bool
     fn method1(True)
-      'true'
+      "true"
     or method1(False)
-      'false'
+      "false"
     end
 
     fn method2(x)

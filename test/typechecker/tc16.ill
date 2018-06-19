@@ -11,15 +11,15 @@ module TC16
     fn show(Cons x xs)
       show(x)
     or show(Nil)
-      ''
+      ""
     end
   end
 
   impl Show Bool
     fn show(T)
-      'T'
+      "T"
     or show(F)
-      'F'
+      "F"
     end
   end
 

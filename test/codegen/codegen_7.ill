@@ -8,7 +8,7 @@ module SlowFib
   end
 
   fn main()
-    a = omgDebug('wtf')
+    a = omgDebug("wtf")
     show(fibs(33))
   end
 end

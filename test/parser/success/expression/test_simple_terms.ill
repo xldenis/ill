@@ -6,7 +6,7 @@ function()()
 function()(a)(b)
 1
 1.0
-'raw string \n'
+"raw string \n"
 a
 a = b
 a, b = c, d

@@ -7,15 +7,15 @@ module DesugarConstrainedInstance
     fn show(Cons el ls)
       show(ls)
     or show(Nil)
-      ''
+      ""
     end
   end
 
   impl Show Bool
     fn show(True)
-      'true'
+      "true"
     or show(False)
-      'false'
+      "false"
     end
   end
 

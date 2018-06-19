@@ -49,7 +49,7 @@ module Core8
   # The bug here is that foldr doesn't have a @List type application
   impl Show a | Show (List a)
     fn show(list)
-      '[' + foldr(plus, '', intersperse(',', fmap(show, list))) + ']'
+      "[" + foldr(plus, "", intersperse(",", fmap(show, list))) + "]"
     end
   end
 

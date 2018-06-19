@@ -9,7 +9,7 @@ module Ambiguity
     fn show(Cons x xs)
       show(x)
     or show(Nil)
-      ''
+      ""
     end
   end
 

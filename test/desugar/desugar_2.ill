@@ -4,6 +4,6 @@ module CaseDesugaringDropsArgs
   fn show(Cons el ls)
     show(ls)
   or show(Nil)
-    ''
+    ""
   end
 end

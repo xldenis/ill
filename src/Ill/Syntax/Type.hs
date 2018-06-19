@@ -50,6 +50,7 @@ tBool     = TConstructor $ Qualified "Prelude" "Bool"
 tInteger  = TConstructor $ Qualified "Prelude" "Int"
 tDouble   = TConstructor $ Qualified "Prelude" "Double"
 tNil      = TConstructor $ Qualified "Prelude" "Nil"
+tChar     = TConstructor $ Qualified "Prelude" "Char"
 
 complex :: Type t -> Bool
 complex (Arrow _ _) = True

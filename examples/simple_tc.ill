@@ -33,7 +33,7 @@ module SimpleTC
   end
 
   fn b (x)
-    'a'
+    "a"
   end
 
   # should fail

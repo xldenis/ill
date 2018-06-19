@@ -5,7 +5,7 @@ module TraitAlias
 
   impl Show Int
     fn show(_)
-      ''
+      ""
     end
   end
 

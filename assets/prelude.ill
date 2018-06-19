@@ -183,7 +183,7 @@ module Prelude
 
   impl Show a | Show (List a)
     fn show(list)
-      '[' + foldr(plus, '', intersperse(', ', fmap(show, list))) + ']'
+      "[" + foldr(plus, "", intersperse(", ", fmap(show, list))) + "]"
     end
   end
 
@@ -195,9 +195,9 @@ module Prelude
 
   impl Show Bool
     fn show(True)
-      'True'
+      "True"
     or show(False)
-      'False'
+      "False"
     end
   end
 
@@ -221,9 +221,9 @@ module Prelude
 
   impl Show a | Show (Maybe a)
     fn show(Just a)
-      'Just' + show(a)
+      "Just" + show(a)
     or show(Nothing)
-      'nothing'
+      "nothing"
     end
   end
 

@@ -7,13 +7,13 @@ module Core2
     fn show(Cons el ls)
       show(ls)
     or show(Nil)
-      ''
+      ""
     end
   end
 
   impl Show Int
     fn show(a)
-      '1'
+      "1"
     end
   end
 

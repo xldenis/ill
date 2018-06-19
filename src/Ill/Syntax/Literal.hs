@@ -11,19 +11,19 @@ import Ill.Syntax.Name
 
 data Literal
   = RawString String
-  | EscString String
   | Integer Integer
   | Double Double
+  | Char Char
   deriving (Eq, Show, Ord, Data)
 
 instance Pretty Literal where
-  pretty (RawString x) = squotes (pretty x)
-  pretty (EscString x) = dquotes (pretty x)
+  pretty (RawString x) = dquotes (pretty x)
   pretty (Integer x) = pretty x
   pretty (Double x) = pretty x
+  pretty (Char x) = squotes (pretty x)
 
 litType :: Literal -> Type QualifiedName
 litType (RawString _) = tString
-litType (EscString _) = tString
 litType (Integer _ )  = tInteger
 litType (Double _)    = tDouble
+litType (Char _)      = tChar

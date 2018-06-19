@@ -60,6 +60,10 @@ primitives = map (\(nm, ty) -> (Qualified "Prelude" nm, ty))
   , ("plusStr",       tString  `tFn` tString  `tFn` tString)
   , ("eqStr",         tString  `tFn` tString  `tFn` tBool)
   , ("lenStr",        tString  `tFn` tInteger)
+
+  , ("eqChar",        tChar `tFn` tChar `tFn` tBool)
+  , ("showChar",      tChar `tFn` tString)
+  , ("ordChar",       tChar `tFn` tInteger)
   , ("showInt",       tInteger `tFn` tString)
   , ("omgDebug",      tString `tFn` tString)
   ]

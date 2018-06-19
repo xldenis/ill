@@ -13,7 +13,7 @@ module Omg
   end
 
   fn main ()
-    a = omgDebug('omgggg')
+    a = omgDebug("omgggg")
     show(fibList1(32))
   end
 end
