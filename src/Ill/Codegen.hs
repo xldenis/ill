@@ -40,7 +40,6 @@ import qualified LLVM.AST.IntegerPredicate as AST
 import qualified LLVM.AST.Type             as T
 import qualified LLVM.AST.Typed            as T
 
-import Debug.Trace
 {-
   init doesnt work
 -}
@@ -114,7 +113,6 @@ mkString str = do
   let charOrds = BS.unpack (Encoding.encodeUtf8 $ pack str) ++ [0]
   let chars = map (C.Int 8 . fromIntegral) charOrds
 
-  traceShowM charOrds
   arr <- array chars
 
   voidPtr <- malloc =<< (int64 . fromIntegral $ length charOrds)

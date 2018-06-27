@@ -43,6 +43,8 @@ data RenamerError
 instance Pretty RenamerError where
   pretty (NotBound         nm      ) = pretty "Unknown name" <+> dquotes (pretty nm)
   pretty (AlreadyBound     nm      ) = pretty "Duplicate definition for" <+> pretty nm
+    -- SHould be ambiguous name rather than duplicate definition
+    -- Hints: qualify import, change name, qualify name at use site
   pretty (AlreadyBoundSig  nm      ) = pretty "Duplicate signature for" <+> pretty nm
   pretty (ErrorInValue     nm error) = nest 2 $ vcat $
     [ pretty "Error in the value" <+> pretty nm <> colon
@@ -98,10 +100,12 @@ renameModule' rs mod = first (Module (moduleName mod)) <$> (runRenamer $ renameB
   hints :: RenamerState -> RenamerError -> [Doc ann]
   hints rs (NotBound         nm    ) = pure $ pretty "Maybe you meant:" `above` (bulleted $
     map (\(_, (nm, qual)) ->
-      ticks (pretty nm) <+> pretty "defined in" <+> pretty (qualModule qual)
+      ticks (pretty nm) <+> if isInternal qual then mempty else pretty "defined in" <+> pretty (qualModule qual)
     ) $ take 4 namesInCutoff)
 
     where
+    isInternal (Internal _) = True
+    isInternal _ = False
     namesInCutoff = takeWhile ((<= cutoff) . fst) $ sortOn fst $
       map (\n -> (editDistance (fst n), n)) (boundNames rs)
     editDistance = levenshteinDistance defaultEditCosts nm
