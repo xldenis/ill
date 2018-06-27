@@ -9,8 +9,9 @@ target triple = "x86_64-apple-macosx10.13.0"
 %struct.Double = type { double }
 
 @.str = private unnamed_addr constant [5 x i8] c"%s%s\00", align 1
-@.str.1 = private unnamed_addr constant [5 x i8] c"%lld\00", align 1
-@.str.2 = private unnamed_addr constant [3 x i8] c"%f\00", align 1
+@.str.1 = private unnamed_addr constant [3 x i8] c"%s\00", align 1
+@.str.2 = private unnamed_addr constant [5 x i8] c"%lld\00", align 1
+@.str.3 = private unnamed_addr constant [3 x i8] c"%f\00", align 1
 
 ; Function Attrs: nounwind ssp uwtable
 define noalias %struct.String* @mkString(i64) local_unnamed_addr #0 {
@@ -64,11 +65,39 @@ declare i32 @__snprintf_chk(i8*, i64, i32, i64, i8*, ...) local_unnamed_addr #2
 declare i64 @llvm.objectsize.i64.p0i8(i8*, i1, i1) #3
 
 ; Function Attrs: nounwind ssp uwtable
+define noalias %struct.String* @cloneStr(%struct.String* nocapture readonly, %struct.Int* nocapture readonly, %struct.Int* nocapture readonly) local_unnamed_addr #0 {
+  %4 = getelementptr inbounds %struct.Int, %struct.Int* %2, i64 0, i32 0
+  %5 = load i64, i64* %4, align 8, !tbaa !10
+  %6 = getelementptr inbounds %struct.Int, %struct.Int* %1, i64 0, i32 0
+  %7 = load i64, i64* %6, align 8, !tbaa !10
+  %8 = sub i64 %5, %7
+  %9 = shl i64 %8, 32
+  %10 = ashr exact i64 %9, 32
+  %11 = tail call i8* @malloc(i64 16) #7
+  %12 = bitcast i8* %11 to %struct.String*
+  %13 = add nsw i64 %10, 1
+  %14 = tail call i8* @malloc(i64 %13) #7
+  %15 = bitcast i8* %11 to i64*
+  store i64 %10, i64* %15, align 8, !tbaa !3
+  %16 = getelementptr inbounds i8, i8* %11, i64 8
+  %17 = bitcast i8* %16 to i8**
+  store i8* %14, i8** %17, align 8, !tbaa !9
+  %18 = add i64 %9, 4294967296
+  %19 = ashr exact i64 %18, 32
+  %20 = tail call i64 @llvm.objectsize.i64.p0i8(i8* %14, i1 false, i1 true)
+  %21 = getelementptr inbounds %struct.String, %struct.String* %0, i64 0, i32 1
+  %22 = load i8*, i8** %21, align 8, !tbaa !9
+  %23 = getelementptr inbounds i8, i8* %22, i64 %7
+  %24 = tail call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* %14, i64 %19, i32 0, i64 %20, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.1, i64 0, i64 0), i8* %23) #5
+  ret %struct.String* %12
+}
+
+; Function Attrs: nounwind ssp uwtable
 define noalias %struct.String* @showInt(%struct.Int* nocapture readonly) local_unnamed_addr #0 {
   %2 = tail call i64 @llvm.objectsize.i64.p0i8(i8* null, i1 false, i1 true)
   %3 = getelementptr inbounds %struct.Int, %struct.Int* %0, i64 0, i32 0
   %4 = load i64, i64* %3, align 8, !tbaa !10
-  %5 = tail call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* null, i64 0, i32 0, i64 %2, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.1, i64 0, i64 0), i64 %4) #5
+  %5 = tail call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* null, i64 0, i32 0, i64 %2, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.2, i64 0, i64 0), i64 %4) #5
   %6 = add nsw i32 %5, 1
   %7 = sext i32 %6 to i64
   %8 = tail call i8* @malloc(i64 16) #7
@@ -82,7 +111,7 @@ define noalias %struct.String* @showInt(%struct.Int* nocapture readonly) local_u
   store i8* %11, i8** %14, align 8, !tbaa !9
   %15 = tail call i64 @llvm.objectsize.i64.p0i8(i8* %11, i1 false, i1 true)
   %16 = load i64, i64* %3, align 8, !tbaa !10
-  %17 = tail call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* %11, i64 %7, i32 0, i64 %15, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.1, i64 0, i64 0), i64 %16) #5
+  %17 = tail call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* %11, i64 %7, i32 0, i64 %15, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.2, i64 0, i64 0), i64 %16) #5
   ret %struct.String* %9
 }
 
@@ -262,7 +291,7 @@ define noalias %struct.String* @showDouble(%struct.Double* nocapture readonly) l
   %2 = tail call i64 @llvm.objectsize.i64.p0i8(i8* null, i1 false, i1 true)
   %3 = getelementptr inbounds %struct.Double, %struct.Double* %0, i64 0, i32 0
   %4 = load double, double* %3, align 8, !tbaa !13
-  %5 = tail call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* null, i64 0, i32 0, i64 %2, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.2, i64 0, i64 0), double %4) #5
+  %5 = tail call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* null, i64 0, i32 0, i64 %2, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.3, i64 0, i64 0), double %4) #5
   %6 = add nsw i32 %5, 1
   %7 = sext i32 %6 to i64
   %8 = tail call i8* @malloc(i64 16) #7
@@ -276,7 +305,7 @@ define noalias %struct.String* @showDouble(%struct.Double* nocapture readonly) l
   store i8* %11, i8** %14, align 8, !tbaa !9
   %15 = tail call i64 @llvm.objectsize.i64.p0i8(i8* %11, i1 false, i1 true)
   %16 = load double, double* %3, align 8, !tbaa !13
-  %17 = tail call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* %11, i64 %7, i32 0, i64 %15, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.2, i64 0, i64 0), double %16) #5
+  %17 = tail call i32 (i8*, i64, i32, i64, i8*, ...) @__snprintf_chk(i8* %11, i64 %7, i32 0, i64 %15, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.3, i64 0, i64 0), double %16) #5
   ret %struct.String* %9
 }
 

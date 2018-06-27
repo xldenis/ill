@@ -34,6 +34,15 @@ String* plusStr(String* a, String* b)
     return str;
 }
 
+String* cloneStr(String* str, Int* start, Int* end)
+{
+    int num_chars = end->val - start->val;
+    String* out = mkString(num_chars);
+    snprintf(out->data, num_chars + 1, "%s", str->data + start->val);
+
+    return out;
+}
+
 String* showInt(Int* x)
 {
     int num_chars = snprintf(NULL, 0, "%lld", x->val) + 1;

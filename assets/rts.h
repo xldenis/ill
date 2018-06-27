@@ -53,3 +53,4 @@ Bool* leqDouble(Double* a, Double* b);
 String* omgDebug(String* a);
 
 String* plusStr(String* a, String* b);
+String* cloneStr(String* str, Int* start, Int* stop);

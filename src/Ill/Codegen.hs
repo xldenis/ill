@@ -15,10 +15,10 @@ import           Data.List                 (find)
 import           Data.Map                  ((!))
 import           Data.Maybe
 import           Data.String
-import           Data.Text.Lazy            (pack)
+import           Data.Text                 (pack)
 import           Data.Word
 import qualified Data.ByteString           as BS
-import qualified Data.ByteString.Char8     as BS8
+import qualified Data.Text.Encoding        as Encoding
 
 import           Ill.Codegen.Closure
 import           Ill.Codegen.Monad
@@ -39,6 +39,8 @@ import qualified LLVM.AST.Constant         as C
 import qualified LLVM.AST.IntegerPredicate as AST
 import qualified LLVM.AST.Type             as T
 import qualified LLVM.AST.Typed            as T
+
+import Debug.Trace
 {-
   init doesnt work
 -}
@@ -70,6 +72,7 @@ compileModule mod =  buildModule "example" . flip runReaderT (fromModule mod) $ 
     forM Builtins.primitives builtinExtern
 
     typedef "String" (Just $ T.StructureType False [T.i64, ptr T.i8])
+    typedef "Char"   (Just $ T.StructureType False [T.i32])
 
     defMkDouble
     defMkInt
@@ -108,11 +111,13 @@ mkInt d = call (AST.ConstantOperand $ C.GlobalReference mkIntTy "mkInt") [(d, []
   where mkIntTy = ptr $ T.FunctionType primInt [T.i64] False
 
 mkString str = do
-  let charOrds = BS.unpack (BS8.pack str) ++ [0]
+  let charOrds = BS.unpack (Encoding.encodeUtf8 $ pack str) ++ [0]
   let chars = map (C.Int 8 . fromIntegral) charOrds
+
+  traceShowM charOrds
   arr <- array chars
 
-  voidPtr <- malloc =<< (int64 . fromIntegral $ length chars)
+  voidPtr <- malloc =<< (int64 . fromIntegral $ length charOrds)
   arrPtr  <- bitcast voidPtr (ptr $ T.typeOf arr)
   store arrPtr 8 arr
 

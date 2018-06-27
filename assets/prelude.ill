@@ -381,4 +381,8 @@ module Prelude
   or zipWith(f, a, b)
     Nil
   end
+
+  fn take(str, i)
+    cloneStr(str, 0, i)
+  end
 end

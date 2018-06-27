@@ -59,6 +59,7 @@ primitives = map (\(nm, ty) -> (Qualified "Prelude" nm, ty))
 
   , ("plusStr",       tString  `tFn` tString  `tFn` tString)
   , ("eqStr",         tString  `tFn` tString  `tFn` tBool)
+  , ("cloneStr",      tString  `tFn` tInteger `tFn` tInteger `tFn` tString)
   , ("lenStr",        tString  `tFn` tInteger)
 
   , ("eqChar",        tChar `tFn` tChar `tFn` tBool)
