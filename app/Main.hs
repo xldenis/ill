@@ -53,24 +53,26 @@ globalFlags = flag True False (long "no-default-prelude" <> help "Disable the im
 
 options = do
   simpleOptions "v0.1.0" "thrill: lol" "omg" (globalFlags) $ do
+    addSubCommands "debug" "debug commands" $ do
+      addCommand "infer"
+        "run the typechecker and output information about methods and traits"
+        inferC (Infer <$> fileArg)
+      addCommand "run"
+        "execute the main function in a module using a lazy interpreter"
+        run    (Run <$> fileArg)
+      addCommand "core"
+        "generate core bindings for a module"
+        core   (Core <$> fileArg <*> filterArg <*> (flag False True $ long "only-lint"))
+      addCommand "desugar"
+        "view the desugaring pipeline up to a given stage"
+        desugarC (Desugar <$> stageArg <*> fileArg)
+      addCommand "codegen"
+        "run the code generator and prettyprint llvm ir"
+        codegenC (Codegen <$> fileArg <*> (flag False True $ long "print-ir"))
+
     addCommand "format"
       "prettyprint the module at a given location"
       format (Format <$> fileArg)
-    addCommand "infer"
-      "run the typechecker and output information about methods and traits"
-      inferC (Infer <$> fileArg)
-    addCommand "run"
-      "execute the main function in a module using a lazy interpreter"
-      run    (Run <$> fileArg)
-    addCommand "core"
-      "generate core bindings for a module"
-      core   (Core <$> fileArg <*> filterArg <*> (flag False True $ long "only-lint"))
-    addCommand "desugar"
-      "view the desugaring pipeline up to a given stage"
-      desugarC (Desugar <$> stageArg <*> fileArg)
-    addCommand "codegen"
-      "run the code generator and prettyprint llvm ir"
-      codegenC (Codegen <$> fileArg <*> (flag False True $ long "print-ir"))
     addCommand "compile"
       "compile a module into an executable binary"
       compileC (Compile <$> fileArg <*> outputFileArg <*> (flag False True $ long "emit-llvm"))
