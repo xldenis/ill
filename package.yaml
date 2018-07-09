@@ -1,4 +1,4 @@
-name: ill
+name: thrill
 version: '0.1.0.0'
 synopsis: Initial project template from stack
 description: Please see README.md
@@ -7,7 +7,7 @@ author: Xavier Denis
 maintainer: xldenis@gmail.com
 copyright: 2016 Author Here
 license: BSD3
-github: xldenis/ill
+github: xldenis/thrill
 homepage: http://github.com/xldenis/ill#readme
 dependencies:
 - megaparsec
@@ -23,7 +23,7 @@ library:
   - -fwarn-incomplete-uni-patterns
   - -fdiagnostics-color=always
   source-dirs: src
-  other-modules: [Ill.Prelude, Paths_ill]
+  other-modules: [Thrill.Prelude, Paths_thrill]
   dependencies:
   - free
   - comonad
@@ -46,7 +46,7 @@ library:
   - DeriveTraversable
   - DeriveFoldable
 executables:
-  ill:
+  thrill:
     main: Main.hs
     source-dirs: app
     ghc-options:
@@ -54,7 +54,7 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-      - ill
+      - thrill
       - optparse-simple
       - llvm-hs
       - llvm-hs-pure
@@ -63,7 +63,7 @@ executables:
       - process
       - terminal-size
 tests:
-  ill-test:
+  thrill-test:
     main: Spec.hs
     source-dirs: test
     ghc-options:
@@ -73,7 +73,7 @@ tests:
     dependencies:
     - hspec
     - hspec-discover
-    - ill
+    - thrill
     - directory
     - hspec-megaparsec
     - filepath

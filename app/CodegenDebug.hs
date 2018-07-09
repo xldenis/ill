@@ -2,20 +2,20 @@ module CodegenDebug where
 
 import Data.Bifunctor (first, bimap)
 
-import Ill.Options
-import Ill.BindingGroup
-import Ill.CoreLint
-import Ill.Desugar
+import Thrill.Options
+import Thrill.BindingGroup
+import Thrill.CoreLint
+import Thrill.Desugar
 
-import Ill.Infer
-import Ill.Infer.Monad
+import Thrill.Infer
+import Thrill.Infer.Monad
 
-import Ill.Syntax
-import Ill.Syntax.Core
-import Ill.Syntax.Pretty
+import Thrill.Syntax
+import Thrill.Syntax.Core
+import Thrill.Syntax.Pretty
 
-import Ill.Codegen
-import Ill.Renamer
+import Thrill.Codegen
+import Thrill.Renamer
 
 import Prelude hiding (putStrLn, putStr)
 
@@ -27,7 +27,7 @@ import LLVM.Module
 import LLVM.Context
 import LLVM.PassManager
 
-import Paths_ill
+import Paths_thrill
 
 codegen toPrint gOpts ast = case (typeCheckModule) ast of
   Left err -> putStrLn $ render gOpts (prettyError err)
@@ -51,4 +51,4 @@ codegen toPrint gOpts ast = case (typeCheckModule) ast of
 
       return ()
 
-render opts = renderIll (renderArgs opts)
+render opts = renderThrill (renderArgs opts)

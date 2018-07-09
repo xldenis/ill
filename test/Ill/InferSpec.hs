@@ -1,4 +1,4 @@
-module Ill.InferSpec where
+module Thrill.InferSpec where
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -12,13 +12,13 @@ import System.FilePath
 
 import SpecHelper
 
-import Ill.Error
-import Ill.Infer
-import Ill.Infer.Monad
-import Ill.Syntax
-import Ill.Parser (illParser)
-import Ill.BindingGroup
-import Ill.Renamer
+import Thrill.Error
+import Thrill.Infer
+import Thrill.Infer.Monad
+import Thrill.Syntax
+import Thrill.Parser (thrillParser)
+import Thrill.BindingGroup
+import Thrill.Renamer
 
 spec :: Spec
 spec = do
@@ -47,7 +47,7 @@ filesShouldNotCheck dir = do
   describe ("fails to typecheck files in " ++ dir) $ do
     forM_ fs $ \f -> do
       it ((takeFileName f) ++ " errors.") $ do
-        res <- parseFromFile (illParser <* eof) f
+        res <- parseFromFile (thrillParser <* eof) f
         shouldSucceed res
         let Right (Module _ ds) = res
             m = Module "Prelude" ds
@@ -63,7 +63,7 @@ filesShouldCheck dir = do
   describe ("successfully typechecks files in " ++ dir) $ do
     forM_ fs $ \f -> do
       it ((takeFileName f) ++ " typechecks.") $ do
-        res <- parseFromFile (illParser <* eof) f
+        res <- parseFromFile (thrillParser <* eof) f
         shouldSucceed res
         let Right (Module _ ds) = res
             m = Module "Prelude" ds

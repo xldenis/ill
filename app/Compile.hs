@@ -1,20 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Compile where
 
-import           Ill.BindingGroup
-import           Ill.CoreLint
-import           Ill.Desugar
-import           Ill.Options
-import           Ill.Renamer
+import           Thrill.BindingGroup
+import           Thrill.CoreLint
+import           Thrill.Desugar
+import           Thrill.Options
+import           Thrill.Renamer
 
-import           Ill.Infer
-import           Ill.Infer.Monad
+import           Thrill.Infer
+import           Thrill.Infer.Monad
 
-import           Ill.Syntax            as S
-import           Ill.Syntax.Core
-import           Ill.Syntax.Pretty
+import           Thrill.Syntax            as S
+import           Thrill.Syntax.Core
+import           Thrill.Syntax.Pretty
 
-import           Ill.Codegen
+import           Thrill.Codegen
 
 import           Prelude               hiding (putStr, putStrLn)
 
@@ -34,7 +34,7 @@ import qualified LLVM.CodeModel        as CM
 import qualified LLVM.Relocation       as R
 import           LLVM.Target
 
-import           Paths_ill
+import           Paths_thrill
 
 import           System.IO.Temp
 import           System.Process
@@ -78,4 +78,4 @@ assemble objFile outFile = do
     $ concatMap words (lines ldFlags)
     ++ maybe [objFile] (\file -> [objFile, "-o", file]) outFile
 
-render gOpts = renderIll (renderArgs gOpts)
+render gOpts = renderThrill (renderArgs gOpts)

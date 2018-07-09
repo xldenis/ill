@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Ill.Parser.ExpressionSpec where
+module Thrill.Parser.ExpressionSpec where
 
 import SpecHelper
 
@@ -11,7 +11,7 @@ import Test.Hspec.Megaparsec
 
 import Data.List.NonEmpty
 
-import Ill.Parser.Expression
+import Thrill.Parser.Expression
 
 import Data.Void
 import Data.Text (pack)

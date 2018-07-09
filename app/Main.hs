@@ -2,10 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Ill.Parser as Parser
-import Ill.Syntax.Pretty
-import Ill.Syntax (Module, Module'(..), moduleApply)
-import Ill.Parser.Lexer (SourceSpan)
+import Thrill.Parser as Parser
+import Thrill.Syntax.Pretty
+import Thrill.Syntax (Module, Module'(..), moduleApply)
+import Thrill.Parser.Lexer (SourceSpan)
 
 import qualified Data.Text.Lazy.IO as T (putStrLn)
 import qualified Data.Text.IO as T (readFile)
@@ -16,18 +16,18 @@ import Interpreter
 import CoreDebug
 import CodegenDebug
 import Compile
-import Ill.Options
-import Ill.Renamer
-import Ill.BindingGroup
-import Ill.Error
-import Ill.Syntax.Name (QualifiedName)
+import Thrill.Options
+import Thrill.Renamer
+import Thrill.BindingGroup
+import Thrill.Error
+import Thrill.Syntax.Name (QualifiedName)
 
 import Options.Applicative.Simple
 import Data.Void
 import Data.Functor
 import qualified System.Console.Terminal.Size as Terminal
 
-import Paths_ill
+import Paths_thrill
 
 data Build = Build String
 data Format = Format String
@@ -52,7 +52,7 @@ outputFileArg = optional . strOption $ long "output-file" <> metavar "FILTER" <>
 globalFlags = flag True False (long "no-default-prelude" <> help "Disable the implicit prelude module")
 
 options = do
-  simpleOptions "v0.0.1" "ill: lol" "omg" (globalFlags) $ do
+  simpleOptions "v0.1.0" "thrill: lol" "omg" (globalFlags) $ do
     addCommand "format"
       "prettyprint the module at a given location"
       format (Format <$> fileArg)
@@ -83,11 +83,11 @@ desugarC (Desugar s f)                  = commandWrapper f (desugar s)
 compileC (Compile file oFile emitLlvm)  = commandWrapper file (compile oFile emitLlvm)
 format   (Format file) gOpts _          = do
   stream <- T.readFile file
-  let parsed = runParser illParser (file) stream
+  let parsed = runParser thrillParser (file) stream
 
   case parsed of
     Left err -> putStrLn $ parseErrorPretty' stream err
-    Right mod -> T.putStrLn . renderIll (renderArgs gOpts) $ pretty mod
+    Right mod -> T.putStrLn . renderThrill (renderArgs gOpts) $ pretty mod
 
 commandWrapper :: FilePath
   -> (GlobalOptions -> RenamedModule SourceSpan -> IO ())
@@ -96,7 +96,7 @@ commandWrapper :: FilePath
   -> IO ()
 commandWrapper file com gOpts parsedPrelude = do
   stream <- T.readFile file
-  let parsed = runParser illParser (file) stream
+  let parsed = runParser thrillParser (file) stream
   let joined = (,) <$> parsedPrelude <*> parsed
   case joined of
     Left err -> putStrLn $ parseErrorPretty' stream err
@@ -107,7 +107,7 @@ commandWrapper file com gOpts parsedPrelude = do
           return $ (prelude' <&> (<>)) `moduleApply` ast'
 
       case mod' of
-        Left err -> T.putStrLn $ renderIll (renderArgs gOpts) (prettyError err)
+        Left err -> T.putStrLn $ renderThrill (renderArgs gOpts) (prettyError err)
         Right m -> com gOpts m
 
 main :: IO ()

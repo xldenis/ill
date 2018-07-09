@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Infer where
 
-import Ill.Options
-import Ill.Syntax
-import Ill.Infer
-import Ill.Infer.Monad
-import Ill.BindingGroup
-import Ill.Error
-import Ill.Renamer
-import Ill.Syntax.Pretty
+import Thrill.Options
+import Thrill.Syntax
+import Thrill.Infer
+import Thrill.Infer.Monad
+import Thrill.BindingGroup
+import Thrill.Error
+import Thrill.Renamer
+import Thrill.Syntax.Pretty
 
 import Control.Monad.State (runStateT)
 import Control.Monad.Except (runExcept)
@@ -52,12 +52,12 @@ printTypes opts m ((a :< Data  n _ _):ts) = putStr (pack . show $ pretty n <> te
 printTypes opts m (_ : ts) = printTypes opts m ts
 printTypes _ _ [] = return ()
 
-renderError opts = renderIll (renderArgs opts)
+renderError opts = renderThrill (renderArgs opts)
 
 prettyTraitInfo opts (nm, TraitEntry supers args mems) =
   let topRow = pretty nm <+> (pretty args)
       mems'  = map (\(memNm, ty) -> pretty memNm <+> "::" <+> pretty ty) mems
-  in renderIll (renderArgs opts) (nest 2 $ topRow `above` vsep mems')
+  in renderThrill (renderArgs opts) (nest 2 $ topRow `above` vsep mems')
 
 prettyTraitInsts (insts) = vsep insts'
   where insts' = map (pretty . instHead) (nub insts)

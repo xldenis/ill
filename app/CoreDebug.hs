@@ -8,18 +8,18 @@ import Data.Function ((&))
 import Data.Text.Lazy hiding (map)
 import Data.Text.Lazy.IO
 
-import Ill.Options
-import Ill.BindingGroup
-import Ill.CoreLint
-import Ill.Desugar
-import Ill.Renamer
+import Thrill.Options
+import Thrill.BindingGroup
+import Thrill.CoreLint
+import Thrill.Desugar
+import Thrill.Renamer
 
-import Ill.Infer
-import Ill.Infer.Monad
+import Thrill.Infer
+import Thrill.Infer.Monad
 
-import Ill.Syntax
-import Ill.Syntax.Core
-import Ill.Syntax.Pretty
+import Thrill.Syntax
+import Thrill.Syntax.Core
+import Thrill.Syntax.Pretty
 
 import Data.List as L (find)
 import Data.Maybe (maybeToList)
@@ -46,7 +46,7 @@ coreDebug filter onlyLint gOpts ast = case (typeCheckModule) ast of
   where
   cliRenderArgs = defaultRenderArgs { width = 90 }
 
-renderError opts = renderIll (renderArgs opts)
+renderError opts = renderThrill (renderArgs opts)
 
 filterBindings :: Maybe String -> [Bind Var] -> [Bind Var]
 filterBindings Nothing binds = binds

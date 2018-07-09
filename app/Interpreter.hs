@@ -10,25 +10,25 @@ import Data.Maybe
 import Data.Text.Lazy (pack)
 import Data.Text.Lazy.IO
 
-import Ill.BindingGroup
-import Ill.Desugar as Desugar
+import Thrill.BindingGroup
+import Thrill.Desugar as Desugar
 
-import Ill.Infer
-import Ill.Infer.Monad
+import Thrill.Infer
+import Thrill.Infer.Monad
 
-import Ill.Interpret
-import Ill.Parser
-import Ill.Renamer
+import Thrill.Interpret
+import Thrill.Parser
+import Thrill.Renamer
 
-import Ill.Syntax hiding (Expression(..))
-import Ill.Syntax.Core as Core
-import Ill.Syntax.Pretty
+import Thrill.Syntax hiding (Expression(..))
+import Thrill.Syntax.Core as Core
+import Thrill.Syntax.Pretty
 
 import Data.String (fromString)
 
 import Prelude hiding (putStrLn, putStr)
 
-import qualified Ill.Interpret as Interp
+import qualified Thrill.Interpret as Interp
 
 runInterpreter _ mod = do
   case compileToCore mod of
@@ -41,7 +41,7 @@ runInterpreter _ mod = do
 
       print (Interp.showish val)
 
-renderError = renderIll defaultRenderArgs
+renderError = renderThrill defaultRenderArgs
 
 compileToCore mod = do
   case (typeCheckModule) mod of

@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
-module Ill.CoreSpec where
+module Thrill.CoreSpec where
 
-import Ill.Quote
+import Thrill.Quote
 import Text.Megaparsec (runParser)
 
 import Test.Hspec
@@ -10,18 +10,18 @@ import SpecHelper
 
 import Control.Monad.IO.Class
 
-import Ill.Parser
-import Ill.Syntax
-import Ill.Syntax.Core as C hiding (Var)
-import qualified Ill.Syntax.Core as C
-import Ill.Infer
-import Ill.Infer.Monad (execCheck)
-import Ill.Desugar
-import Ill.Renamer
-import Ill.Syntax.Pretty
-import Ill.BindingGroup
-import Ill.CoreLint
-import Ill.Error (prettyError)
+import Thrill.Parser
+import Thrill.Syntax
+import Thrill.Syntax.Core as C hiding (Var)
+import qualified Thrill.Syntax.Core as C
+import Thrill.Infer
+import Thrill.Infer.Monad (execCheck)
+import Thrill.Desugar
+import Thrill.Renamer
+import Thrill.Syntax.Pretty
+import Thrill.BindingGroup
+import Thrill.CoreLint
+import Thrill.Error (prettyError)
 
 import Data.Text.Lazy.IO as T
 import Data.Maybe
@@ -151,7 +151,7 @@ spec = do
           |]
           Right expected' = bindingGroups expected >>= renameModule
           mappairs = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
-      renderIll' (pretty result) `shouldBe` renderIll' (pretty mappairs)
+      renderThrill' (pretty result) `shouldBe` renderThrill' (pretty mappairs)
 
     it "simple module" $ do
       let mod = [modQ|
@@ -184,7 +184,7 @@ spec = do
           |]
           Right expected' = bindingGroups expected >>= renameModule
           _ :< Value _ [([_], expectedExpr)] = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
-          in renderIll' (pretty result) `shouldBe` renderIll' (pretty expectedExpr)
+          in renderThrill' (pretty result) `shouldBe` renderThrill' (pretty expectedExpr)
 
 constructorGroups = do
   let mod = [modQ|
@@ -224,7 +224,7 @@ constructorGroups = do
       Right expected' = bindingGroups expected >>= renameModule
       mappairs = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
 
-  renderIll' (pretty result) `shouldBe` renderIll' (pretty mappairs)
+  renderThrill' (pretty result) `shouldBe` renderThrill' (pretty mappairs)
 
 localDictsPassedToConstrainedMethods = do
   let
@@ -256,4 +256,4 @@ localDictsPassedToConstrainedMethods = do
     Right expected' = bindingGroups expected >>= renameModule
     expectedDecl = last $ fromBindingGroups . valueDecls $ moduleDecls expected'
 
-  renderIll' (pretty result) `shouldBe` renderIll' (pretty expectedDecl)
+  renderThrill' (pretty result) `shouldBe` renderThrill' (pretty expectedDecl)

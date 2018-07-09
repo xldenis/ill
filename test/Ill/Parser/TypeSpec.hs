@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Ill.Parser.TypeSpec where
+module Thrill.Parser.TypeSpec where
 import Test.Hspec
 import Text.Megaparsec (many, parse)
 import Test.Hspec.Megaparsec
 import SpecHelper
 
-import Ill.Parser.Type
-import Ill.Parser.Lexer (scn)
-import Ill.Syntax.Type
+import Thrill.Parser.Type
+import Thrill.Parser.Lexer (scn)
+import Thrill.Syntax.Type
 
 spec :: Spec
 spec = parallel $ do

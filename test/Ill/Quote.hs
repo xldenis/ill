@@ -5,19 +5,19 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Ill.Quote where
+module Thrill.Quote where
 
 import           Language.Haskell.TH.Quote
 import           Language.Haskell.TH.Syntax
 
-import           Ill.BindingGroup
-import           Ill.Infer
-import           Ill.Parser
-import           Ill.Parser.Declaration
-import           Ill.Parser.Expression
-import           Ill.Parser.Type
-import           Ill.Parser.Lexer (sc, scn)
-import           Ill.Syntax                 as S
+import           Thrill.BindingGroup
+import           Thrill.Infer
+import           Thrill.Parser
+import           Thrill.Parser.Declaration
+import           Thrill.Parser.Expression
+import           Thrill.Parser.Type
+import           Thrill.Parser.Lexer (sc, scn)
+import           Thrill.Syntax                 as S
 
 import           Control.Monad.Except       (runExcept)
 import           Control.Monad.State        (runStateT)
@@ -40,7 +40,7 @@ deriving instance Data Masks
 
 modQ :: QuasiQuoter
 modQ = QuasiQuoter
-  { quoteExp = \str -> case runParser (scn *> illParser) "" (pack str) of
+  { quoteExp = \str -> case runParser (scn *> thrillParser) "" (pack str) of
       Left err -> error $ parseErrorPretty err
       Right m  -> liftData m
   , quotePat = undefined

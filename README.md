@@ -1,4 +1,4 @@
-# Ill: I was sick when I started this project
+# Thrill: I was sick when I started this project
 
 A simple, strongly-typed language exploring different compiler techniques.
 
@@ -61,9 +61,9 @@ Here are some of the major phases that remain to be done:
 
 ## Installation
 
-To install Ill, clone this repository and build it using `stack`.
+To install Thrill, clone this repository and build it using `stack`.
 
-To build Ill, you will need the following dependencies
+To build Thrill, you will need the following dependencies
 
 - LLVM 6
 - The Boehm–Demers–Weiser garbage collector (libgc)

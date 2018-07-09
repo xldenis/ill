@@ -1,11 +1,11 @@
-module Ill.ParserSpec where
+module Thrill.ParserSpec where
 
 import Control.Applicative ((<*))
 import Text.Megaparsec (many)
 
-import Ill.Parser.Lexer (scn)
-import Ill.Parser
-import Ill.Parser.Declaration
+import Thrill.Parser.Lexer (scn)
+import Thrill.Parser
+import Thrill.Parser.Declaration
 
 import Test.Hspec
 
@@ -17,21 +17,21 @@ import Text.Megaparsec (runParser)
 import Data.Text.Lazy (pack, unpack)
 import Data.Text.Lazy (toStrict)
 
-import Ill.Syntax.Pretty (renderIll, defaultRenderArgs, pretty)
-import Ill.Syntax (Module, Module'(..), dropAnn)
+import Thrill.Syntax.Pretty (renderThrill, defaultRenderArgs, pretty)
+import Thrill.Syntax (Module, Module'(..), dropAnn)
 
 import Control.Comonad (extend)
 
 spec :: Spec
 spec = parallel $ do
-  filesShouldParse "test/parser/success" illParser
+  filesShouldParse "test/parser/success" thrillParser
   filesShouldParse "test/parser/success/declaration" (many $ declaration <* scn)
   filesShouldFail  "test/parser/failure/declaration" (declaration)
   describe "pretty printer output parses" $ do
     fs <- runIO $ getFilesInDir "test/parser/success"
     forM_ fs $ \file -> do
       it (file ++ " pretty prints correctly") $ do
-        p <- parseFromFile illParser file
+        p <- parseFromFile thrillParser file
         shouldSucceed p
         let Right ast = p
 
@@ -45,7 +45,7 @@ propPrettyParse f ast = do
       expectationFailure "pretty printed output parsed but was not equivalent"
     Left  err -> do
       expectationFailure $ (unpack $ prettyText ast) ++ "\n\n" ++ (showParseError err)
-  where parse = runParser illParser f
-        prettyText a = renderIll defaultRenderArgs (pretty a)
+  where parse = runParser thrillParser f
+        prettyText a = renderThrill defaultRenderArgs (pretty a)
         noPos :: Module nm a -> Module nm ()
         noPos (Module n ds) = Module n $ map (dropAnn) ds

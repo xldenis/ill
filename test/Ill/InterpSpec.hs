@@ -1,25 +1,25 @@
 {-# LANGUAGE OverloadedStrings, QuasiQuotes #-}
-module Ill.InterpSpec where
+module Thrill.InterpSpec where
 
-import Ill.Quote
+import Thrill.Quote
 import Text.Megaparsec (runParser)
 
 import Test.Hspec
 
 import SpecHelper
 
-import Ill.Syntax hiding (Expression(..))
-import Ill.Infer
-import Ill.Infer.Monad as M
+import Thrill.Syntax hiding (Expression(..))
+import Thrill.Infer
+import Thrill.Infer.Monad as M
 
-import Ill.Desugar.Cases
-import Ill.Desugar.Trait
-import Ill.Desugar
-import Ill.Syntax.Pretty
-import Ill.BindingGroup
-import Ill.Syntax.Core as Core
-import Ill.Interpret
-import Ill.Renamer
+import Thrill.Desugar.Cases
+import Thrill.Desugar.Trait
+import Thrill.Desugar
+import Thrill.Syntax.Pretty
+import Thrill.BindingGroup
+import Thrill.Syntax.Core as Core
+import Thrill.Interpret
+import Thrill.Renamer
 
 import Control.Monad.State
 import Control.Monad.Except (runExcept)

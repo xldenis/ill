@@ -1,11 +1,11 @@
-module Ill.Parser.PatternSpec where
+module Thrill.Parser.PatternSpec where
 import Test.Hspec
 import Text.Megaparsec (many)
 
 import SpecHelper
 
-import Ill.Parser.Pattern
-import Ill.Parser.Lexer (scn)
+import Thrill.Parser.Pattern
+import Thrill.Parser.Lexer (scn)
 
 spec :: Spec
 spec = parallel $ do

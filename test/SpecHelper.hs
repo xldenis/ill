@@ -14,7 +14,7 @@ import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.Megaparsec
 
-import Ill.Parser (parseFromFile)
+import Thrill.Parser (parseFromFile)
 import Data.Void
 
 filesShouldParse :: Show b => FilePath -> Parsec Void Text b -> Spec
