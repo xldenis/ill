@@ -62,6 +62,8 @@ executables:
       - temporary
       - process
       - terminal-size
+    default-extensions:
+    - ImplicitPrelude
 tests:
   thrill-test:
     main: Spec.hs

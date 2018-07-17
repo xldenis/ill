@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ef5d45a0b163af144090a2cc9274c852fa54d7fbef3a3d7bfb30c234b58d707f
+-- hash: c2d477684df20328cd78e78da4865cfe7c117eda78ffe08a82e202eed7e71aec
 
 name:           thrill
 version:        0.1.0.0
@@ -112,6 +112,7 @@ executable thrill
       Paths_thrill
   hs-source-dirs:
       app
+  default-extensions: ImplicitPrelude
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
