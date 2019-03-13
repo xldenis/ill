@@ -62,9 +62,9 @@ Here are some of the major phases that remain to be done:
 
 ## Installation
 
-To install Thrill, clone this repository and build it using `stack`.
+To install Thrillain, clone this repository and build it using `stack`.
 
-To build Thrill, you wThrill need the following dependencies
+To build Thrillain, you wThrill need the following dependencies
 
 - LLVM 6
 - The Boehm–Demers–Weiser garbage collector (libgc)

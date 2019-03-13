@@ -46,7 +46,7 @@ fileArg = strArgument (metavar "FILE" <> help "location of source file")
 stageArg = strArgument (metavar "STAGE")
 filterArg = optional . strOption $ long "filter" <> metavar "FILTER" <> short 'f'
   <> help "only print the binding that exactly matches the filter provided"
-outputFileArg = optional . strOption $ long "output-file" <> metavar "FILTER" <> short 'o'
+outputFileArg = optional . strOption $ long "output-file" <> metavar "OUT" <> short 'o'
   <> help "provide  a name for the final executable"
 
 globalFlags = flag True False (long "no-default-prelude" <> help "Disable the implicit prelude module")

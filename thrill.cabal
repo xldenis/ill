@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c2d477684df20328cd78e78da4865cfe7c117eda78ffe08a82e202eed7e71aec
+-- hash: af9ef3677071cc1f93cc7a625bd86bd0a0a7bbd55d2296b13e8ff8236880b3d2
 
 name:           thrill
 version:        0.1.0.0
@@ -136,15 +136,15 @@ test-suite thrill-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Ill.CoreSpec
-      Ill.InferSpec
-      Ill.InterpSpec
-      Ill.Parser.ExpressionSpec
-      Ill.Parser.PatternSpec
-      Ill.Parser.TypeSpec
-      Ill.ParserSpec
-      Ill.Quote
       SpecHelper
+      Thrill.CoreSpec
+      Thrill.InferSpec
+      Thrill.InterpSpec
+      Thrill.Parser.ExpressionSpec
+      Thrill.Parser.PatternSpec
+      Thrill.Parser.TypeSpec
+      Thrill.ParserSpec
+      Thrill.Quote
       Paths_thrill
   hs-source-dirs:
       test
