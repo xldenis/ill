@@ -12,9 +12,23 @@ module Omg
     fibList2(0, 1, n)
   end
 
+  fn fibs_naive(0)
+    0
+  or fibs_naive(1)
+    1
+  or fibs_naive(n)
+    fibs_naive(n - 1) + fibs_naive(n - 2)
+  end
+
+  fn fibListNaibe(0)
+    Cons(fibs_naive(0), Nil)
+  or fibListNaibe(n)
+    Cons(fibs_naive(n), fibListNaibe(n - 1))
+  end
+
   fn main ()
     a = omgDebug("omgggg")
-    show(fibList1(32))
+    show(fibListNaibe(36))
   end
 end
 
