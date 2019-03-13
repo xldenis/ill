@@ -1,8 +1,10 @@
--- This file has been generated from package.yaml by hpack version 0.28.2.
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: af9ef3677071cc1f93cc7a625bd86bd0a0a7bbd55d2296b13e8ff8236880b3d2
+-- hash: 09e40bca04a7cbb53c4cee31caaa8c422ae814e964a88bb827235e8450899227
 
 name:           thrill
 version:        0.1.0.0
@@ -17,7 +19,6 @@ copyright:      2016 Author Here
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
-cabal-version:  >= 1.10
 data-files:
     assets/prelude.ill
     assets/rts.ll
@@ -138,6 +139,7 @@ test-suite thrill-test
   other-modules:
       SpecHelper
       Thrill.CoreSpec
+      Thrill.DesugarSpec
       Thrill.InferSpec
       Thrill.InterpSpec
       Thrill.Parser.ExpressionSpec

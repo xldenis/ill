@@ -218,6 +218,7 @@ groupPatterns alts = groupBy sameGroup (map (\p -> (patGroup $ unwrap (firstPat 
   firstPat (pats, e) = head pats
 
   sameGroup (ConG _, _) (ConG _, _) = True
+  sameGroup (LitG a, _) (LitG b, _) = litType a == litType b
   sameGroup a b                     = fst a == fst b
 
 subGroup group
