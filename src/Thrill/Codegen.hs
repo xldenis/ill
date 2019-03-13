@@ -66,6 +66,7 @@ compileModule mod =  buildModule "example" . flip runReaderT (fromModule mod) $ 
 
   declareBuiltins = do
     extern "GC_malloc"   [T.i64] (ptr T.i8)
+    extern "GC_malloc_atomic"   [T.i64] (ptr T.i8)
     extern "memcpy"   [ptr T.i8, ptr T.i8, T.i64] (ptr T.i8)
 
     forM Builtins.primitives builtinExtern
@@ -115,7 +116,7 @@ mkString str = do
 
   arr <- array chars
 
-  voidPtr <- malloc =<< (int64 . fromIntegral $ length charOrds)
+  voidPtr <- mallocAtomic =<< (int64 . fromIntegral $ length charOrds)
   arrPtr  <- bitcast voidPtr (ptr $ T.typeOf arr)
   store arrPtr 8 arr
 

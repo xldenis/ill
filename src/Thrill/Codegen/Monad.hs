@@ -45,6 +45,15 @@ malloc size =
   call (ConstantOperand $ C.GlobalReference mallocTy "GC_malloc") [(size, [])]
   where mallocTy = ptr $ T.FunctionType (ptr T.i8) [T.i64] False
 
+
+-- This should only be used if the memory will not contain any pointers
+-- the gc will not check this area during garbage collection
+mallocAtomic :: MonadIRBuilder m => AST.Operand -> m AST.Operand
+mallocAtomic size =
+  call (ConstantOperand $ C.GlobalReference mallocTy "GC_malloc_atomic") [(size, [])]
+  where mallocTy = ptr $ T.FunctionType (ptr T.i8) [T.i64] False
+
+
 memcpy :: MonadIRBuilder m => AST.Operand -> AST.Operand -> AST.Operand -> m AST.Operand
 memcpy dest src size =
   call (ConstantOperand $ C.GlobalReference memcpyTy "memcpy") [(dest, []), (src, []), (size, [])]
