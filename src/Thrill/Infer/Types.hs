@@ -85,7 +85,11 @@ infer' (a :< Lambda pats expr) = do
   expr' <- bindNames patDict (infer expr)
 
   let retTy = flattenConstraints $ foldr tFn (typeOf expr') patTys
-  return $ Ann a retTy :< Lambda pats' expr'
+
+  subst <- lift $ unifyCurrentSubstitution <$> UnifyT get
+  let polyTy = generalize $ subst $? retTy
+
+  return $ TyAnn (Just a) (Type polyTy $ Just retTy) :< Lambda pats' expr'
 infer' (a :< Assign lnames exps) = do
   varTys <- replicateM (length lnames) (lift fresh)
   let bound = zip lnames varTys

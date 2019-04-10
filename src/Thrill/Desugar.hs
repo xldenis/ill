@@ -78,7 +78,10 @@ toCore (_ :< S.Case scrut alts) = Case (toCore scrut) (toAlts alts)
 toCore (_ :< S.Assign names exprs) = error "assignments must be desugared in blocks"
 toCore e@(a :< S.Apply lam args) = foldl App (toCore lam) $ getTypeApps ann ++ (map toCore args)
   where instTy = foldr tFn (snd . unconstrained $ typeOf e) (map typeOf args)
-        ann = TyAnn Nothing (S.Type (fromJust $ instTyOf lam) (Just instTy))
+        ann = TyAnn Nothing (S.Type (fromJust' $ instTyOf lam) (Just instTy))
+
+        fromJust' (Just x) = x
+        fromJust' _ = error $ show lam
 toCore (_ :< S.BinOp op left right) = error "binops should have been desugared to assigns"
 toCore (_ :< S.If cond left right) = Case (toCore cond)
   [ ConAlt (Qualified "Prelude" "True") [] (toCore left)
