@@ -135,9 +135,11 @@ getTyOf (Lit l) = litType l
 getTyOf v = error $ show v
 
 instance (HasType b, Pretty b) => Pretty (Core b) where
-  pretty l@(Lambda _ _) = nest 2 $ pretty "\\" <> hcat (intersperse space $ map pretty binders) <+> pretty "->" <> line <> pretty exp
+  pretty l@(Lambda _ _) = nest 2 $ pretty "\\" <> hcat (intersperse space $ map prettyVars binders) <+> pretty "->" <> line <> pretty exp
     where unwrapLambda (Lambda b exp) = fmap (b :) (unwrapLambda exp)
           unwrapLambda exp = (exp, [])
+
+          prettyVars v = pretty v -- <+> pretty "::" <+> pretty (getTy v)
 
           (exp, binders) = unwrapLambda l
 

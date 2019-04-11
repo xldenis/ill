@@ -20,6 +20,7 @@ import Control.Monad.State
 import Control.Category ((>>>))
 
 import Thrill.Infer.Monad (Environment, ConstructorEntry(..))
+import Debug.Trace
 
 {-
   At this point all top level bindings should have cases pushed in,
@@ -76,6 +77,7 @@ toCore cons@(a :< S.Constructor nm) = foldl App (Var var) (getTypeApps a)
   where var = Id nm (polyTyOf cons) Used
 toCore (_ :< S.Case scrut alts) = Case (toCore scrut) (toAlts alts)
 toCore (_ :< S.Assign names exprs) = error "assignments must be desugared in blocks"
+-- now that the case for lambda also applies type variables, why do we need to do it in an apply?
 toCore e@(a :< S.Apply lam args) = foldl App (toCore lam) $ getTypeApps ann ++ (map toCore args)
   where instTy = foldr tFn (snd . unconstrained $ typeOf e) (map typeOf args)
         ann = TyAnn Nothing (S.Type (fromJust' $ instTyOf lam) (Just instTy))
@@ -90,7 +92,7 @@ toCore (_ :< S.If cond left right) = Case (toCore cond)
 toCore (lAnn :< S.Lambda bind exp) = let
   vars = map toVar bind
   tyVars = map toTyVar (boundVars $ fromTyAnn lAnn)
-  in foldr Lambda (toCore exp) (tyVars ++ vars)
+  in foldl App (foldr Lambda (toCore exp) (tyVars ++ vars)) (getTypeApps lAnn)
   where
   toVar (a :< S.PVar nm) = Id { varName = nm, idTy = fromTyAnn a, usage = Used }
   isVarPat (_ :< S.PVar _) = True

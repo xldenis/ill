@@ -1,0 +1,16 @@
+module Prime
+  # fn beta_reduce ()
+  #   (fn (x) = x end)
+  # end
+
+  # fn constant_folding ()
+  #   5 + 5 + 5 + 5
+  # end
+
+  fn main ()
+    # x = constant_folding ()
+    1
+    # 1 + 1
+    # y = beta_reduce ()
+  end
+end

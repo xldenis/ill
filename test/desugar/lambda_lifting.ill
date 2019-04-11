@@ -1,4 +1,4 @@
-module LambdaLifting
+module Prelude
   trait Semigroup a
     plus :: a -> a -> a
   end

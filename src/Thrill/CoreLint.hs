@@ -76,6 +76,8 @@ bindNames vars act =
 
 bindName :: (LintM m) => Var -> m a -> m a
 bindName v@Id{} action = do
+  lintCore' (Type (idTy v))
+
   orig <- get
   modify $ \s -> s  { boundNames = M.insert (varName v) (idTy v) (boundNames orig) }
   val <- action
@@ -94,7 +96,7 @@ lintBind (NonRec b exp) = do
 
   case (idTy b) == ty of
     True -> pure ()
-    False -> throwError  . Msg $ "the type of binding " ++ show (pretty ty) ++ " did not match expected type " ++ show (pretty $ idTy b)
+    False -> throwError  . Msg $ "the type of binding " ++ show (varName b)  ++ show (pretty ty) ++ " did not match expected type " ++ show (pretty $ idTy b)
 
 lookupName var = do
   names <- gets boundNames

@@ -1,0 +1,11 @@
+module Desugar3
+
+  const2 :: a -> (b -> a)
+  fn const2 (e)
+    fn (x) = e end
+  end
+
+  # fn beta_reduce (x)
+  #   (fn (x) = x end)(x)
+  # end
+end

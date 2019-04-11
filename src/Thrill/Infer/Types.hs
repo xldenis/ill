@@ -22,8 +22,6 @@ import           Thrill.Infer.Monad
 import           Thrill.Syntax hiding (typeOf)
 import           Thrill.Parser.Lexer    (SourceSpan (..))
 
-import Debug.Trace
-
 typeOf :: Functor f => Cofree f TypedAnn -> (Type QualifiedName)
 typeOf c =  fromMaybe (polyTy $ fromTy c) (instTy $ fromTy c)
   where fromTy = ty . extract
@@ -87,9 +85,10 @@ infer' (a :< Lambda pats expr) = do
   let retTy = flattenConstraints $ foldr tFn (typeOf expr') patTys
 
   subst <- lift $ unifyCurrentSubstitution <$> UnifyT get
-  let polyTy = generalize $ subst $? retTy
+  let polyTy = generalize . varIfUnknown $ subst $? retTy
+  ty' <- lift $ instantiate polyTy
 
-  return $ TyAnn (Just a) (Type polyTy $ Just retTy) :< Lambda pats' expr'
+  return $ TyAnn (Just a) (Type polyTy $ Just ty') :< Lambda pats' expr'
 infer' (a :< Assign lnames exps) = do
   varTys <- replicateM (length lnames) (lift fresh)
   let bound = zip lnames varTys

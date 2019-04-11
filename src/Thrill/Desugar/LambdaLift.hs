@@ -22,6 +22,8 @@ import           Thrill.Prelude
 
 import           Data.Bifunctor
 
+import Debug.Trace
+import Thrill.Syntax.Pretty
 {-
   1. Lift the MFE instead of naively lifting the whole body of a lambda
   2. Modularize lifter
@@ -32,6 +34,7 @@ import           Data.Bifunctor
 data LiftingState = Lifted
   { boundNames  :: [QualifiedName]
   , boundTyVars :: [QualifiedName]
+  , tyArgStack  :: [CoreExp]
   }
   deriving (Show)
 
@@ -40,7 +43,7 @@ type MonadLL m = (MonadReader Name m, MonadFresh m, MonadState LiftingState m, M
 liftModule :: CoreModule -> CoreModule
 liftModule m@Mod{..} = m { bindings = evalMonadStack $ mapM liftGlobal bindings }
   where
-  evalMonadStack = uncurry (++) . evalFresh 0 . flip runReaderT coreModuleName . runWriterT . flip evalStateT (Lifted bindNames [])
+  evalMonadStack = uncurry (++) . evalFresh 0 . flip runReaderT coreModuleName . runWriterT . flip evalStateT (Lifted bindNames [] [])
   bindNames = map (\(NonRec v _) -> varName v) bindings ++ (map fst builtins) ++ consNames
   consNames = map fst constructors
 
@@ -61,12 +64,35 @@ liftGlobal (NonRec nm l@(Lambda _ _)) = do
   where
   (names, tyVars) = ([ varName x | x@Id{} <- args], [ varName x | x@TyVar{} <- args])
   (f, args) = unwrapLambda l
-  unwrapLambda (Lambda a e) = (a :) Control.Applicative.<$> unwrapLambda e
+
+  unwrapLambda (Lambda a e) = (a :) <$> unwrapLambda e
   unwrapLambda e            = (e, [])
 liftGlobal a = liftBinding a
 
+pushTyArgs tys act = do
+  modify $ \s -> s { tyArgStack = tys }
+  r <- act
+
+  modify $ \s -> s { tyArgStack = [] }
+  return r
+
 liftLambda :: MonadLL m => CoreExp -> m CoreExp
 liftLambda (Let bind exp) = liftA2 Let (liftBinding bind) (liftLambda exp)
+liftLambda app@(App _ (Type _)) = do
+  let (func, tyargs) = unwindSpine app []
+
+  func' <- pushTyArgs tyargs $ liftLambda func
+
+  if isLambda func
+  then pure func'
+  else pure $ foldl App func' tyargs
+
+  where
+  unwindSpine (App func t@(Type _)) acc = unwindSpine func (t : acc)
+  unwindSpine func acc = (func, acc)
+
+  isLambda (Lambda _ _) = True
+  isLambda _ = False
 liftLambda (App f a) = liftA2 App (liftLambda f) (liftLambda a)
 liftLambda (Case scrut alts) = liftA2 Case (liftLambda scrut) (liftCaseAlts alts)
   where liftCaseAlts = mapM liftCaseAlt
@@ -74,21 +100,25 @@ liftLambda (Case scrut alts) = liftA2 Case (liftLambda scrut) (liftCaseAlts alts
         liftCaseAlt (LitAlt lit exp)      = LitAlt lit <$> liftLambda exp
         liftCaseAlt (TrivialAlt exp)      = TrivialAlt <$> liftLambda exp
 liftLambda l@(Lambda _ _) = do
-  let (inner, args) = unwrapLambda l
+  let (inner, args, tyvars) = unwrapLambda l
 
   liftedBody <- liftLambda inner
 
-  let liftedLam = foldr Lambda liftedBody args
-  freeVars <- get >>= pure . runReader (freeVars liftedLam)
+  let liftedLam = foldr Lambda liftedBody (tyvars ++ args)
+  (freeargs, freetvs) <- get >>= pure . runReader (freeVars liftedLam)
 
-  l' <- closeVars freeVars liftedLam
+  l' <- closeVars (freeargs ++ args, freetvs ++ map varName tyvars) liftedBody
+
   lamVar <- emitLambda l'
 
-  let typeVars = map (Type . TVar) (nub $ snd freeVars)
-  return $ foldl App lamVar (typeVars ++ map Var (fst freeVars))
+  stack <- gets tyArgStack
+  let typeVars = map (Type . TVar) (nub $ freetvs)
+  return $ foldl App lamVar (typeVars ++ stack ++ map Var freeargs)
   where
-  unwrapLambda (Lambda a e) = (a :) Control.Applicative.<$> unwrapLambda e
-  unwrapLambda e            = (e, [])
+  unwrapLambda :: CoreExp -> (CoreExp, [Var], [Var])
+  unwrapLambda (Lambda a@(Id{}) e) = (\(e, as, ts) -> (e, a : as, ts)) $ unwrapLambda e
+  unwrapLambda (Lambda t@(TyVar{}) e) = (\(e, a, ts) -> (e, a, t : ts)) $ unwrapLambda e
+  unwrapLambda e            = (e, [], [])
 liftLambda a = pure a
 
 emitLambda exp = do
@@ -98,9 +128,12 @@ emitLambda exp = do
   tell [NonRec var exp]
   return (Var var)
 
-type FreeVars = ([Var], [QualifiedName])
+type FreeVars =
+  ( [Var]            -- arguments
+  , [QualifiedName]  -- tyvars
+  )
 
--- need to handle type variables smoothly
+-- need to handle type variaxbles smoothly
 freeVars :: MonadReader LiftingState m => CoreExp -> m FreeVars
 freeVars (Lambda n@TyVar{} exp) = local (\s -> s { boundTyVars = varName n : boundTyVars s }) (freeVars exp)
 freeVars (Lambda n@Id{} exp) = do
@@ -135,7 +168,7 @@ freeVars (Lit _)  = pure ([], [])
 
 closeVars :: MonadLL m => FreeVars -> CoreExp -> m CoreExp
 closeVars (vars, tyVars) exp = do
-  names <- replicateM (length vars) (Qualified <$> ask <*> prefixedName "cvar")
+  names <- replicateM (length vars) (Internal <$> prefixedName "cvar")
 
   let vars' = zipWith (\nm var -> (varName var, var { varName = nm })) names vars
       exp'  = foldr (\(i, v) exp -> Lambda v $ substitute (i, Var v) exp) exp vars'
